@@ -1,0 +1,38 @@
+[package]
+name = "doxx"
+version = "0.1.0"
+edition = "2021"
+description = "AI-powered terminal document viewer for .docx files"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/bgreenwell/doxx"
+keywords = ["docx", "terminal", "ai", "document", "viewer"]
+categories = ["command-line-utilities", "text-processing"]
+default-run = "doxx"
+
+[dependencies]
+# Document parsing
+docx-rs = "0.4"
+
+# Terminal UI
+ratatui = "0.26"
+crossterm = "0.27"
+
+# AI Integration (temporarily commented out to resolve dependency issues)
+# ollama-rs = "0.2"
+# reqwest = { version = "0.11", features = ["json"] }
+tokio = { version = "1.0", features = ["full"] }
+
+# Text processing
+unicode-segmentation = "1.10"
+regex = "1.10"
+
+# CLI and utilities
+clap = { version = "4.4", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Configuration
+dirs = "5.0"
+toml = "0.8"
