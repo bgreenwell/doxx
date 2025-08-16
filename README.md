@@ -120,6 +120,30 @@ Built with modern Rust for maximum performance:
 
 ## 🎯 Why doxx?
 
+**doxx fills a critical gap**: there's no good way to view Word documents in the terminal. Current solutions force you to choose between losing all formatting or switching to GUI applications.
+
+### The Problem with Existing Tools
+
+| Tool | Type | DOCX Support | Formatting | Tables | Interactive |
+|------|------|-------------|------------|---------|------------|
+| **docx2txt** | Text extractor | ✅ Basic | ❌ Lost | ❌ Mangled | ❌ No |
+| **antiword** | Legacy converter | ❌ .doc only | ❌ Lost | ❌ Basic | ❌ No |
+| **pandoc** | Universal converter | ✅ Via chain | ❌ Lost | ❌ Basic | ❌ No |
+| **glow** | Markdown viewer | ❌ Wrong format | ✅ Rich | ✅ Good | ✅ Yes |
+| **Microsoft Word** | GUI application | ✅ Native | ✅ Rich | ✅ Perfect | ✅ Yes |
+
+### What doxx Brings
+
+**doxx** is the **first terminal-native DOCX viewer** that preserves formatting and provides an interactive experience:
+
+| Feature | doxx | Best Alternative |
+|---------|------|------------------|
+| **Rich DOCX viewing** | ✅ Native with formatting | ❌ Plain text only |
+| **Smart table rendering** | ✅ Aligned with borders | ❌ Unformatted text |
+| **Interactive navigation** | ✅ Full TUI interface | ❌ Pipe to `less` |
+| **Terminal integration** | ✅ SSH-friendly, scriptable | ❌ GUI required |
+| **Multiple exports** | ✅ Markdown, CSV, JSON | ❌ Text only |
+
 ### vs. Microsoft Word
 - ⚡ **Instant startup** (50ms vs 8+ seconds)
 - 💾 **Minimal memory** (15MB vs 500MB+ RAM)
@@ -127,12 +151,18 @@ Built with modern Rust for maximum performance:
 - 🔒 **SSH-friendly** for remote server access
 - 🔧 **Scriptable** for automation workflows
 
-### vs. Other viewers
-- 🖥️ **Terminal-native** design for CLI workflows
-- 📊 **Advanced table support** with smart formatting
-- 🔍 **Powerful search** with highlighting and context
-- 📤 **Multiple export formats** for integration
-- ⚡ **Built with Rust** for speed and reliability
+### vs. Text Extractors (docx2txt, antiword)
+- 🎨 **Preserves formatting** (bold, italic, structure)
+- 📊 **Intelligent table rendering** with proper alignment
+- 🖥️ **Interactive interface** vs. static text output
+- 🔍 **Built-in search** with highlighting and navigation
+- 📤 **Smart exports** with format-aware output
+
+### vs. Terminal Document Viewers (glow, bat, mdcat)
+- 📄 **Native DOCX support** vs. markdown/code only
+- 🏢 **Business document focused** vs. developer files
+- 📊 **Advanced table intelligence** for spreadsheet-like data
+- 🔄 **Multiple export formats** for downstream processing
 
 ## 🛠️ Development
 
