@@ -6,10 +6,12 @@ use crate::document::{Document, DocumentElement};
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub enum AIProvider {
     Local(OllamaClient),
     OpenAI(String),
     Anthropic(String),
+    #[default]
     None,
 }
 
@@ -52,11 +54,6 @@ pub enum RiskSeverity {
     Critical,
 }
 
-impl Default for AIProvider {
-    fn default() -> Self {
-        AIProvider::None
-    }
-}
 
 impl OllamaClient {
     #[allow(dead_code)]
@@ -94,7 +91,7 @@ pub async fn describe_images(
         if let DocumentElement::Image { description, .. } = element {
             descriptions.push(ImageDescription {
                 image_index: index,
-                description: format!("AI-generated description for: {}", description),
+                description: format!("AI-generated description for: {description}"),
                 confidence: 0.85,
             });
         }

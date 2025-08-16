@@ -64,12 +64,12 @@ doxx --help
 
 ## 🎮 Terminal UI
 
-Navigate documents with intuitive keyboard shortcuts:
+Navigate documents with intuitive keyboard shortcuts and mouse support:
 
-| Key | Action |
-|-----|--------|
-| `↑`/`k` | Scroll up |
-| `↓`/`j` | Scroll down |
+| Input | Action |
+|-------|--------|
+| `↑`/`k` or mouse wheel up | Scroll up |
+| `↓`/`j` or mouse wheel down | Scroll down |
 | `Page Up`/`Page Down` | Page navigation |
 | `Home`/`End` | Jump to start/end |
 | `o` | Toggle outline view |

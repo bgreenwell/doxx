@@ -1,6 +1,5 @@
 use docx_rs::*;
 use std::fs::File;
-use std::io::Write;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Generating test documents...");
@@ -30,7 +29,7 @@ fn generate_minimal_doc() -> Result<(), Box<dyn std::error::Error>> {
     let path = "tests/fixtures/minimal.docx";
     let file = File::create(path)?;
     doc.build().pack(file)?;
-    println!("Generated: {}", path);
+    println!("Generated: {path}");
     Ok(())
 }
 
@@ -113,7 +112,7 @@ fn generate_tables_heavy_doc() -> Result<(), Box<dyn std::error::Error>> {
     let path = "tests/fixtures/tables-heavy.docx";
     let file = File::create(path)?;
     doc.build().pack(file)?;
-    println!("Generated: {}", path);
+    println!("Generated: {path}");
     Ok(())
 }
 
@@ -200,7 +199,7 @@ fn generate_headings_hierarchy_doc() -> Result<(), Box<dyn std::error::Error>> {
     let path = "tests/fixtures/headings-hierarchy.docx";
     let file = File::create(path)?;
     doc.build().pack(file)?;
-    println!("Generated: {}", path);
+    println!("Generated: {path}");
     Ok(())
 }
 
@@ -259,7 +258,7 @@ fn generate_formatting_showcase_doc() -> Result<(), Box<dyn std::error::Error>> 
     let path = "tests/fixtures/formatting-showcase.docx";
     let file = File::create(path)?;
     doc.build().pack(file)?;
-    println!("Generated: {}", path);
+    println!("Generated: {path}");
     Ok(())
 }
 
@@ -309,7 +308,7 @@ fn generate_lists_comprehensive_doc() -> Result<(), Box<dyn std::error::Error>> 
     let path = "tests/fixtures/lists-comprehensive.docx";
     let file = File::create(path)?;
     doc.build().pack(file)?;
-    println!("Generated: {}", path);
+    println!("Generated: {path}");
     Ok(())
 }
 
@@ -388,7 +387,7 @@ fn generate_business_report_doc() -> Result<(), Box<dyn std::error::Error>> {
     let path = "tests/fixtures/business-report.docx";
     let file = File::create(path)?;
     doc.build().pack(file)?;
-    println!("Generated: {}", path);
+    println!("Generated: {path}");
     Ok(())
 }
 
@@ -440,7 +439,7 @@ fn generate_unicode_special_doc() -> Result<(), Box<dyn std::error::Error>> {
     let path = "tests/fixtures/unicode-special.docx";
     let file = File::create(path)?;
     doc.build().pack(file)?;
-    println!("Generated: {}", path);
+    println!("Generated: {path}");
     Ok(())
 }
 
@@ -502,6 +501,6 @@ fn generate_export_test_doc() -> Result<(), Box<dyn std::error::Error>> {
     let path = "tests/fixtures/export-test.docx";
     let file = File::create(path)?;
     doc.build().pack(file)?;
-    println!("Generated: {}", path);
+    println!("Generated: {path}");
     Ok(())
 }

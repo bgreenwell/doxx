@@ -1,5 +1,4 @@
 use anyhow::Result;
-use serde_json;
 
 use crate::{document::*, ExportFormat};
 
@@ -24,7 +23,7 @@ pub fn export_to_markdown(document: &Document) -> Result<()> {
     markdown.push_str(&format!("- **Pages**: {}\n", document.metadata.page_count));
     markdown.push_str(&format!("- **Words**: {}\n", document.metadata.word_count));
     if let Some(author) = &document.metadata.author {
-        markdown.push_str(&format!("- **Author**: {}\n", author));
+        markdown.push_str(&format!("- **Author**: {author}\n"));
     }
     markdown.push_str("\n---\n\n");
     
@@ -33,19 +32,19 @@ pub fn export_to_markdown(document: &Document) -> Result<()> {
         match element {
             DocumentElement::Heading { level, text, .. } => {
                 let prefix = "#".repeat(*level as usize + 1); // +1 because title is h1
-                markdown.push_str(&format!("{} {}\n\n", prefix, text));
+                markdown.push_str(&format!("{prefix} {text}\n\n"));
             }
             DocumentElement::Paragraph { text, formatting } => {
                 let mut formatted_text = text.clone();
                 
                 if formatting.bold {
-                    formatted_text = format!("**{}**", formatted_text);
+                    formatted_text = format!("**{formatted_text}**");
                 }
                 if formatting.italic {
-                    formatted_text = format!("*{}*", formatted_text);
+                    formatted_text = format!("*{formatted_text}*");
                 }
                 
-                markdown.push_str(&format!("{}\n\n", formatted_text));
+                markdown.push_str(&format!("{formatted_text}\n\n"));
             }
             DocumentElement::List { items, ordered } => {
                 for (i, item) in items.iter().enumerate() {
@@ -58,20 +57,20 @@ pub fn export_to_markdown(document: &Document) -> Result<()> {
                     
                     let mut item_text = item.text.clone();
                     if false /* simplified */ {
-                        item_text = format!("**{}**", item_text);
+                        item_text = format!("**{item_text}**");
                     }
                     if false /* simplified */ {
-                        item_text = format!("*{}*", item_text);
+                        item_text = format!("*{item_text}*");
                     }
                     
-                    markdown.push_str(&format!("{}{}{}\n", indent, bullet, item_text));
+                    markdown.push_str(&format!("{indent}{bullet}{item_text}\n"));
                 }
                 markdown.push('\n');
             }
             DocumentElement::Table { table } => {
                 // Add table title if present
                 if let Some(title) = &table.metadata.title {
-                    markdown.push_str(&format!("### {}\n\n", title));
+                    markdown.push_str(&format!("### {title}\n\n"));
                 }
                 
                 // Markdown table header
@@ -99,10 +98,10 @@ pub fn export_to_markdown(document: &Document) -> Result<()> {
             DocumentElement::Image { description, width, height } => {
                 let alt = description;
                 let dimensions = match (width, height) {
-                    (Some(w), Some(h)) => format!(" <!-- {}x{} -->", w, h),
+                    (Some(w), Some(h)) => format!(" <!-- {w}x{h} -->"),
                     _ => String::new(),
                 };
-                markdown.push_str(&format!("![{}]({}){}\n\n", alt, description, dimensions));
+                markdown.push_str(&format!("![{alt}]({description}){dimensions}\n\n"));
             }
             DocumentElement::PageBreak => {
                 markdown.push_str("\n---\n\n");
@@ -110,7 +109,7 @@ pub fn export_to_markdown(document: &Document) -> Result<()> {
         }
     }
     
-    print!("{}", markdown);
+    print!("{markdown}");
     Ok(())
 }
 
@@ -131,12 +130,12 @@ pub fn export_to_text(document: &Document) -> Result<()> {
                     2 => "-",
                     _ => "~",
                 };
-                text.push_str(&format!("{}\n", heading_text));
+                text.push_str(&format!("{heading_text}\n"));
                 text.push_str(&underline.repeat(heading_text.len()));
                 text.push_str("\n\n");
             }
             DocumentElement::Paragraph { text: para_text, .. } => {
-                text.push_str(&format!("{}\n\n", para_text));
+                text.push_str(&format!("{para_text}\n\n"));
             }
             DocumentElement::List { items, ordered } => {
                 for (i, item) in items.iter().enumerate() {
@@ -153,7 +152,7 @@ pub fn export_to_text(document: &Document) -> Result<()> {
             DocumentElement::Table { table } => {
                 // Add table title if present
                 if let Some(title) = &table.metadata.title {
-                    text.push_str(&format!("{}\n", title));
+                    text.push_str(&format!("{title}\n"));
                     text.push_str(&"=".repeat(title.len()));
                     text.push_str("\n\n");
                 }
@@ -163,34 +162,34 @@ pub fn export_to_text(document: &Document) -> Result<()> {
                 
                 // Top border
                 let top_border = generate_text_table_border(col_widths, "┌", "┬", "┐", "─");
-                text.push_str(&format!("{}\n", top_border));
+                text.push_str(&format!("{top_border}\n"));
                 
                 // Header with proper alignment
                 let header_line = render_text_table_row(&table.headers, col_widths, true);
-                text.push_str(&format!("{}\n", header_line));
+                text.push_str(&format!("{header_line}\n"));
                 
                 // Header separator
                 let separator = generate_text_table_border(col_widths, "├", "┼", "┤", "─");
-                text.push_str(&format!("{}\n", separator));
+                text.push_str(&format!("{separator}\n"));
                 
                 // Data rows
                 for row in &table.rows {
                     let row_line = render_text_table_row(row, col_widths, false);
-                    text.push_str(&format!("{}\n", row_line));
+                    text.push_str(&format!("{row_line}\n"));
                 }
                 
                 // Bottom border
                 let bottom_border = generate_text_table_border(col_widths, "└", "┴", "┘", "─");
-                text.push_str(&format!("{}\n", bottom_border));
+                text.push_str(&format!("{bottom_border}\n"));
                 
                 text.push('\n');
             }
             DocumentElement::Image { description, width, height, .. } => {
                 let dimensions = match (width, height) {
-                    (Some(w), Some(h)) => format!(" ({}x{})", w, h),
+                    (Some(w), Some(h)) => format!(" ({w}x{h})"),
                     _ => String::new(),
                 };
-                text.push_str(&format!("[IMAGE: {}{}]\n\n", description, dimensions));
+                text.push_str(&format!("[IMAGE: {description}{dimensions}]\n\n"));
             }
             DocumentElement::PageBreak => {
                 text.push_str(&format!("\n{}\n\n", "-".repeat(50)));
@@ -198,7 +197,7 @@ pub fn export_to_text(document: &Document) -> Result<()> {
         }
     }
     
-    print!("{}", text);
+    print!("{text}");
     Ok(())
 }
 
@@ -215,7 +214,7 @@ pub fn export_to_csv(document: &Document) -> Result<()> {
             
             // Add table title as comment if present
             if let Some(title) = &table.metadata.title {
-                csv_output.push(format!("# {}", title));
+                csv_output.push(format!("# {title}"));
             }
             
             // CSV header
@@ -242,7 +241,7 @@ pub fn export_to_csv(document: &Document) -> Result<()> {
         println!("No tables found in document");
     } else {
         for line in csv_output {
-            println!("{}", line);
+            println!("{line}");
         }
     }
     
@@ -251,7 +250,7 @@ pub fn export_to_csv(document: &Document) -> Result<()> {
 
 pub fn export_to_json(document: &Document) -> Result<()> {
     let json_output = serde_json::to_string_pretty(document)?;
-    println!("{}", json_output);
+    println!("{json_output}");
     Ok(())
 }
 
@@ -276,7 +275,7 @@ pub fn extract_citations(document: &Document) -> Result<Vec<Citation>> {
         
         for pattern in &citation_patterns {
             if let Ok(regex) = regex::Regex::new(pattern) {
-                for mat in regex.find_iter(&text) {
+                for mat in regex.find_iter(text) {
                     citations.push(Citation {
                         text: mat.as_str().to_string(),
                         element_index: index,
@@ -373,7 +372,7 @@ fn generate_text_table_border(column_widths: &[usize], left: &str, middle: &str,
     border
 }
 
-fn render_text_table_row(cells: &[TableCell], column_widths: &[usize], is_header: bool) -> String {
+fn render_text_table_row(cells: &[TableCell], column_widths: &[usize], _is_header: bool) -> String {
     let mut row = String::new();
     row.push('│');
     
@@ -394,8 +393,8 @@ fn align_text_cell_content(content: &str, alignment: TextAlignment, width: usize
     let trimmed = content.trim();
     
     match alignment {
-        TextAlignment::Left => format!("{:<width$}", trimmed, width = width),
-        TextAlignment::Right => format!("{:>width$}", trimmed, width = width),
+        TextAlignment::Left => format!("{trimmed:<width$}"),
+        TextAlignment::Right => format!("{trimmed:>width$}"),
         TextAlignment::Center => {
             let padding = width.saturating_sub(trimmed.len());
             let left_pad = padding / 2;
@@ -404,7 +403,7 @@ fn align_text_cell_content(content: &str, alignment: TextAlignment, width: usize
         }
         TextAlignment::Justify => {
             // For export, treat justify as left-aligned
-            format!("{:<width$}", trimmed, width = width)
+            format!("{trimmed:<width$}")
         }
     }
 }

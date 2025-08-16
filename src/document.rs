@@ -71,7 +71,9 @@ pub struct TableMetadata {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[derive(Default)]
 pub enum TextAlignment {
+    #[default]
     Left,
     Center,
     Right,
@@ -79,7 +81,9 @@ pub enum TextAlignment {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[derive(Default)]
 pub enum CellDataType {
+    #[default]
     Text,
     Number,
     Currency,
@@ -89,17 +93,7 @@ pub enum CellDataType {
     Empty,
 }
 
-impl Default for TextAlignment {
-    fn default() -> Self {
-        TextAlignment::Left
-    }
-}
 
-impl Default for CellDataType {
-    fn default() -> Self {
-        CellDataType::Text
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct SearchResult {
@@ -142,7 +136,7 @@ pub async fn load_document(file_path: &Path) -> Result<Document> {
                 for child in &para.children {
                     if let docx_rs::ParagraphChild::Run(run) = child {
                         // Extract formatting from run properties
-                        if formatting.bold == false && formatting.italic == false {
+                        if !formatting.bold && !formatting.italic {
                             // Only extract formatting from the first run with properties
                             formatting = extract_run_formatting(run);
                         }
@@ -269,21 +263,20 @@ fn detect_heading_from_text(text: &str, formatting: &TextFormatting) -> Option<u
         }
         
         // Look for standalone phrases that could be headings (very conservative)
-        if text.len() < 40 && text.len() > 10 {
-            if !text.ends_with('.') && !text.contains(',') && !text.contains('(') && !text.contains(':') {
+        if text.len() < 40 && text.len() > 10
+            && !text.ends_with('.') && !text.contains(',') && !text.contains('(') && !text.contains(':') {
                 // Check if it has heading-like characteristics
                 let words = text.split_whitespace().count();
-                if words >= 2 && words <= 5 {
+                if (2..=5).contains(&words) {
                     // Must contain at least one meaningful word (longer than 3 chars)
                     let has_meaningful_word = text.split_whitespace()
                         .any(|word| word.len() > 3 && word.chars().all(|c| c.is_alphabetic()));
                     
-                    if has_meaningful_word && text.chars().next().map_or(false, |c| c.is_uppercase()) {
+                    if has_meaningful_word && text.chars().next().is_some_and(|c| c.is_uppercase()) {
                         return Some(determine_heading_level_from_text(text));
                     }
                 }
             }
-        }
     }
     
     None
@@ -448,7 +441,7 @@ fn extract_table_data(table: &docx_rs::Table) -> Option<DocumentElement> {
     let mut data_rows = Vec::new();
     
     let mut is_first_row = true;
-    let mut raw_headers = Vec::new();
+    let mut _raw_headers = Vec::new();
     let mut raw_rows = Vec::new();
     
     // First pass: extract raw text content
@@ -498,7 +491,7 @@ fn extract_table_data(table: &docx_rs::Table) -> Option<DocumentElement> {
             let raw_text: Vec<String> = row_cells.iter().map(|c| c.content.clone()).collect();
             
             if is_first_row && appears_to_be_header(&raw_text) {
-                raw_headers = raw_text;
+                _raw_headers = raw_text;
                 header_cells = row_cells;
                 is_first_row = false;
             } else {
@@ -588,11 +581,11 @@ impl TableData {
         }
     }
     
-    pub fn get_column_width(&self, column_index: usize) -> usize {
+    pub fn _get_column_width(&self, column_index: usize) -> usize {
         self.metadata.column_widths.get(column_index).copied().unwrap_or(10)
     }
     
-    pub fn get_column_alignment(&self, column_index: usize) -> TextAlignment {
+    pub fn _get_column_alignment(&self, column_index: usize) -> TextAlignment {
         self.metadata.column_alignments.get(column_index).copied().unwrap_or(TextAlignment::Left)
     }
 }
@@ -610,7 +603,7 @@ impl TableCell {
         }
     }
     
-    pub fn with_alignment(mut self, alignment: TextAlignment) -> Self {
+    pub fn _with_alignment(mut self, alignment: TextAlignment) -> Self {
         self.alignment = alignment;
         self
     }
@@ -651,7 +644,7 @@ fn determine_column_alignments(headers: &[TableCell], rows: &[Vec<TableCell>]) -
     let column_count = headers.len();
     let mut alignments = vec![TextAlignment::Left; column_count];
     
-    for col_index in 0..column_count {
+    for (col_index, alignment) in alignments.iter_mut().enumerate().take(column_count) {
         let mut numeric_count = 0;
         let mut total_count = 0;
         
@@ -667,7 +660,7 @@ fn determine_column_alignments(headers: &[TableCell], rows: &[Vec<TableCell>]) -
         
         // If more than 70% of cells are numeric, right-align the column
         if total_count > 0 && (numeric_count as f32 / total_count as f32) > 0.7 {
-            alignments[col_index] = TextAlignment::Right;
+            *alignment = TextAlignment::Right;
         }
     }
     
@@ -705,7 +698,7 @@ fn detect_cell_data_type(content: &str) -> CellDataType {
     
     // Check for date patterns (basic)
     if trimmed.contains('/') || trimmed.contains('-') {
-        let parts: Vec<&str> = trimmed.split(|c| c == '/' || c == '-').collect();
+        let parts: Vec<&str> = trimmed.split(['/', '-']).collect();
         if parts.len() == 3 && parts.iter().all(|p| p.parse::<u32>().is_ok()) {
             return CellDataType::Date;
         }

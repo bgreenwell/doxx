@@ -1,6 +1,6 @@
 use anyhow::Result;
 use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind},
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, MouseEventKind},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
     tty::IsTty,
@@ -207,8 +207,9 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
     loop {
         terminal.draw(|f| ui(f, app))?;
 
-        if let Event::Key(key) = event::read()? {
-            if key.kind == KeyEventKind::Press {
+        match event::read()? {
+            Event::Key(key) => {
+                if key.kind == KeyEventKind::Press {
                 match app.current_view {
                     ViewMode::Document => match key.code {
                         KeyCode::Char('q') => break,
@@ -302,7 +303,50 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                         _ => {}
                     },
                 }
+                }
             }
+            Event::Mouse(mouse) => {
+                match mouse.kind {
+                    MouseEventKind::ScrollUp => {
+                        match app.current_view {
+                            ViewMode::Document => {
+                                // Scroll up 3 lines for smooth mouse wheel experience
+                                for _ in 0..3 {
+                                    app.scroll_up();
+                                }
+                            }
+                            ViewMode::Outline => {
+                                let selected = app.outline_state.selected().unwrap_or(0);
+                                if selected > 0 {
+                                    app.outline_state.select(Some(selected - 1));
+                                }
+                            }
+                            ViewMode::Search => app.prev_search_result(),
+                            _ => {}
+                        }
+                    }
+                    MouseEventKind::ScrollDown => {
+                        match app.current_view {
+                            ViewMode::Document => {
+                                // Scroll down 3 lines for smooth mouse wheel experience
+                                for _ in 0..3 {
+                                    app.scroll_down();
+                                }
+                            }
+                            ViewMode::Outline => {
+                                let selected = app.outline_state.selected().unwrap_or(0);
+                                if selected + 1 < crate::document::generate_outline(&app.document).len() {
+                                    app.outline_state.select(Some(selected + 1));
+                                }
+                            }
+                            ViewMode::Search => app.next_search_result(),
+                            _ => {}
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
         }
     }
 
@@ -399,7 +443,7 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
                     continue;
                 } else if para_text.len() > 100 {
                     // Long paragraphs get some indentation
-                    format!("  {}", para_text)
+                    format!("  {para_text}")
                 } else {
                     para_text.clone()
                 };
@@ -434,7 +478,7 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
             }
             DocumentElement::Image { description, width, height, .. } => {
                 let dimensions = match (width, height) {
-                    (Some(w), Some(h)) => format!(" ({}x{})", w, h),
+                    (Some(w), Some(h)) => format!(" ({w}x{h})"),
                     _ => String::new(),
                 };
                 
@@ -669,7 +713,7 @@ fn render_status_bar(f: &mut Frame, area: Rect, app: &App) {
     let status_text = format!(
         "{} • 📄 {} • {} pages • {} words • {}/{}{}",
         view_indicator,
-        metadata.file_path.split('/').last().unwrap_or("Unknown"),
+        metadata.file_path.split('/').next_back().unwrap_or("Unknown"),
         metadata.page_count,
         metadata.word_count,
         app.scroll_offset + 1,
@@ -705,7 +749,7 @@ fn render_table_enhanced(table: &TableData, text: &mut Text) {
     // Add table title if present
     if let Some(title) = &metadata.title {
         text.lines.push(Line::from(Span::styled(
-            format!("📊 {}", title),
+            format!("📊 {title}"),
             Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD)
         )));
         text.lines.push(Line::from(""));
@@ -793,8 +837,8 @@ fn align_cell_content(content: &str, alignment: TextAlignment, width: usize) -> 
     let trimmed = content.trim();
     
     match alignment {
-        TextAlignment::Left => format!("{:<width$}", trimmed, width = width),
-        TextAlignment::Right => format!("{:>width$}", trimmed, width = width),
+        TextAlignment::Left => format!("{trimmed:<width$}"),
+        TextAlignment::Right => format!("{trimmed:>width$}"),
         TextAlignment::Center => {
             let padding = width.saturating_sub(trimmed.len());
             let left_pad = padding / 2;
@@ -803,7 +847,7 @@ fn align_cell_content(content: &str, alignment: TextAlignment, width: usize) -> 
         }
         TextAlignment::Justify => {
             // For terminal output, treat justify as left-aligned
-            format!("{:<width$}", trimmed, width = width)
+            format!("{trimmed:<width$}")
         }
     }
 }

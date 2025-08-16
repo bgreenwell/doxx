@@ -4,7 +4,7 @@ use std::path::Path;
 #[test]
 fn test_minimal_document_parsing() {
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "doxx", "tests/fixtures/minimal.docx"])
+        .args(["run", "--bin", "doxx", "tests/fixtures/minimal.docx"])
         .output()
         .expect("Failed to execute doxx");
     
@@ -16,7 +16,7 @@ fn test_minimal_document_parsing() {
 #[test]
 fn test_tables_csv_export() {
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "doxx", "tests/fixtures/tables-heavy.docx", "--export", "csv"])
+        .args(["run", "--bin", "doxx", "tests/fixtures/tables-heavy.docx", "--export", "csv"])
         .output()
         .expect("Failed to execute doxx");
     
@@ -28,7 +28,7 @@ fn test_tables_csv_export() {
 #[test]
 fn test_headings_outline() {
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "doxx", "tests/fixtures/headings-hierarchy.docx", "--outline"])
+        .args(["run", "--bin", "doxx", "tests/fixtures/headings-hierarchy.docx", "--outline"])
         .output()
         .expect("Failed to execute doxx");
     
@@ -40,7 +40,7 @@ fn test_headings_outline() {
 #[test]
 fn test_formatting_markdown_export() {
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "doxx", "tests/fixtures/formatting-showcase.docx", "--export", "markdown"])
+        .args(["run", "--bin", "doxx", "tests/fixtures/formatting-showcase.docx", "--export", "markdown"])
         .output()
         .expect("Failed to execute doxx");
     
@@ -52,7 +52,7 @@ fn test_formatting_markdown_export() {
 #[test]
 fn test_unicode_document() {
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "doxx", "tests/fixtures/unicode-special.docx"])
+        .args(["run", "--bin", "doxx", "tests/fixtures/unicode-special.docx"])
         .output()
         .expect("Failed to execute doxx");
     
@@ -64,7 +64,7 @@ fn test_unicode_document() {
 #[test]
 fn test_business_report_parsing() {
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "doxx", "tests/fixtures/business-report.docx"])
+        .args(["run", "--bin", "doxx", "tests/fixtures/business-report.docx"])
         .output()
         .expect("Failed to execute doxx");
     
@@ -76,7 +76,7 @@ fn test_business_report_parsing() {
 #[test]
 fn test_export_test_json() {
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "doxx", "tests/fixtures/export-test.docx", "--export", "json"])
+        .args(["run", "--bin", "doxx", "tests/fixtures/export-test.docx", "--export", "json"])
         .output()
         .expect("Failed to execute doxx");
     
@@ -88,7 +88,7 @@ fn test_export_test_json() {
 #[test]
 fn test_search_functionality() {
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "doxx", "tests/fixtures/business-report.docx", "--search", "revenue"])
+        .args(["run", "--bin", "doxx", "tests/fixtures/business-report.docx", "--search", "revenue"])
         .output()
         .expect("Failed to execute doxx");
     
@@ -100,7 +100,7 @@ fn test_search_functionality() {
 #[test]
 fn test_help_command() {
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "doxx", "--", "--help"])
+        .args(["run", "--bin", "doxx", "--", "--help"])
         .output()
         .expect("Failed to execute doxx");
     
@@ -125,6 +125,6 @@ fn test_all_fixtures_exist() {
     ];
     
     for fixture in &fixtures {
-        assert!(Path::new(fixture).exists(), "Test fixture {} should exist", fixture);
+        assert!(Path::new(fixture).exists(), "Test fixture {fixture} should exist");
     }
 }
