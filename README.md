@@ -7,6 +7,8 @@
 
 **doxx** is a lightning-fast, terminal-native document viewer for Microsoft Word files. Built with Rust for performance and reliability, it brings Word documents to your command line with beautiful rendering, smart table support, and powerful export capabilities.
 
+![doxx screenshot](assets/doxx-screenshot.png)
+
 ## ✨ Features
 
 ### Document viewing
