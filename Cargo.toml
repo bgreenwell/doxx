@@ -15,7 +15,7 @@ docx-rs = "0.4"
 
 # Terminal UI
 ratatui = "0.29"
-crossterm = "0.27"
+crossterm = "0.28"
 arboard = "3.3"
 
 # AI Integration (temporarily commented out to resolve dependency issues)
@@ -36,7 +36,7 @@ thiserror = "1.0"
 
 # Configuration
 dirs = "5.0"
-toml = "0.8"
+toml = "0.9"
 
 # Release optimizations
 [profile.release]
