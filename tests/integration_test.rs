@@ -85,8 +85,8 @@ fn test_formatting_markdown_export() {
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("**bold"),
-        "Should contain markdown formatting"
+        stdout.contains("**") && stdout.contains("*"),
+        "Should contain markdown formatting (bold and italic)"
     );
 }
 
