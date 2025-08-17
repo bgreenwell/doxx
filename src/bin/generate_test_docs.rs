@@ -1,12 +1,14 @@
 use docx_rs::*;
 use std::fs::File;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+type DynError = Box<dyn std::error::Error>;
+
+fn main() -> Result<(), DynError> {
     println!("Generating test documents...");
-    
+
     // Create output directory if it doesn't exist
     std::fs::create_dir_all("tests/fixtures")?;
-    
+
     generate_minimal_doc()?;
     generate_tables_heavy_doc()?;
     generate_headings_hierarchy_doc()?;
@@ -15,17 +17,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     generate_business_report_doc()?;
     generate_unicode_special_doc()?;
     generate_export_test_doc()?;
-    
+
     println!("All test documents generated successfully!");
     Ok(())
 }
 
-fn generate_minimal_doc() -> Result<(), Box<dyn std::error::Error>> {
+fn generate_minimal_doc() -> Result<(), DynError> {
     let doc = Docx::new()
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Minimal Test").bold()))
-        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("This is the smallest possible test document with just a title and one paragraph.")))
-        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("This single paragraph tests the most basic document parsing functionality.")));
-    
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text(
+            "This is the smallest possible test document with just a title and one paragraph.",
+        )))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text(
+            "This single paragraph tests the most basic document parsing functionality.",
+        )));
+
     let path = "tests/fixtures/minimal.docx";
     let file = File::create(path)?;
     doc.build().pack(file)?;
@@ -33,11 +39,11 @@ fn generate_minimal_doc() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn generate_tables_heavy_doc() -> Result<(), Box<dyn std::error::Error>> {
+fn generate_tables_heavy_doc() -> Result<(), DynError> {
     let doc = Docx::new()
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Tables Heavy Test Document").bold().size(24)))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("This document contains multiple complex tables to test table parsing capabilities.")))
-        
+
         // Simple Table
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Simple Table").bold().size(16)))
         .add_table(
@@ -64,7 +70,7 @@ fn generate_tables_heavy_doc() -> Result<(), Box<dyn std::error::Error>> {
                 ]),
             ])
         )
-        
+
         // Financial Data Table
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Financial Data Table").bold().size(16)))
         .add_table(
@@ -106,9 +112,9 @@ fn generate_tables_heavy_doc() -> Result<(), Box<dyn std::error::Error>> {
                 ]),
             ])
         )
-        
+
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("This document should test table header detection, CSV export, and complex table rendering.")));
-    
+
     let path = "tests/fixtures/tables-heavy.docx";
     let file = File::create(path)?;
     doc.build().pack(file)?;
@@ -116,14 +122,14 @@ fn generate_tables_heavy_doc() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn generate_headings_hierarchy_doc() -> Result<(), Box<dyn std::error::Error>> {
+fn generate_headings_hierarchy_doc() -> Result<(), DynError> {
     let doc = Docx::new()
         .add_paragraph(
             Paragraph::new()
                 .add_run(Run::new().add_text("Document Structure Test").bold().size(24))
                 .style("Title")
         )
-        
+
         // Level 1 headings
         .add_paragraph(
             Paragraph::new()
@@ -131,7 +137,7 @@ fn generate_headings_hierarchy_doc() -> Result<(), Box<dyn std::error::Error>> {
                 .style("Heading1")
         )
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("This document tests the heading hierarchy detection and outline generation capabilities of doxx.")))
-        
+
         // Level 2 headings
         .add_paragraph(
             Paragraph::new()
@@ -139,7 +145,7 @@ fn generate_headings_hierarchy_doc() -> Result<(), Box<dyn std::error::Error>> {
                 .style("Heading2")
         )
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("This section covers the basic setup and configuration.")))
-        
+
         // Level 3 headings
         .add_paragraph(
             Paragraph::new()
@@ -147,7 +153,7 @@ fn generate_headings_hierarchy_doc() -> Result<(), Box<dyn std::error::Error>> {
                 .style("Heading3")
         )
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Before you begin, ensure you have the following installed.")))
-        
+
         // Level 4 headings
         .add_paragraph(
             Paragraph::new()
@@ -155,7 +161,7 @@ fn generate_headings_hierarchy_doc() -> Result<(), Box<dyn std::error::Error>> {
                 .style("Heading4")
         )
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Your system must meet these minimum requirements.")))
-        
+
         // Level 5 headings
         .add_paragraph(
             Paragraph::new()
@@ -163,7 +169,7 @@ fn generate_headings_hierarchy_doc() -> Result<(), Box<dyn std::error::Error>> {
                 .style("Heading5")
         )
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("The following hardware specifications are recommended.")))
-        
+
         // Level 6 headings
         .add_paragraph(
             Paragraph::new()
@@ -171,7 +177,7 @@ fn generate_headings_hierarchy_doc() -> Result<(), Box<dyn std::error::Error>> {
                 .style("Heading6")
         )
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("At least 8GB of RAM is recommended for optimal performance.")))
-        
+
         // More level 1
         .add_paragraph(
             Paragraph::new()
@@ -179,7 +185,7 @@ fn generate_headings_hierarchy_doc() -> Result<(), Box<dyn std::error::Error>> {
                 .style("Heading1")
         )
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("This section describes the main features of the application.")))
-        
+
         // More level 2
         .add_paragraph(
             Paragraph::new()
@@ -187,7 +193,7 @@ fn generate_headings_hierarchy_doc() -> Result<(), Box<dyn std::error::Error>> {
                 .style("Heading2")
         )
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("The application can process various document formats.")))
-        
+
         // More level 3
         .add_paragraph(
             Paragraph::new()
@@ -195,7 +201,7 @@ fn generate_headings_hierarchy_doc() -> Result<(), Box<dyn std::error::Error>> {
                 .style("Heading3")
         )
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Currently supported formats include DOCX, PDF, and TXT.")));
-    
+
     let path = "tests/fixtures/headings-hierarchy.docx";
     let file = File::create(path)?;
     doc.build().pack(file)?;
@@ -203,11 +209,11 @@ fn generate_headings_hierarchy_doc() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn generate_formatting_showcase_doc() -> Result<(), Box<dyn std::error::Error>> {
+fn generate_formatting_showcase_doc() -> Result<(), DynError> {
     let doc = Docx::new()
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Text Formatting Showcase").bold().size(24)))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("This document demonstrates various text formatting options to test parsing capabilities.")))
-        
+
         // Bold text examples
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Bold Text Examples").bold().size(16)))
         .add_paragraph(
@@ -223,7 +229,7 @@ fn generate_formatting_showcase_doc() -> Result<(), Box<dyn std::error::Error>> 
                 .add_run(Run::new().add_text("bold at the beginning").bold())
                 .add_run(Run::new().add_text(" and regular at the end."))
         )
-        
+
         // Italic text examples
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Italic Text Examples").bold().size(16)))
         .add_paragraph(
@@ -233,7 +239,7 @@ fn generate_formatting_showcase_doc() -> Result<(), Box<dyn std::error::Error>> 
                 .add_run(Run::new().add_text(" mixed with regular text."))
         )
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("This entire sentence is italic.").italic()))
-        
+
         // Combined formatting
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Combined Formatting").bold().size(16)))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Bold and italic combined").bold().italic()))
@@ -243,7 +249,7 @@ fn generate_formatting_showcase_doc() -> Result<(), Box<dyn std::error::Error>> 
                 .add_run(Run::new().add_text("italic inside").bold().italic())
                 .add_run(Run::new().add_text(" and back to bold").bold())
         )
-        
+
         // Special characters
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Special Characters and Symbols").bold().size(16)))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("This section tests special characters: © ® ™ § ¶ • → ← ↑ ↓")))
@@ -252,9 +258,9 @@ fn generate_formatting_showcase_doc() -> Result<(), Box<dyn std::error::Error>> 
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Fractions: ½ ⅓ ¼ ¾")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Accented characters: café résumé naïve")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Greek letters: α β γ δ ε θ λ π σ ω")))
-        
+
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("This document should test comprehensive formatting detection and preservation.")));
-    
+
     let path = "tests/fixtures/formatting-showcase.docx";
     let file = File::create(path)?;
     doc.build().pack(file)?;
@@ -262,26 +268,26 @@ fn generate_formatting_showcase_doc() -> Result<(), Box<dyn std::error::Error>> 
     Ok(())
 }
 
-fn generate_lists_comprehensive_doc() -> Result<(), Box<dyn std::error::Error>> {
+fn generate_lists_comprehensive_doc() -> Result<(), DynError> {
     // Note: docx-rs doesn't have direct list support, so we'll simulate with bullet characters
     let doc = Docx::new()
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Lists Comprehensive Test").bold().size(24)))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("This document tests various list types and nesting levels.")))
-        
+
         // Simple unordered list
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Simple Unordered List").bold().size(16)))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• First item")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• Second item")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• Third item")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• Fourth item")))
-        
+
         // Simple ordered list
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Simple Ordered List").bold().size(16)))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("1. First numbered item")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("2. Second numbered item")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("3. Third numbered item")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("4. Fourth numbered item")))
-        
+
         // Nested lists
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Nested Lists").bold().size(16)))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• Top level item one")))
@@ -290,7 +296,7 @@ fn generate_lists_comprehensive_doc() -> Result<(), Box<dyn std::error::Error>> 
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("    • Third level item i")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("    • Third level item ii")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• Top level item two")))
-        
+
         // Lists with formatting
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Lists with Formatting").bold().size(16)))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• ")).add_run(Run::new().add_text("Bold list item").bold()))
@@ -302,9 +308,9 @@ fn generate_lists_comprehensive_doc() -> Result<(), Box<dyn std::error::Error>> 
                 .add_run(Run::new().add_text("bold words").bold())
                 .add_run(Run::new().add_text(" inside"))
         )
-        
+
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("This document should test list detection, nesting levels, and mixed formatting within lists.")));
-    
+
     let path = "tests/fixtures/lists-comprehensive.docx";
     let file = File::create(path)?;
     doc.build().pack(file)?;
@@ -312,13 +318,13 @@ fn generate_lists_comprehensive_doc() -> Result<(), Box<dyn std::error::Error>> 
     Ok(())
 }
 
-fn generate_business_report_doc() -> Result<(), Box<dyn std::error::Error>> {
+fn generate_business_report_doc() -> Result<(), DynError> {
     let doc = Docx::new()
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Q4 2024 Business Performance Report").bold().size(24)))
-        
+
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Executive Summary").bold().size(18)))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("TechCorp Inc. delivered exceptional results in Q4 2024, achieving record revenue of $2.1M and expanding our customer base by 34%. Key highlights include successful product launches, strategic partnerships, and improved operational efficiency.")))
-        
+
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Key Performance Indicators").bold().size(16)))
         .add_table(
             Table::new(vec![
@@ -348,42 +354,42 @@ fn generate_business_report_doc() -> Result<(), Box<dyn std::error::Error>> {
                 ]),
             ])
         )
-        
+
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Financial Performance").bold().size(18)))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Revenue Analysis").bold().size(16)))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Our revenue growth of 20% quarter-over-quarter demonstrates strong market demand for our products. The primary growth drivers include:")))
-        
+
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• ")).add_run(Run::new().add_text("Enterprise Sales").bold()).add_run(Run::new().add_text(": $850,000 (+45% from Q3)")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• ")).add_run(Run::new().add_text("Subscription Revenue").bold()).add_run(Run::new().add_text(": $720,000 (+15% from Q3)")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• ")).add_run(Run::new().add_text("Professional Services").bold()).add_run(Run::new().add_text(": $380,000 (+8% from Q3)")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• ")).add_run(Run::new().add_text("Product Sales").bold()).add_run(Run::new().add_text(": $150,000 (-5% from Q3)")))
-        
+
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Risks and Challenges").bold().size(18)))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Market Risks").bold().size(16)))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• ")).add_run(Run::new().add_text("Increased Competition").bold()).add_run(Run::new().add_text(": Three new competitors entered the market")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• ")).add_run(Run::new().add_text("Economic Uncertainty").bold()).add_run(Run::new().add_text(": Potential recession could impact enterprise spending")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• ")).add_run(Run::new().add_text("Regulatory Changes").bold()).add_run(Run::new().add_text(": New data privacy regulations may require compliance investments")))
-        
+
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Strategic Initiatives").bold().size(18)))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("2025 Objectives").bold().size(16)))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Revenue Target").bold()).add_run(Run::new().add_text(": $12M (400% growth)")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Market Expansion").bold()).add_run(Run::new().add_text(": Enter European and Asian markets")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Product Portfolio").bold()).add_run(Run::new().add_text(": Launch 4 new products")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Team Growth").bold()).add_run(Run::new().add_text(": Scale to 150 employees")))
-        
+
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Key Action Items").bold().size(16)))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• ")).add_run(Run::new().add_text("Q1 2025").bold()).add_run(Run::new().add_text(": Complete Series A funding round ($5M target)")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• ")).add_run(Run::new().add_text("Q2 2025").bold()).add_run(Run::new().add_text(": Open European office in London")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• ")).add_run(Run::new().add_text("Q3 2025").bold()).add_run(Run::new().add_text(": Launch enterprise mobile application")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• ")).add_run(Run::new().add_text("Q4 2025").bold()).add_run(Run::new().add_text(": Achieve SOC 2 Type II compliance")))
-        
+
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Conclusion").bold().size(18)))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Q4 2024 represents a transformative quarter for TechCorp. We've demonstrated strong execution across all business functions while positioning ourselves for accelerated growth in 2025.")))
-        
+
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Next Review").bold()).add_run(Run::new().add_text(": February 15, 2025")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Prepared by").bold()).add_run(Run::new().add_text(": Strategic Planning Team")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Date").bold()).add_run(Run::new().add_text(": January 10, 2025")));
-    
+
     let path = "tests/fixtures/business-report.docx";
     let file = File::create(path)?;
     doc.build().pack(file)?;
@@ -391,10 +397,10 @@ fn generate_business_report_doc() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn generate_unicode_special_doc() -> Result<(), Box<dyn std::error::Error>> {
+fn generate_unicode_special_doc() -> Result<(), DynError> {
     let doc = Docx::new()
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Unicode and Special Characters Test").bold().size(24)))
-        
+
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("International Text").bold().size(16)))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("English: Hello, World!")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Spanish: ¡Hola, Mundo!")))
@@ -408,34 +414,34 @@ fn generate_unicode_special_doc() -> Result<(), Box<dyn std::error::Error>> {
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Hindi: नमस्ते, दुनिया!")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Hebrew: שלום, עולם!")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Greek: Γεια σου, κόσμε!")))
-        
+
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Emoji and Symbols").bold().size(16)))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Basic emojis: 😀 😃 😄 😁 😆 😅 😂 🤣")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Hearts: ❤️ 💙 💚 💛 💜 🖤 🤍 🤎")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Animals: 🐶 🐱 🐭 🐹 🐰 🦊 🐻 🐼")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Food: 🍎 🍌 🍊 🍋 🍉 🍇 🍓 🥝")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Weather: ☀️ ⛅ ☁️ 🌧️ ⛈️ 🌩️ ❄️ ⭐")))
-        
+
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Mathematical Symbols").bold().size(16)))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Basic operators: + - × ÷ = ≠ < > ≤ ≥")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Greek letters: α β γ δ ε ζ η θ ι κ λ μ ν ξ ο π ρ σ τ υ φ χ ψ ω")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Set theory: ∈ ∉ ⊂ ⊃ ⊆ ⊇ ∩ ∪ ∅")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Calculus: ∫ ∮ ∂ ∇ ∆ ∑ ∏ ∞")))
-        
+
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Currency Symbols").bold().size(16)))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Major currencies: $ € £ ¥ ₹ ₽ ₩ ₪ ₫ ₡ ₦ ₨ ₱ ₲ ₴ ₵")))
-        
+
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Fractions and Numbers").bold().size(16)))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Fractions: ½ ⅓ ¼ ¾ ⅕ ⅖ ⅗ ⅘ ⅙ ⅚ ⅛ ⅜ ⅝ ⅞")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Superscripts: x² x³ x⁴ x⁵ x⁶ x⁷ x⁸ x⁹ x¹⁰")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Subscripts: H₂O CO₂ H₂SO₄ CaCl₂")))
-        
+
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Arrows and Shapes").bold().size(16)))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Arrows: ← → ↑ ↓ ↖ ↗ ↘ ↙ ⟵ ⟶ ⟷ ⤴ ⤵")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Shapes: ○ ● ◯ ◉ □ ■ ▢ ▣ △ ▲ ▼ ◆ ◇ ★ ☆")))
-        
+
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("This document tests Unicode handling, special character rendering, and international text support.")));
-    
+
     let path = "tests/fixtures/unicode-special.docx";
     let file = File::create(path)?;
     doc.build().pack(file)?;
@@ -443,11 +449,11 @@ fn generate_unicode_special_doc() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn generate_export_test_doc() -> Result<(), Box<dyn std::error::Error>> {
+fn generate_export_test_doc() -> Result<(), DynError> {
     let doc = Docx::new()
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Export Test Document").bold().size(24)))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("This document is designed specifically to test all export formats and features.")))
-        
+
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Text Formatting Test").bold().size(18)))
         .add_paragraph(
             Paragraph::new()
@@ -459,7 +465,7 @@ fn generate_export_test_doc() -> Result<(), Box<dyn std::error::Error>> {
                 .add_run(Run::new().add_text("bold italic").bold().italic())
                 .add_run(Run::new().add_text(" text."))
         )
-        
+
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Simple Table for CSV Export").bold().size(18)))
         .add_table(
             Table::new(vec![
@@ -480,24 +486,24 @@ fn generate_export_test_doc() -> Result<(), Box<dyn std::error::Error>> {
                 ]),
             ])
         )
-        
+
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("List Test for Markdown").bold().size(18)))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• First bullet point")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• Second bullet point with ")).add_run(Run::new().add_text("bold text").bold()))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• Third bullet point")))
-        
+
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Numbered List").bold().size(16)))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("1. First numbered item")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("2. Second numbered item")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("3. Third numbered item")))
-        
+
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Special Characters for JSON").bold().size(18)))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Testing quotes: \"double quotes\" and 'single quotes'")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Testing backslashes: \\ and forward slashes: /")))
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Testing newlines and tabs in export")))
-        
+
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("This document validates that all export formats (markdown, text, CSV, JSON) work correctly with various content types.")));
-    
+
     let path = "tests/fixtures/export-test.docx";
     let file = File::create(path)?;
     doc.build().pack(file)?;

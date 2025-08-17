@@ -13,10 +13,10 @@ pub fn export_document(document: &Document, format: &ExportFormat) -> Result<()>
 
 pub fn export_to_markdown(document: &Document) -> Result<()> {
     let mut markdown = String::new();
-    
+
     // Add document title
     markdown.push_str(&format!("# {}\n\n", document.title));
-    
+
     // Add metadata
     markdown.push_str("## Document Information\n\n");
     markdown.push_str(&format!("- **File**: {}\n", document.metadata.file_path));
@@ -26,7 +26,7 @@ pub fn export_to_markdown(document: &Document) -> Result<()> {
         markdown.push_str(&format!("- **Author**: {author}\n"));
     }
     markdown.push_str("\n---\n\n");
-    
+
     // Convert document content
     for element in &document.elements {
         match element {
@@ -36,14 +36,14 @@ pub fn export_to_markdown(document: &Document) -> Result<()> {
             }
             DocumentElement::Paragraph { text, formatting } => {
                 let mut formatted_text = text.clone();
-                
+
                 if formatting.bold {
                     formatted_text = format!("**{formatted_text}**");
                 }
                 if formatting.italic {
                     formatted_text = format!("*{formatted_text}*");
                 }
-                
+
                 markdown.push_str(&format!("{formatted_text}\n\n"));
             }
             DocumentElement::List { items, ordered } => {
@@ -54,15 +54,19 @@ pub fn export_to_markdown(document: &Document) -> Result<()> {
                     } else {
                         "- ".to_string()
                     };
-                    
+
                     let mut item_text = item.text.clone();
-                    if false /* simplified */ {
+                    if false
+                    /* simplified */
+                    {
                         item_text = format!("**{item_text}**");
                     }
-                    if false /* simplified */ {
+                    if false
+                    /* simplified */
+                    {
                         item_text = format!("*{item_text}*");
                     }
-                    
+
                     markdown.push_str(&format!("{indent}{bullet}{item_text}\n"));
                 }
                 markdown.push('\n');
@@ -72,30 +76,39 @@ pub fn export_to_markdown(document: &Document) -> Result<()> {
                 if let Some(title) = &table.metadata.title {
                     markdown.push_str(&format!("### {title}\n\n"));
                 }
-                
+
                 // Markdown table header
-                let header_content: Vec<String> = table.headers.iter().map(|h| h.content.clone()).collect();
+                let header_content: Vec<String> =
+                    table.headers.iter().map(|h| h.content.clone()).collect();
                 markdown.push_str(&format!("| {} |\n", header_content.join(" | ")));
-                
+
                 // Generate alignment indicators
-                let alignment_row: Vec<String> = table.metadata.column_alignments.iter().map(|align| {
-                    match align {
+                let alignment_row: Vec<String> = table
+                    .metadata
+                    .column_alignments
+                    .iter()
+                    .map(|align| match align {
                         TextAlignment::Left => ":---".to_string(),
                         TextAlignment::Right => "---:".to_string(),
                         TextAlignment::Center => ":---:".to_string(),
                         TextAlignment::Justify => ":---".to_string(),
-                    }
-                }).collect();
+                    })
+                    .collect();
                 markdown.push_str(&format!("| {} |\n", alignment_row.join(" | ")));
-                
+
                 // Table rows
                 for row in &table.rows {
-                    let row_content: Vec<String> = row.iter().map(|cell| cell.content.clone()).collect();
+                    let row_content: Vec<String> =
+                        row.iter().map(|cell| cell.content.clone()).collect();
                     markdown.push_str(&format!("| {} |\n", row_content.join(" | ")));
                 }
                 markdown.push('\n');
             }
-            DocumentElement::Image { description, width, height } => {
+            DocumentElement::Image {
+                description,
+                width,
+                height,
+            } => {
                 let alt = description;
                 let dimensions = match (width, height) {
                     (Some(w), Some(h)) => format!(" <!-- {w}x{h} -->"),
@@ -108,23 +121,27 @@ pub fn export_to_markdown(document: &Document) -> Result<()> {
             }
         }
     }
-    
+
     print!("{markdown}");
     Ok(())
 }
 
 pub fn format_as_text(document: &Document) -> String {
     let mut text = String::new();
-    
+
     // Add document title
     text.push_str(&format!("{}\n", document.title));
     text.push_str(&"=".repeat(document.title.len()));
     text.push_str("\n\n");
-    
+
     // Convert document content
     for element in &document.elements {
         match element {
-            DocumentElement::Heading { level, text: heading_text, .. } => {
+            DocumentElement::Heading {
+                level,
+                text: heading_text,
+                ..
+            } => {
                 let underline = match level {
                     1 => "=",
                     2 => "-",
@@ -134,7 +151,9 @@ pub fn format_as_text(document: &Document) -> String {
                 text.push_str(&underline.repeat(heading_text.len()));
                 text.push_str("\n\n");
             }
-            DocumentElement::Paragraph { text: para_text, .. } => {
+            DocumentElement::Paragraph {
+                text: para_text, ..
+            } => {
                 text.push_str(&format!("{para_text}\n\n"));
             }
             DocumentElement::List { items, ordered } => {
@@ -144,11 +163,11 @@ pub fn format_as_text(document: &Document) -> String {
                     } else {
                         "* ".to_string()
                     };
-                    
+
                     let indent = "  ".repeat(item.level as usize);
                     text.push_str(&format!("{indent}{bullet}{}\n", item.text));
                 }
-                text.push_str("\n");
+                text.push('\n');
             }
             DocumentElement::Table { table } => {
                 // Add table title if present
@@ -157,43 +176,43 @@ pub fn format_as_text(document: &Document) -> String {
                     text.push_str(&"=".repeat(title.len()));
                     text.push_str("\n\n");
                 }
-                
+
                 // Use the calculated column widths from metadata
                 let col_widths = &table.metadata.column_widths;
-                
+
                 // Top border
                 let top_border = generate_text_table_border(col_widths, "┌", "┬", "┐", "─");
                 text.push_str(&format!("{top_border}\n"));
-                
+
                 // Header with proper alignment
                 let header_line = render_text_table_row(&table.headers, col_widths, true);
                 text.push_str(&format!("{header_line}\n"));
-                
+
                 // Header separator
                 let separator = generate_text_table_border(col_widths, "├", "┼", "┤", "─");
                 text.push_str(&format!("{separator}\n"));
-                
+
                 // Data rows
                 for row in &table.rows {
                     let row_line = render_text_table_row(row, col_widths, false);
                     text.push_str(&format!("{row_line}\n"));
                 }
-                
+
                 // Bottom border
                 let bottom_border = generate_text_table_border(col_widths, "└", "┴", "┘", "─");
                 text.push_str(&format!("{bottom_border}\n"));
-                
-                text.push_str("\n");
+
+                text.push('\n');
             }
             DocumentElement::PageBreak => {
                 text.push_str("---\n\n");
             }
             DocumentElement::Image { description, .. } => {
-                text.push_str(&format!("[Image: {}]\n\n", description));
+                text.push_str(&format!("[Image: {description}]\n\n"));
             }
         }
     }
-    
+
     text
 }
 
@@ -205,7 +224,7 @@ pub fn export_to_text(document: &Document) -> Result<()> {
 
 pub fn export_to_csv(document: &Document) -> Result<()> {
     let mut csv_output = Vec::new();
-    
+
     // Find all tables in the document
     for (table_index, element) in document.elements.iter().enumerate() {
         if let DocumentElement::Table { table } = element {
@@ -213,20 +232,21 @@ pub fn export_to_csv(document: &Document) -> Result<()> {
                 csv_output.push(String::new()); // Empty line between tables
                 csv_output.push(format!("# Table {}", table_index + 1));
             }
-            
+
             // Add table title as comment if present
             if let Some(title) = &table.metadata.title {
                 csv_output.push(format!("# {title}"));
             }
-            
+
             // CSV header
-            let header_line = table.headers
+            let header_line = table
+                .headers
                 .iter()
                 .map(|h| escape_csv_field(&h.content))
                 .collect::<Vec<_>>()
                 .join(",");
             csv_output.push(header_line);
-            
+
             // CSV rows
             for row in &table.rows {
                 let row_line = row
@@ -238,7 +258,7 @@ pub fn export_to_csv(document: &Document) -> Result<()> {
             }
         }
     }
-    
+
     if csv_output.is_empty() {
         println!("No tables found in document");
     } else {
@@ -246,7 +266,7 @@ pub fn export_to_csv(document: &Document) -> Result<()> {
             println!("{line}");
         }
     }
-    
+
     Ok(())
 }
 
@@ -259,22 +279,21 @@ pub fn export_to_json(document: &Document) -> Result<()> {
 #[allow(dead_code)]
 pub fn extract_citations(document: &Document) -> Result<Vec<Citation>> {
     let mut citations = Vec::new();
-    
+
     // Simple citation extraction - look for common citation patterns
     for (index, element) in document.elements.iter().enumerate() {
         let text = match element {
-            DocumentElement::Heading { text, .. } |
-            DocumentElement::Paragraph { text, .. } => text,
+            DocumentElement::Heading { text, .. } | DocumentElement::Paragraph { text, .. } => text,
             _ => continue,
         };
-        
+
         // Look for citation patterns like (Author, Year) or [1]
         let citation_patterns = [
-            r"\([A-Z][a-z]+,\s*\d{4}\)",  // (Author, 2024)
-            r"\[[0-9]+\]",                 // [1]
+            r"\([A-Z][a-z]+,\s*\d{4}\)",             // (Author, 2024)
+            r"\[[0-9]+\]",                           // [1]
             r"\([A-Z][a-z]+\s+et\s+al\.,\s*\d{4}\)", // (Author et al., 2024)
         ];
-        
+
         for pattern in &citation_patterns {
             if let Ok(regex) = regex::Regex::new(pattern) {
                 for mat in regex.find_iter(text) {
@@ -287,21 +306,21 @@ pub fn extract_citations(document: &Document) -> Result<Vec<Citation>> {
             }
         }
     }
-    
+
     Ok(citations)
 }
 
 #[allow(dead_code)]
 pub fn extract_bibliography(document: &Document) -> Result<Vec<Citation>> {
     let mut bibliography = Vec::new();
-    
+
     // Look for bibliography or references section
     for (index, element) in document.elements.iter().enumerate() {
         if let DocumentElement::Heading { text, .. } = element {
-            if text.to_lowercase().contains("reference") || 
-               text.to_lowercase().contains("bibliography") ||
-               text.to_lowercase().contains("works cited") {
-                
+            if text.to_lowercase().contains("reference")
+                || text.to_lowercase().contains("bibliography")
+                || text.to_lowercase().contains("works cited")
+            {
                 // Process following elements as bibliography entries
                 for (bib_index, bib_element) in document.elements[index + 1..].iter().enumerate() {
                     match bib_element {
@@ -331,7 +350,7 @@ pub fn extract_bibliography(document: &Document) -> Result<Vec<Citation>> {
             }
         }
     }
-    
+
     Ok(bibliography)
 }
 
@@ -359,17 +378,23 @@ fn escape_csv_field(field: &str) -> String {
 }
 
 // Helper functions for text table rendering
-fn generate_text_table_border(column_widths: &[usize], left: &str, middle: &str, right: &str, fill: &str) -> String {
+fn generate_text_table_border(
+    column_widths: &[usize],
+    left: &str,
+    middle: &str,
+    right: &str,
+    fill: &str,
+) -> String {
     let mut border = String::new();
     border.push_str(left);
-    
+
     for (i, &width) in column_widths.iter().enumerate() {
         border.push_str(&fill.repeat(width + 2)); // +2 for padding
         if i < column_widths.len() - 1 {
             border.push_str(middle);
         }
     }
-    
+
     border.push_str(right);
     border
 }
@@ -377,23 +402,23 @@ fn generate_text_table_border(column_widths: &[usize], left: &str, middle: &str,
 fn render_text_table_row(cells: &[TableCell], column_widths: &[usize], _is_header: bool) -> String {
     let mut row = String::new();
     row.push('│');
-    
+
     for (i, cell) in cells.iter().enumerate() {
         let width = column_widths.get(i).copied().unwrap_or(10);
         let aligned_content = align_text_cell_content(&cell.content, cell.alignment, width);
-        
+
         row.push(' ');
         row.push_str(&aligned_content);
         row.push(' ');
         row.push('│');
     }
-    
+
     row
 }
 
 fn align_text_cell_content(content: &str, alignment: TextAlignment, width: usize) -> String {
     let trimmed = content.trim();
-    
+
     match alignment {
         TextAlignment::Left => format!("{trimmed:<width$}"),
         TextAlignment::Right => format!("{trimmed:>width$}"),
@@ -401,7 +426,12 @@ fn align_text_cell_content(content: &str, alignment: TextAlignment, width: usize
             let padding = width.saturating_sub(trimmed.len());
             let left_pad = padding / 2;
             let right_pad = padding - left_pad;
-            format!("{}{}{}", " ".repeat(left_pad), trimmed, " ".repeat(right_pad))
+            format!(
+                "{}{}{}",
+                " ".repeat(left_pad),
+                trimmed,
+                " ".repeat(right_pad)
+            )
         }
         TextAlignment::Justify => {
             // For export, treat justify as left-aligned

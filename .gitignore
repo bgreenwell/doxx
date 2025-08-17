@@ -1,5 +1,30 @@
+# Rust build artifacts
 /target
-CLAUDE.md
+*.pdb
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Coverage reports
+lcov.info
+coverage/
+*.profraw
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+
+# Environment variables
+.env
+.env.local
+
+# Generated documentation
+/doc
 
 # macOS
 .DS_Store

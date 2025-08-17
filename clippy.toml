@@ -1,0 +1,21 @@
+# Clippy configuration for doxx
+# See: https://rust-lang.github.io/rust-clippy/
+
+# Set the MSRV (Minimum Supported Rust Version)
+msrv = "1.70.0"
+
+# Cognitive complexity threshold
+cognitive-complexity-threshold = 25
+
+# Type complexity threshold  
+type-complexity-threshold = 60
+
+# Documentation
+missing-docs-in-crate-items = true
+
+# Style preferences
+enum-variant-name-threshold = 3
+
+# Avoid certain patterns
+avoid-breaking-exported-api = true
+allow-unwrap-in-tests = true

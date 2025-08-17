@@ -2,10 +2,10 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
-mod document;
-mod ui;
 mod ai;
+mod document;
 mod export;
+mod ui;
 
 #[derive(Parser)]
 #[command(
@@ -82,14 +82,9 @@ enum ExportFormat {
 #[derive(Subcommand)]
 enum ConfigCommands {
     /// Set configuration value
-    Set {
-        key: String,
-        value: String,
-    },
+    Set { key: String, value: String },
     /// Get configuration value
-    Get {
-        key: String,
-    },
+    Get { key: String },
     /// Initialize configuration
     Init,
 }
@@ -117,9 +112,10 @@ async fn main() -> Result<()> {
         None => {}
     }
 
-    let file_path = cli.file.clone().ok_or_else(|| {
-        anyhow::anyhow!("Please provide a document file to view")
-    })?;
+    let file_path = cli
+        .file
+        .clone()
+        .ok_or_else(|| anyhow::anyhow!("Please provide a document file to view"))?;
 
     if !file_path.exists() {
         anyhow::bail!("File not found: {}", file_path.display());
