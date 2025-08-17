@@ -1,4 +1,5 @@
 use anyhow::Result;
+use arboard::Clipboard;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, MouseEventKind},
     execute,
@@ -32,6 +33,8 @@ pub struct App {
     pub ai_chat_mode: bool,
     pub ai_chat_input: String,
     pub ai_chat_history: Vec<ChatMessage>,
+    pub clipboard: Option<Clipboard>,
+    pub status_message: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -64,6 +67,8 @@ impl App {
             ai_chat_mode: false,
             ai_chat_input: String::new(),
             ai_chat_history: Vec::new(),
+            clipboard: Clipboard::new().ok(),
+            status_message: None,
         };
 
         // Apply CLI options
@@ -126,6 +131,57 @@ impl App {
         let max_offset = self.document.elements.len().saturating_sub(1);
         self.scroll_offset = std::cmp::min(self.scroll_offset + page_size, max_offset);
     }
+
+    pub fn copy_content(&mut self) {
+        if let Some(clipboard) = &mut self.clipboard {
+            let content = match self.current_view {
+                ViewMode::Document => {
+                    // Copy the full document as text
+                    crate::export::format_as_text(&self.document)
+                }
+                ViewMode::Search => {
+                    // Copy search results
+                    if self.search_results.is_empty() {
+                        "No search results to copy.".to_string()
+                    } else {
+                        let mut content = format!("Search results for '{}':\n\n", self.search_query);
+                        for (i, result) in self.search_results.iter().enumerate() {
+                            content.push_str(&format!("{}. {}\n", i + 1, result.text.trim()));
+                        }
+                        content
+                    }
+                }
+                ViewMode::Outline => {
+                    // Copy document outline
+                    let outline = crate::document::generate_outline(&self.document);
+                    let mut content = String::from("Document Outline:\n\n");
+                    for item in outline {
+                        let indent = "  ".repeat((item.level as usize).saturating_sub(1));
+                        content.push_str(&format!("{}{}\n", indent, item.title));
+                    }
+                    content
+                }
+                _ => {
+                    "Content not available for copying in this view.".to_string()
+                }
+            };
+
+            match clipboard.set_text(content) {
+                Ok(_) => {
+                    self.status_message = Some("Copied to clipboard!".to_string());
+                }
+                Err(_) => {
+                    self.status_message = Some("Failed to copy to clipboard.".to_string());
+                }
+            }
+        } else {
+            self.status_message = Some("Clipboard not available.".to_string());
+        }
+    }
+
+    pub fn clear_status_message(&mut self) {
+        self.status_message = None;
+    }
 }
 
 async fn run_non_interactive(document: Document, cli: &Cli) -> Result<()> {
@@ -155,12 +211,64 @@ async fn run_non_interactive(document: Document, cli: &Cli) -> Result<()> {
             }
         }
         _ => {
-            // Default: show basic document info
+            // Default: show basic document info and content preview
             println!("Document: {}", app.document.title);
             println!("Pages: {}", app.document.metadata.page_count);
             println!("Words: {}", app.document.metadata.word_count);
             println!();
-            println!("Use --export to save content, or run in an interactive terminal for full UI.");
+            println!("Content Preview:");
+            println!("================");
+            
+            // Show first few elements with proper formatting
+            let preview_count = std::cmp::min(app.document.elements.len(), 20);
+            for element in &app.document.elements[0..preview_count] {
+                match element {
+                    DocumentElement::Heading { level, text, .. } => {
+                        let prefix = match level {
+                            1 => "# ",
+                            2 => "## ",
+                            _ => "### ",
+                        };
+                        println!("{}{}", prefix, text);
+                        println!();
+                    }
+                    DocumentElement::Paragraph { text, .. } => {
+                        println!("{}", text);
+                        println!();
+                    }
+                    DocumentElement::List { items, ordered } => {
+                        for (i, item) in items.iter().enumerate() {
+                            let bullet = if *ordered {
+                                format!("{}. ", i + 1)
+                            } else {
+                                "• ".to_string()
+                            };
+                            let indent = "  ".repeat(item.level as usize);
+                            println!("{}{}{}", indent, bullet, item.text);
+                        }
+                        println!();
+                    }
+                    DocumentElement::Table { .. } => {
+                        println!("[Table content - use --export csv to view]");
+                        println!();
+                    }
+                    DocumentElement::Image { description, .. } => {
+                        println!("[Image: {}]", description);
+                        println!();
+                    }
+                    DocumentElement::PageBreak => {
+                        println!("---");
+                        println!();
+                    }
+                }
+            }
+            
+            if app.document.elements.len() > preview_count {
+                println!("... and {} more elements", app.document.elements.len() - preview_count);
+                println!();
+            }
+            
+            println!("Use --export to save full content, or run in an interactive terminal for full UI.");
         }
     }
     
@@ -168,8 +276,8 @@ async fn run_non_interactive(document: Document, cli: &Cli) -> Result<()> {
 }
 
 pub async fn run_viewer(document: Document, cli: &Cli) -> Result<()> {
-    // Check if we're in an interactive terminal
-    if !IsTty::is_tty(&io::stdout()) {
+    // Check if we're in an interactive terminal or forced to use UI
+    if !cli.force_ui && !IsTty::is_tty(&io::stdout()) {
         // Fallback for non-interactive environments
         return run_non_interactive(document, cli).await;
     }
@@ -210,6 +318,10 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
         match event::read()? {
             Event::Key(key) => {
                 if key.kind == KeyEventKind::Press {
+                // Clear status message on any key press (except the copy key)
+                if app.status_message.is_some() && key.code != KeyCode::Char('c') && key.code != KeyCode::F(2) {
+                    app.clear_status_message();
+                }
                 match app.current_view {
                     ViewMode::Document => match key.code {
                         KeyCode::Char('q') => break,
@@ -220,6 +332,7 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                             app.ai_chat_mode = true;
                         }
                         KeyCode::Char('h') | KeyCode::F(1) => app.show_help = !app.show_help,
+                        KeyCode::Char('c') => app.copy_content(),
                         KeyCode::Up | KeyCode::Char('k') => app.scroll_up(),
                         KeyCode::Down | KeyCode::Char('j') => app.scroll_down(),
                         KeyCode::PageUp => app.page_up(10),
@@ -232,6 +345,7 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                     },
                     ViewMode::Outline => match key.code {
                         KeyCode::Char('q') | KeyCode::Esc => app.current_view = ViewMode::Document,
+                        KeyCode::Char('c') => app.copy_content(),
                         KeyCode::Up | KeyCode::Char('k') => {
                             let selected = app.outline_state.selected().unwrap_or(0);
                             if selected > 0 {
@@ -256,6 +370,7 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                     },
                     ViewMode::Search => match key.code {
                         KeyCode::Char('q') | KeyCode::Esc => app.current_view = ViewMode::Document,
+                        KeyCode::F(2) => app.copy_content(), // Use F2 for copy in search mode to avoid conflicts
                         KeyCode::Char(c) => {
                             app.search_query.push(c);
                             app.search_results = crate::document::search_document(&app.document, &app.search_query);
@@ -464,9 +579,11 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
                     };
                     
                     let indent = "  ".repeat(item.level as usize);
+                    
+                    // Combine indent and bullet to ensure proper spacing
+                    let prefixed_bullet = format!("{}{}", indent, bullet);
                     let line = Line::from(vec![
-                        Span::raw(indent),
-                        Span::styled(bullet, Style::default().fg(Color::Blue)),
+                        Span::styled(prefixed_bullet, Style::default().fg(Color::Blue)),
                         Span::raw(&item.text),
                     ]);
                     text.lines.push(line);
@@ -501,7 +618,7 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
     }
 
     let paragraph = Paragraph::new(text)
-        .wrap(Wrap { trim: true })
+        .wrap(Wrap { trim: false })  // Don't trim whitespace to preserve list indentation
         .scroll((0, 0));
     
     f.render_widget(paragraph, inner);
@@ -667,9 +784,15 @@ fn render_help(f: &mut Frame, area: Rect) {
         "",
         "📋 Other Features:",
         "  o          Show outline",
+        "  c          Copy content to clipboard",
         "  a          AI chat",
         "  h/F1       Toggle help",
         "  q          Quit",
+        "",
+        "📄 Copy Functionality:",
+        "  Document:  Copies full document as text",
+        "  Outline:   Copies document structure",
+        "  Search:    Copies search results (use F2)",
         "",
         "Press any key to close help...",
     ];
@@ -710,25 +833,37 @@ fn render_status_bar(f: &mut Frame, area: Rect, app: &App) {
         String::new()
     };
     
-    let status_text = format!(
-        "{} • 📄 {} • {} pages • {} words • {}/{}{}",
-        view_indicator,
-        metadata.file_path.split('/').next_back().unwrap_or("Unknown"),
-        metadata.page_count,
-        metadata.word_count,
-        app.scroll_offset + 1,
-        app.document.elements.len(),
-        search_info
-    );
+    let status_text = if let Some(status_msg) = &app.status_message {
+        // Show status message (like copy confirmation) with higher priority
+        status_msg.clone()
+    } else {
+        format!(
+            "{} • 📄 {} • {} pages • {} words • {}/{}{}",
+            view_indicator,
+            metadata.file_path.split('/').next_back().unwrap_or("Unknown"),
+            metadata.page_count,
+            metadata.word_count,
+            app.scroll_offset + 1,
+            app.document.elements.len(),
+            search_info
+        )
+    };
+
+    let status_style = if app.status_message.is_some() {
+        // Highlight status messages
+        Style::default().fg(Color::Green).bg(Color::DarkGray).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::White).bg(Color::DarkGray)
+    };
 
     let status = Paragraph::new(status_text)
-        .style(Style::default().fg(Color::White).bg(Color::DarkGray))
+        .style(status_style)
         .block(Block::default());
 
     f.render_widget(status, area);
 
     // Navigation help
-    let help_text = "[↕] Scroll [o] Outline [s] Search [a] AI chat [h] Help [q] Quit";
+    let help_text = "[↕] Scroll [o] Outline [s] Search [c] Copy [a] AI chat [h] Help [q] Quit";
     let help_area = Rect {
         x: area.x,
         y: area.y + 1,

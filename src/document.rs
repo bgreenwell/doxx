@@ -174,6 +174,9 @@ pub async fn load_document(file_path: &Path) -> Result<Document> {
         }
     }
 
+    // Post-process to group consecutive list items
+    let elements = group_list_items(elements);
+
     let metadata = DocumentMetadata {
         file_path: file_path.to_string_lossy().to_string(),
         file_size,
@@ -323,6 +326,112 @@ fn is_likely_list_item(text: &str) -> bool {
     }
     
     false
+}
+
+fn group_list_items(elements: Vec<DocumentElement>) -> Vec<DocumentElement> {
+    let mut result = Vec::new();
+    let mut current_list_items = Vec::new();
+    let mut current_list_ordered = false;
+    
+    for element in elements {
+        match &element {
+            DocumentElement::Paragraph { text, .. } => {
+                if is_likely_list_item(text) {
+                    // Determine if this is an ordered list item
+                    let is_ordered = text.trim().starts_with(char::is_numeric);
+                    
+                    // If we're starting a new list or switching list types, finish the current list
+                    if !current_list_items.is_empty() && is_ordered != current_list_ordered {
+                        result.push(DocumentElement::List {
+                            items: std::mem::take(&mut current_list_items),
+                            ordered: current_list_ordered,
+                        });
+                    }
+                    
+                    current_list_ordered = is_ordered;
+                    
+                    // Calculate nesting level from indentation
+                    let level = calculate_list_level(text);
+                    
+                    // Clean the text (remove bullet/number prefix)
+                    let clean_text = clean_list_item_text(text);
+                    
+                    current_list_items.push(ListItem {
+                        text: clean_text,
+                        level,
+                    });
+                } else {
+                    // Not a list item, so finish any current list
+                    if !current_list_items.is_empty() {
+                        result.push(DocumentElement::List {
+                            items: std::mem::take(&mut current_list_items),
+                            ordered: current_list_ordered,
+                        });
+                    }
+                    result.push(element);
+                }
+            }
+            _ => {
+                // Non-paragraph element, finish any current list
+                if !current_list_items.is_empty() {
+                    result.push(DocumentElement::List {
+                        items: std::mem::take(&mut current_list_items),
+                        ordered: current_list_ordered,
+                    });
+                }
+                result.push(element);
+            }
+        }
+    }
+    
+    // Don't forget the last list if the document ends with one
+    if !current_list_items.is_empty() {
+        result.push(DocumentElement::List {
+            items: current_list_items,
+            ordered: current_list_ordered,
+        });
+    }
+    
+    result
+}
+
+fn calculate_list_level(text: &str) -> u8 {
+    // Count leading whitespace to determine nesting level
+    let leading_spaces = text.len() - text.trim_start().len();
+    
+    // Convert spaces to levels (every 2-4 spaces = 1 level)
+    // Use 2 spaces per level as it's common in Word documents
+    (leading_spaces / 2) as u8
+}
+
+fn clean_list_item_text(text: &str) -> String {
+    let text = text.trim();
+    
+    // Remove bullet points (handle Unicode characters properly)
+    if text.starts_with("• ") {
+        return text.strip_prefix("• ").unwrap_or(text).trim().to_string();
+    }
+    if text.starts_with("- ") || text.starts_with("* ") {
+        return text[2..].trim().to_string();
+    }
+    
+    // Remove numbered list prefixes
+    if let Some(dot_pos) = text.find('.') {
+        let prefix = &text[..dot_pos];
+        if prefix.chars().all(|c| c.is_ascii_digit()) {
+            return text[dot_pos + 1..].trim().to_string();
+        }
+    }
+    
+    // Remove lettered list prefixes
+    if text.len() > 3 && text.chars().nth(1) == Some('.') {
+        let first_char = text.chars().next().unwrap();
+        if first_char.is_ascii_lowercase() || first_char.is_ascii_uppercase() {
+            return text[2..].trim().to_string();
+        }
+    }
+    
+    text.to_string()
 }
 
 fn is_likely_sentence(text: &str) -> bool {

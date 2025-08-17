@@ -14,6 +14,7 @@
 ### Document viewing
 - 🎨 **Beautiful terminal rendering** with syntax highlighting and formatting
 - 📊 **Professional table display** with smart alignment and Unicode borders
+- 📋 **Nested list support** with proper indentation and multi-level hierarchy
 - 🔍 **Full-text search** with highlighting and context
 - 📑 **Document outline** for quick navigation
 - 🎯 **Multiple view modes** — document, outline, search, and help
@@ -24,6 +25,15 @@
 - 💱 **Data type detection** for currency, percentages, dates, and more
 - 🎨 **Professional ASCII rendering** with scalable Unicode borders
 - 🔄 **Search within tables** across headers and cell content
+
+### Copy & clipboard
+- 📋 **Copy to clipboard** - Copy rendered content directly from the terminal UI
+- 🎯 **Context-aware copying** - Different content based on current view:
+  - **Document view**: Copy full formatted document with headings, lists, and tables
+  - **Outline view**: Copy document structure with indented headings
+  - **Search view**: Copy search results with context
+- 🖥️ **Cross-platform**: Works on Windows, macOS, and Linux (X11/Wayland)
+- ✅ **Visual feedback** with status messages and error handling
 
 ### Export & integration
 - 📝 **Markdown export** with proper table alignment indicators
@@ -60,6 +70,9 @@ doxx spreadsheet.docx --export csv > data.csv
 doxx report.docx --export markdown > report.md
 doxx document.docx --export json > structure.json
 
+# Force interactive UI (useful for development/testing)
+doxx document.docx --force-ui
+
 # Get help
 doxx --help
 ```
@@ -76,6 +89,8 @@ Navigate documents with intuitive keyboard shortcuts and mouse support:
 | `Home`/`End` | Jump to start/end |
 | `o` | Toggle outline view |
 | `s` | Open search |
+| `c` | **Copy content to clipboard** |
+| `F2` | Copy content (in search view) |
 | `n`/`p` | Next/previous search result |
 | `h`/`F1` | Toggle help |
 | `q` | Quit |
@@ -95,6 +110,22 @@ doxx legal-contract.docx --search "liability"
 
 # Navigate large documents with outline
 doxx technical-manual.docx --outline
+```
+
+### Copy & clipboard workflow
+```bash
+# Interactive document review with copy
+doxx quarterly-report.docx
+# Navigate to important section, press 'c' to copy to clipboard
+# Paste into email, Slack, or other applications
+
+# Copy search results for sharing
+doxx meeting-notes.docx --search "action items"
+# Press F2 to copy all search results with context
+
+# Copy document structure for planning
+doxx technical-spec.docx --outline
+# Press 'c' to copy hierarchical outline
 ```
 
 ### Pipeline integration

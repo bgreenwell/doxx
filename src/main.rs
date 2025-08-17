@@ -54,6 +54,10 @@ struct Cli {
     #[arg(long, value_enum)]
     export: Option<ExportFormat>,
 
+    /// Force interactive UI mode (bypass TTY detection)
+    #[arg(long)]
+    force_ui: bool,
+
     /// Extract citations
     #[arg(long)]
     extract_citations: bool,

@@ -113,7 +113,7 @@ pub fn export_to_markdown(document: &Document) -> Result<()> {
     Ok(())
 }
 
-pub fn export_to_text(document: &Document) -> Result<()> {
+pub fn format_as_text(document: &Document) -> String {
     let mut text = String::new();
     
     // Add document title
@@ -139,15 +139,16 @@ pub fn export_to_text(document: &Document) -> Result<()> {
             }
             DocumentElement::List { items, ordered } => {
                 for (i, item) in items.iter().enumerate() {
-                    let indent = "  ".repeat(item.level as usize);
                     let bullet = if *ordered {
                         format!("{}. ", i + 1)
                     } else {
                         "* ".to_string()
                     };
-                    text.push_str(&format!("{}{}{}\n", indent, bullet, item.text));
+                    
+                    let indent = "  ".repeat(item.level as usize);
+                    text.push_str(&format!("{indent}{bullet}{}\n", item.text));
                 }
-                text.push('\n');
+                text.push_str("\n");
             }
             DocumentElement::Table { table } => {
                 // Add table title if present
@@ -182,21 +183,22 @@ pub fn export_to_text(document: &Document) -> Result<()> {
                 let bottom_border = generate_text_table_border(col_widths, "└", "┴", "┘", "─");
                 text.push_str(&format!("{bottom_border}\n"));
                 
-                text.push('\n');
-            }
-            DocumentElement::Image { description, width, height, .. } => {
-                let dimensions = match (width, height) {
-                    (Some(w), Some(h)) => format!(" ({w}x{h})"),
-                    _ => String::new(),
-                };
-                text.push_str(&format!("[IMAGE: {description}{dimensions}]\n\n"));
+                text.push_str("\n");
             }
             DocumentElement::PageBreak => {
-                text.push_str(&format!("\n{}\n\n", "-".repeat(50)));
+                text.push_str("---\n\n");
+            }
+            DocumentElement::Image { description, .. } => {
+                text.push_str(&format!("[Image: {}]\n\n", description));
             }
         }
     }
     
+    text
+}
+
+pub fn export_to_text(document: &Document) -> Result<()> {
+    let text = format_as_text(document);
     print!("{text}");
     Ok(())
 }
