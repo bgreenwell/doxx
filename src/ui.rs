@@ -1,9 +1,15 @@
 use anyhow::Result;
 use arboard::Clipboard;
 use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, MouseEventKind},
+    event::{
+        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode,
+        KeyEventKind, MouseEventKind,
+    },
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{
+        disable_raw_mode, enable_raw_mode, EnterAlternateScreen,
+        LeaveAlternateScreen,
+    },
     tty::IsTty,
 };
 use ratatui::{
@@ -78,7 +84,8 @@ impl App {
 
         if let Some(search) = &cli.search {
             app.search_query = search.clone();
-            app.search_results = crate::document::search_document(&app.document, search);
+            app.search_results =
+                crate::document::search_document(&app.document, search);
             app.current_view = ViewMode::Search;
         }
 
@@ -93,8 +100,11 @@ impl App {
 
     pub fn next_search_result(&mut self) {
         if !self.search_results.is_empty() {
-            self.current_search_index = (self.current_search_index + 1) % self.search_results.len();
-            if let Some(result) = self.search_results.get(self.current_search_index) {
+            self.current_search_index =
+                (self.current_search_index + 1) % self.search_results.len();
+            if let Some(result) =
+                self.search_results.get(self.current_search_index)
+            {
                 self.scroll_offset = result.element_index;
             }
         }
@@ -107,7 +117,9 @@ impl App {
             } else {
                 self.current_search_index - 1
             };
-            if let Some(result) = self.search_results.get(self.current_search_index) {
+            if let Some(result) =
+                self.search_results.get(self.current_search_index)
+            {
                 self.scroll_offset = result.element_index;
             }
         }
@@ -129,7 +141,8 @@ impl App {
 
     pub fn page_down(&mut self, page_size: usize) {
         let max_offset = self.document.elements.len().saturating_sub(1);
-        self.scroll_offset = std::cmp::min(self.scroll_offset + page_size, max_offset);
+        self.scroll_offset =
+            std::cmp::min(self.scroll_offset + page_size, max_offset);
     }
 
     pub fn copy_content(&mut self) {
@@ -144,34 +157,47 @@ impl App {
                     if self.search_results.is_empty() {
                         "No search results to copy.".to_string()
                     } else {
-                        let mut content = format!("Search results for '{}':\n\n", self.search_query);
-                        for (i, result) in self.search_results.iter().enumerate() {
-                            content.push_str(&format!("{}. {}\n", i + 1, result.text.trim()));
+                        let mut content = format!(
+                            "Search results for '{}':\n\n",
+                            self.search_query
+                        );
+                        for (i, result) in
+                            self.search_results.iter().enumerate()
+                        {
+                            content.push_str(&format!(
+                                "{}. {}\n",
+                                i + 1,
+                                result.text.trim()
+                            ));
                         }
                         content
                     }
                 }
                 ViewMode::Outline => {
                     // Copy document outline
-                    let outline = crate::document::generate_outline(&self.document);
+                    let outline =
+                        crate::document::generate_outline(&self.document);
                     let mut content = String::from("Document Outline:\n\n");
                     for item in outline {
-                        let indent = "  ".repeat((item.level as usize).saturating_sub(1));
-                        content.push_str(&format!("{}{}\n", indent, item.title));
+                        let indent = "  "
+                            .repeat((item.level as usize).saturating_sub(1));
+                        content
+                            .push_str(&format!("{}{}\n", indent, item.title));
                     }
                     content
                 }
-                _ => {
-                    "Content not available for copying in this view.".to_string()
-                }
+                _ => "Content not available for copying in this view."
+                    .to_string(),
             };
 
             match clipboard.set_text(content) {
                 Ok(_) => {
-                    self.status_message = Some("Copied to clipboard!".to_string());
+                    self.status_message =
+                        Some("Copied to clipboard!".to_string());
                 }
                 Err(_) => {
-                    self.status_message = Some("Failed to copy to clipboard.".to_string());
+                    self.status_message =
+                        Some("Failed to copy to clipboard.".to_string());
                 }
             }
         } else {
@@ -186,7 +212,7 @@ impl App {
 
 async fn run_non_interactive(document: Document, cli: &Cli) -> Result<()> {
     let app = App::new(document, cli);
-    
+
     match app.current_view {
         ViewMode::Outline => {
             // Show outline
@@ -194,7 +220,8 @@ async fn run_non_interactive(document: Document, cli: &Cli) -> Result<()> {
             println!("Document Outline:");
             println!("================");
             for item in outline {
-                let indent = "  ".repeat((item.level.saturating_sub(1)) as usize);
+                let indent =
+                    "  ".repeat((item.level.saturating_sub(1)) as usize);
                 println!("{}{}", indent, item.title);
             }
         }
@@ -218,7 +245,7 @@ async fn run_non_interactive(document: Document, cli: &Cli) -> Result<()> {
             println!();
             println!("Content Preview:");
             println!("================");
-            
+
             // Show first few elements with proper formatting
             let preview_count = std::cmp::min(app.document.elements.len(), 20);
             for element in &app.document.elements[0..preview_count] {
@@ -262,16 +289,21 @@ async fn run_non_interactive(document: Document, cli: &Cli) -> Result<()> {
                     }
                 }
             }
-            
+
             if app.document.elements.len() > preview_count {
-                println!("... and {} more elements", app.document.elements.len() - preview_count);
+                println!(
+                    "... and {} more elements",
+                    app.document.elements.len() - preview_count
+                );
                 println!();
             }
-            
-            println!("Use --export to save full content, or run in an interactive terminal for full UI.");
+
+            println!(
+                "Use --export to save full content, or run in an interactive terminal for full UI."
+            );
         }
     }
-    
+
     Ok(())
 }
 
@@ -281,7 +313,7 @@ pub async fn run_viewer(document: Document, cli: &Cli) -> Result<()> {
         // Fallback for non-interactive environments
         return run_non_interactive(document, cli).await;
     }
-    
+
     // Setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -311,113 +343,176 @@ pub async fn run_viewer(document: Document, cli: &Cli) -> Result<()> {
     Ok(())
 }
 
-async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<()> {
+async fn run_app<B: Backend>(
+    terminal: &mut Terminal<B>,
+    app: &mut App,
+) -> Result<()> {
     loop {
         terminal.draw(|f| ui(f, app))?;
 
         match event::read()? {
             Event::Key(key) => {
                 if key.kind == KeyEventKind::Press {
-                // Clear status message on any key press (except the copy key)
-                if app.status_message.is_some() && key.code != KeyCode::Char('c') && key.code != KeyCode::F(2) {
-                    app.clear_status_message();
-                }
-                match app.current_view {
-                    ViewMode::Document => match key.code {
-                        KeyCode::Char('q') => break,
-                        KeyCode::Char('o') => app.current_view = ViewMode::Outline,
-                        KeyCode::Char('s') => app.current_view = ViewMode::Search,
-                        KeyCode::Char('a') => {
-                            app.current_view = ViewMode::AIChat;
-                            app.ai_chat_mode = true;
-                        }
-                        KeyCode::Char('h') | KeyCode::F(1) => app.show_help = !app.show_help,
-                        KeyCode::Char('c') => app.copy_content(),
-                        KeyCode::Up | KeyCode::Char('k') => app.scroll_up(),
-                        KeyCode::Down | KeyCode::Char('j') => app.scroll_down(),
-                        KeyCode::PageUp => app.page_up(10),
-                        KeyCode::PageDown => app.page_down(10),
-                        KeyCode::Home => app.scroll_offset = 0,
-                        KeyCode::End => app.scroll_offset = app.document.elements.len().saturating_sub(1),
-                        KeyCode::Char('n') if !app.search_results.is_empty() => app.next_search_result(),
-                        KeyCode::Char('p') if !app.search_results.is_empty() => app.prev_search_result(),
-                        _ => {}
-                    },
-                    ViewMode::Outline => match key.code {
-                        KeyCode::Char('q') | KeyCode::Esc => app.current_view = ViewMode::Document,
-                        KeyCode::Char('c') => app.copy_content(),
-                        KeyCode::Up | KeyCode::Char('k') => {
-                            let selected = app.outline_state.selected().unwrap_or(0);
-                            if selected > 0 {
-                                app.outline_state.select(Some(selected - 1));
+                    // Clear status message on any key press (except the copy key)
+                    if app.status_message.is_some()
+                        && key.code != KeyCode::Char('c')
+                        && key.code != KeyCode::F(2)
+                    {
+                        app.clear_status_message();
+                    }
+                    match app.current_view {
+                        ViewMode::Document => match key.code {
+                            KeyCode::Char('q') => break,
+                            KeyCode::Char('o') => {
+                                app.current_view = ViewMode::Outline
                             }
-                        }
-                        KeyCode::Down | KeyCode::Char('j') => {
-                            let selected = app.outline_state.selected().unwrap_or(0);
-                            if selected + 1 < crate::document::generate_outline(&app.document).len() {
-                                app.outline_state.select(Some(selected + 1));
+                            KeyCode::Char('s') => {
+                                app.current_view = ViewMode::Search
                             }
-                        }
-                        KeyCode::Enter => {
-                            if let Some(selected) = app.outline_state.selected() {
-                                if let Some(outline_item) = crate::document::generate_outline(&app.document).get(selected) {
-                                    app.scroll_offset = outline_item.element_index;
-                                    app.current_view = ViewMode::Document;
+                            KeyCode::Char('a') => {
+                                app.current_view = ViewMode::AIChat;
+                                app.ai_chat_mode = true;
+                            }
+                            KeyCode::Char('h') | KeyCode::F(1) => {
+                                app.show_help = !app.show_help
+                            }
+                            KeyCode::Char('c') => app.copy_content(),
+                            KeyCode::Up | KeyCode::Char('k') => app.scroll_up(),
+                            KeyCode::Down | KeyCode::Char('j') => {
+                                app.scroll_down()
+                            }
+                            KeyCode::PageUp => app.page_up(10),
+                            KeyCode::PageDown => app.page_down(10),
+                            KeyCode::Home => app.scroll_offset = 0,
+                            KeyCode::End => {
+                                app.scroll_offset = app
+                                    .document
+                                    .elements
+                                    .len()
+                                    .saturating_sub(1)
+                            }
+                            KeyCode::Char('n')
+                                if !app.search_results.is_empty() =>
+                            {
+                                app.next_search_result()
+                            }
+                            KeyCode::Char('p')
+                                if !app.search_results.is_empty() =>
+                            {
+                                app.prev_search_result()
+                            }
+                            _ => {}
+                        },
+                        ViewMode::Outline => match key.code {
+                            KeyCode::Char('q') | KeyCode::Esc => {
+                                app.current_view = ViewMode::Document
+                            }
+                            KeyCode::Char('c') => app.copy_content(),
+                            KeyCode::Up | KeyCode::Char('k') => {
+                                let selected =
+                                    app.outline_state.selected().unwrap_or(0);
+                                if selected > 0 {
+                                    app.outline_state
+                                        .select(Some(selected - 1));
                                 }
                             }
-                        }
-                        _ => {}
-                    },
-                    ViewMode::Search => match key.code {
-                        KeyCode::Char('q') | KeyCode::Esc => app.current_view = ViewMode::Document,
-                        KeyCode::F(2) => app.copy_content(), // Use F2 for copy in search mode to avoid conflicts
-                        KeyCode::Char(c) => {
-                            app.search_query.push(c);
-                            app.search_results = crate::document::search_document(&app.document, &app.search_query);
-                            app.current_search_index = 0;
-                        }
-                        KeyCode::Backspace => {
-                            app.search_query.pop();
-                            app.search_results = crate::document::search_document(&app.document, &app.search_query);
-                            app.current_search_index = 0;
-                        }
-                        KeyCode::Enter | KeyCode::Down => app.next_search_result(),
-                        KeyCode::Up => app.prev_search_result(),
-                        _ => {}
-                    },
-                    ViewMode::AIChat => match key.code {
-                        KeyCode::Esc => {
-                            app.current_view = ViewMode::Document;
-                            app.ai_chat_mode = false;
-                        }
-                        KeyCode::Char(c) => app.ai_chat_input.push(c),
-                        KeyCode::Backspace => {
-                            app.ai_chat_input.pop();
-                        }
-                        KeyCode::Enter => {
-                            if !app.ai_chat_input.trim().is_empty() {
-                                app.ai_chat_history.push(ChatMessage {
-                                    role: "User".to_string(),
-                                    content: app.ai_chat_input.clone(),
-                                });
-                                // TODO: Send to AI and get response
-                                app.ai_chat_history.push(ChatMessage {
-                                    role: "AI".to_string(),
-                                    content: "[AI response would go here]".to_string(),
-                                });
-                                app.ai_chat_input.clear();
+                            KeyCode::Down | KeyCode::Char('j') => {
+                                let selected =
+                                    app.outline_state.selected().unwrap_or(0);
+                                if selected + 1
+                                    < crate::document::generate_outline(
+                                        &app.document,
+                                    )
+                                    .len()
+                                {
+                                    app.outline_state
+                                        .select(Some(selected + 1));
+                                }
                             }
-                        }
-                        _ => {}
-                    },
-                    ViewMode::Help => match key.code {
-                        KeyCode::Char('q') | KeyCode::Esc | KeyCode::Char('h') | KeyCode::F(1) => {
-                            app.show_help = false;
-                            app.current_view = ViewMode::Document;
-                        }
-                        _ => {}
-                    },
-                }
+                            KeyCode::Enter => {
+                                if let Some(selected) =
+                                    app.outline_state.selected()
+                                {
+                                    if let Some(outline_item) =
+                                        crate::document::generate_outline(
+                                            &app.document,
+                                        )
+                                        .get(selected)
+                                    {
+                                        app.scroll_offset =
+                                            outline_item.element_index;
+                                        app.current_view = ViewMode::Document;
+                                    }
+                                }
+                            }
+                            _ => {}
+                        },
+                        ViewMode::Search => match key.code {
+                            KeyCode::Char('q') | KeyCode::Esc => {
+                                app.current_view = ViewMode::Document
+                            }
+                            KeyCode::F(2) => app.copy_content(), // Use F2 for copy in search mode to avoid conflicts
+                            KeyCode::Char(c) => {
+                                app.search_query.push(c);
+                                app.search_results =
+                                    crate::document::search_document(
+                                        &app.document,
+                                        &app.search_query,
+                                    );
+                                app.current_search_index = 0;
+                            }
+                            KeyCode::Backspace => {
+                                app.search_query.pop();
+                                app.search_results =
+                                    crate::document::search_document(
+                                        &app.document,
+                                        &app.search_query,
+                                    );
+                                app.current_search_index = 0;
+                            }
+                            KeyCode::Enter | KeyCode::Down => {
+                                app.next_search_result()
+                            }
+                            KeyCode::Up => app.prev_search_result(),
+                            _ => {}
+                        },
+                        ViewMode::AIChat => match key.code {
+                            KeyCode::Esc => {
+                                app.current_view = ViewMode::Document;
+                                app.ai_chat_mode = false;
+                            }
+                            KeyCode::Char(c) => app.ai_chat_input.push(c),
+                            KeyCode::Backspace => {
+                                app.ai_chat_input.pop();
+                            }
+                            KeyCode::Enter => {
+                                if !app.ai_chat_input.trim().is_empty() {
+                                    app.ai_chat_history.push(ChatMessage {
+                                        role: "User".to_string(),
+                                        content: app.ai_chat_input.clone(),
+                                    });
+                                    // TODO: Send to AI and get response
+                                    app.ai_chat_history.push(ChatMessage {
+                                        role: "AI".to_string(),
+                                        content: "[AI response would go here]"
+                                            .to_string(),
+                                    });
+                                    app.ai_chat_input.clear();
+                                }
+                            }
+                            _ => {}
+                        },
+                        ViewMode::Help => match key.code {
+                            KeyCode::Char('q')
+                            | KeyCode::Esc
+                            | KeyCode::Char('h')
+                            | KeyCode::F(1) => {
+                                app.show_help = false;
+                                app.current_view = ViewMode::Document;
+                            }
+                            _ => {}
+                        },
+                    }
                 }
             }
             Event::Mouse(mouse) => {
@@ -431,9 +526,11 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                                 }
                             }
                             ViewMode::Outline => {
-                                let selected = app.outline_state.selected().unwrap_or(0);
+                                let selected =
+                                    app.outline_state.selected().unwrap_or(0);
                                 if selected > 0 {
-                                    app.outline_state.select(Some(selected - 1));
+                                    app.outline_state
+                                        .select(Some(selected - 1));
                                 }
                             }
                             ViewMode::Search => app.prev_search_result(),
@@ -449,9 +546,16 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                                 }
                             }
                             ViewMode::Outline => {
-                                let selected = app.outline_state.selected().unwrap_or(0);
-                                if selected + 1 < crate::document::generate_outline(&app.document).len() {
-                                    app.outline_state.select(Some(selected + 1));
+                                let selected =
+                                    app.outline_state.selected().unwrap_or(0);
+                                if selected + 1
+                                    < crate::document::generate_outline(
+                                        &app.document,
+                                    )
+                                    .len()
+                                {
+                                    app.outline_state
+                                        .select(Some(selected + 1));
                                 }
                             }
                             ViewMode::Search => app.next_search_result(),
@@ -503,33 +607,55 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
     f.render_widget(block, area);
 
     let visible_height = inner.height as usize;
-    let end_index = std::cmp::min(app.scroll_offset + visible_height, app.document.elements.len());
+    let end_index = std::cmp::min(
+        app.scroll_offset + visible_height,
+        app.document.elements.len(),
+    );
 
     let mut text = Text::default();
-    
-    for (index, element) in app.document.elements[app.scroll_offset..end_index].iter().enumerate() {
+
+    for (index, element) in app.document.elements[app.scroll_offset..end_index]
+        .iter()
+        .enumerate()
+    {
         let actual_index = app.scroll_offset + index;
-        let is_search_match = app.search_results.iter().any(|r| r.element_index == actual_index);
-        
+        let is_search_match = app
+            .search_results
+            .iter()
+            .any(|r| r.element_index == actual_index);
+
         match element {
-            DocumentElement::Heading { level, text: heading_text, .. } => {
+            DocumentElement::Heading {
+                level,
+                text: heading_text,
+                ..
+            } => {
                 let style = match level {
-                    1 => Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
-                    2 => Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
-                    _ => Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                    1 => Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD),
+                    2 => Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                    _ => Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
                 };
-                
+
                 let prefix = match level {
                     1 => "■ ".to_string(),
                     2 => "  ▶ ".to_string(),
                     3 => "    ◦ ".to_string(),
                     _ => "      • ".to_string(),
                 };
-                
+
                 let line = if is_search_match {
                     Line::from(vec![
                         Span::styled(prefix.clone(), style),
-                        Span::styled(heading_text, style.bg(Color::Yellow).fg(Color::Black)),
+                        Span::styled(
+                            heading_text,
+                            style.bg(Color::Yellow).fg(Color::Black),
+                        ),
                     ])
                 } else {
                     Line::from(vec![
@@ -540,7 +666,10 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
                 text.lines.push(line);
                 text.lines.push(Line::from(""));
             }
-            DocumentElement::Paragraph { text: para_text, formatting } => {
+            DocumentElement::Paragraph {
+                text: para_text,
+                formatting,
+            } => {
                 let mut style = Style::default();
                 if formatting.bold {
                     style = style.add_modifier(Modifier::BOLD);
@@ -567,7 +696,8 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
                     style = style.bg(Color::Yellow).fg(Color::Black);
                 }
 
-                text.lines.push(Line::from(Span::styled(display_text, style)));
+                text.lines
+                    .push(Line::from(Span::styled(display_text, style)));
                 text.lines.push(Line::from(""));
             }
             DocumentElement::List { items, ordered } => {
@@ -577,13 +707,16 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
                     } else {
                         "• ".to_string()
                     };
-                    
+
                     let indent = "  ".repeat(item.level as usize);
-                    
+
                     // Combine indent and bullet to ensure proper spacing
                     let prefixed_bullet = format!("{}{}", indent, bullet);
                     let line = Line::from(vec![
-                        Span::styled(prefixed_bullet, Style::default().fg(Color::Blue)),
+                        Span::styled(
+                            prefixed_bullet,
+                            Style::default().fg(Color::Blue),
+                        ),
                         Span::raw(&item.text),
                     ]);
                     text.lines.push(line);
@@ -593,16 +726,24 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
             DocumentElement::Table { table } => {
                 render_table_enhanced(table, &mut text);
             }
-            DocumentElement::Image { description, width, height, .. } => {
+            DocumentElement::Image {
+                description,
+                width,
+                height,
+                ..
+            } => {
                 let dimensions = match (width, height) {
                     (Some(w), Some(h)) => format!(" ({w}x{h})"),
                     _ => String::new(),
                 };
-                
+
                 let line = Line::from(vec![
                     Span::styled("🖼️  ", Style::default().fg(Color::Magenta)),
                     Span::styled(description, Style::default().fg(Color::Gray)),
-                    Span::styled(dimensions, Style::default().fg(Color::DarkGray)),
+                    Span::styled(
+                        dimensions,
+                        Style::default().fg(Color::DarkGray),
+                    ),
                 ]);
                 text.lines.push(line);
                 text.lines.push(Line::from(""));
@@ -610,7 +751,7 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
             DocumentElement::PageBreak => {
                 text.lines.push(Line::from(Span::styled(
                     "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
-                    Style::default().fg(Color::DarkGray)
+                    Style::default().fg(Color::DarkGray),
                 )));
                 text.lines.push(Line::from(""));
             }
@@ -618,9 +759,9 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
     }
 
     let paragraph = Paragraph::new(text)
-        .wrap(Wrap { trim: false })  // Don't trim whitespace to preserve list indentation
+        .wrap(Wrap { trim: false }) // Don't trim whitespace to preserve list indentation
         .scroll((0, 0));
-    
+
     f.render_widget(paragraph, inner);
 
     // Render scrollbar
@@ -628,14 +769,17 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
         .orientation(ScrollbarOrientation::VerticalRight)
         .begin_symbol(Some("↑"))
         .end_symbol(Some("↓"));
-    
+
     let mut scrollbar_state = ScrollbarState::default()
         .content_length(app.document.elements.len())
         .position(app.scroll_offset);
-    
+
     f.render_stateful_widget(
         scrollbar,
-        area.inner(&Margin { vertical: 1, horizontal: 0 }),
+        area.inner(&Margin {
+            vertical: 1,
+            horizontal: 0,
+        }),
         &mut scrollbar_state,
     );
 }
@@ -689,33 +833,39 @@ fn render_search(f: &mut Frame, area: Rect, app: &App) {
         .enumerate()
         .map(|(i, result)| {
             let prefix = "📄"; // Simplified for now
-            
+
             let style = if i == app.current_search_index {
                 Style::default().bg(Color::Blue).fg(Color::White)
             } else {
                 Style::default()
             };
-            
+
             // Truncate long results and add context
             let display_text = if result.text.len() > 80 {
                 format!("{}...", &result.text[..77])
             } else {
                 result.text.clone()
             };
-            
-            ListItem::new(format!("{} {} [{}]", prefix, display_text, i + 1)).style(style)
+
+            ListItem::new(format!("{} {} [{}]", prefix, display_text, i + 1))
+                .style(style)
         })
         .collect();
 
-    let results_list = List::new(results)
-        .block(
-            Block::default()
-                .title(format!("Results ({}/{})", 
-                    if app.search_results.is_empty() { 0 } else { app.current_search_index + 1 },
-                    app.search_results.len()))
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Yellow)),
-        );
+    let results_list = List::new(results).block(
+        Block::default()
+            .title(format!(
+                "Results ({}/{})",
+                if app.search_results.is_empty() {
+                    0
+                } else {
+                    app.current_search_index + 1
+                },
+                app.search_results.len()
+            ))
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Yellow)),
+    );
 
     f.render_widget(results_list, chunks[1]);
 }
@@ -734,9 +884,12 @@ fn render_ai_chat(f: &mut Frame, area: Rect, app: &App) {
         } else {
             Style::default().fg(Color::Green)
         };
-        
+
         text.lines.push(Line::from(vec![
-            Span::styled(format!("{}: ", message.role), style.add_modifier(Modifier::BOLD)),
+            Span::styled(
+                format!("{}: ", message.role),
+                style.add_modifier(Modifier::BOLD),
+            ),
             Span::styled(&message.content, Style::default()),
         ]));
         text.lines.push(Line::from(""));
@@ -771,7 +924,7 @@ fn render_help(f: &mut Frame, area: Rect) {
         "",
         "📖 Document Navigation:",
         "  ↑/k        Scroll up",
-        "  ↓/j        Scroll down", 
+        "  ↓/j        Scroll down",
         "  Page Up    Page up",
         "  Page Down  Page down",
         "  Home       Go to start",
@@ -824,15 +977,19 @@ fn render_status_bar(f: &mut Frame, area: Rect, app: &App) {
         ViewMode::AIChat => "🤖 AI Chat",
         ViewMode::Help => "❓ Help",
     };
-    
+
     let search_info = if !app.search_results.is_empty() {
-        format!(" • 🔍 {}/{} matches", app.current_search_index + 1, app.search_results.len())
+        format!(
+            " • 🔍 {}/{} matches",
+            app.current_search_index + 1,
+            app.search_results.len()
+        )
     } else if !app.search_query.is_empty() {
         " • 🔍 No matches".to_string()
     } else {
         String::new()
     };
-    
+
     let status_text = if let Some(status_msg) = &app.status_message {
         // Show status message (like copy confirmation) with higher priority
         status_msg.clone()
@@ -840,7 +997,11 @@ fn render_status_bar(f: &mut Frame, area: Rect, app: &App) {
         format!(
             "{} • 📄 {} • {} pages • {} words • {}/{}{}",
             view_indicator,
-            metadata.file_path.split('/').next_back().unwrap_or("Unknown"),
+            metadata
+                .file_path
+                .split('/')
+                .next_back()
+                .unwrap_or("Unknown"),
             metadata.page_count,
             metadata.word_count,
             app.scroll_offset + 1,
@@ -851,7 +1012,10 @@ fn render_status_bar(f: &mut Frame, area: Rect, app: &App) {
 
     let status_style = if app.status_message.is_some() {
         // Highlight status messages
-        Style::default().fg(Color::Green).bg(Color::DarkGray).add_modifier(Modifier::BOLD)
+        Style::default()
+            .fg(Color::Green)
+            .bg(Color::DarkGray)
+            .add_modifier(Modifier::BOLD)
     } else {
         Style::default().fg(Color::White).bg(Color::DarkGray)
     };
@@ -870,7 +1034,7 @@ fn render_status_bar(f: &mut Frame, area: Rect, app: &App) {
         width: area.width,
         height: 1,
     };
-    
+
     let help = Paragraph::new(help_text)
         .style(Style::default().fg(Color::Gray))
         .block(Block::default());
@@ -880,41 +1044,62 @@ fn render_status_bar(f: &mut Frame, area: Rect, app: &App) {
 
 fn render_table_enhanced(table: &TableData, text: &mut Text) {
     let metadata = &table.metadata;
-    
+
     // Add table title if present
     if let Some(title) = &metadata.title {
         text.lines.push(Line::from(Span::styled(
             format!("📊 {title}"),
-            Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD)
+            Style::default()
+                .fg(Color::Blue)
+                .add_modifier(Modifier::BOLD),
         )));
         text.lines.push(Line::from(""));
     }
-    
+
     // Generate table with proper alignment and borders
     if !table.headers.is_empty() {
         // Top border
-        let top_border = generate_table_border(&metadata.column_widths, BorderType::Top);
-        text.lines.push(Line::from(Span::styled(top_border, Style::default().fg(Color::Gray))));
-        
+        let top_border =
+            generate_table_border(&metadata.column_widths, BorderType::Top);
+        text.lines.push(Line::from(Span::styled(
+            top_border,
+            Style::default().fg(Color::Gray),
+        )));
+
         // Header row
-        let header_line = render_table_row(&table.headers, &metadata.column_widths, true);
-        text.lines.push(Line::from(Span::styled(header_line, Style::default().add_modifier(Modifier::BOLD))));
-        
+        let header_line =
+            render_table_row(&table.headers, &metadata.column_widths, true);
+        text.lines.push(Line::from(Span::styled(
+            header_line,
+            Style::default().add_modifier(Modifier::BOLD),
+        )));
+
         // Header separator
-        let separator = generate_table_border(&metadata.column_widths, BorderType::Separator);
-        text.lines.push(Line::from(Span::styled(separator, Style::default().fg(Color::Gray))));
-        
+        let separator = generate_table_border(
+            &metadata.column_widths,
+            BorderType::Separator,
+        );
+        text.lines.push(Line::from(Span::styled(
+            separator,
+            Style::default().fg(Color::Gray),
+        )));
+
         // Data rows
         for row in &table.rows {
-            let row_line = render_table_row(row, &metadata.column_widths, false);
+            let row_line =
+                render_table_row(row, &metadata.column_widths, false);
             text.lines.push(Line::from(Span::raw(row_line)));
         }
-        
+
         // Bottom border
-        let bottom_border = generate_table_border(&metadata.column_widths, BorderType::Bottom);
-        text.lines.push(Line::from(Span::styled(bottom_border, Style::default().fg(Color::Gray))));
+        let bottom_border =
+            generate_table_border(&metadata.column_widths, BorderType::Bottom);
+        text.lines.push(Line::from(Span::styled(
+            bottom_border,
+            Style::default().fg(Color::Gray),
+        )));
     }
-    
+
     text.lines.push(Line::from(""));
 }
 
@@ -925,52 +1110,64 @@ enum BorderType {
     Bottom,
 }
 
-fn generate_table_border(column_widths: &[usize], border_type: BorderType) -> String {
+fn generate_table_border(
+    column_widths: &[usize],
+    border_type: BorderType,
+) -> String {
     let (left, middle, right, fill) = match border_type {
         BorderType::Top => ("┌", "┬", "┐", "─"),
         BorderType::Separator => ("├", "┼", "┤", "─"),
         BorderType::Bottom => ("└", "┴", "┘", "─"),
     };
-    
+
     let mut border = String::new();
     border.push_str(left);
-    
+
     for (i, &width) in column_widths.iter().enumerate() {
         border.push_str(&fill.repeat(width + 2)); // +2 for padding
         if i < column_widths.len() - 1 {
             border.push_str(middle);
         }
     }
-    
+
     border.push_str(right);
     border
 }
 
-fn render_table_row(cells: &[TableCell], column_widths: &[usize], is_header: bool) -> String {
+fn render_table_row(
+    cells: &[TableCell],
+    column_widths: &[usize],
+    is_header: bool,
+) -> String {
     let mut row = String::new();
     row.push('│');
-    
+
     for (i, cell) in cells.iter().enumerate() {
         let width = column_widths.get(i).copied().unwrap_or(10);
-        let aligned_content = align_cell_content(&cell.content, cell.alignment, width);
+        let aligned_content =
+            align_cell_content(&cell.content, cell.alignment, width);
         let formatted_content = if is_header {
             aligned_content
         } else {
             apply_cell_formatting(&aligned_content, &cell.formatting)
         };
-        
+
         row.push(' ');
         row.push_str(&formatted_content);
         row.push(' ');
         row.push('│');
     }
-    
+
     row
 }
 
-fn align_cell_content(content: &str, alignment: TextAlignment, width: usize) -> String {
+fn align_cell_content(
+    content: &str,
+    alignment: TextAlignment,
+    width: usize,
+) -> String {
     let trimmed = content.trim();
-    
+
     match alignment {
         TextAlignment::Left => format!("{trimmed:<width$}"),
         TextAlignment::Right => format!("{trimmed:>width$}"),
@@ -978,7 +1175,12 @@ fn align_cell_content(content: &str, alignment: TextAlignment, width: usize) -> 
             let padding = width.saturating_sub(trimmed.len());
             let left_pad = padding / 2;
             let right_pad = padding - left_pad;
-            format!("{}{}{}", " ".repeat(left_pad), trimmed, " ".repeat(right_pad))
+            format!(
+                "{}{}{}",
+                " ".repeat(left_pad),
+                trimmed,
+                " ".repeat(right_pad)
+            )
         }
         TextAlignment::Justify => {
             // For terminal output, treat justify as left-aligned
@@ -987,7 +1189,10 @@ fn align_cell_content(content: &str, alignment: TextAlignment, width: usize) -> 
     }
 }
 
-fn apply_cell_formatting(content: &str, _formatting: &TextFormatting) -> String {
+fn apply_cell_formatting(
+    content: &str,
+    _formatting: &TextFormatting,
+) -> String {
     // For terminal output, we'll keep formatting simple
     // Advanced formatting could use ANSI codes here
     content.to_string()
