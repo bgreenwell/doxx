@@ -44,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Dependencies
 - Added `arboard ^3.3` for cross-platform clipboard functionality
+- Updated `ratatui` from `0.26` to `0.29` for latest terminal UI features and API compatibility
 
 ### Changed
 - **Build Optimizations**: Enabled Link-Time Optimization (LTO) for release builds ([#1](https://github.com/bgreenwell/doxx/issues/1))

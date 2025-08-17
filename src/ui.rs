@@ -507,7 +507,7 @@ fn ui(f: &mut Frame, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Min(0), Constraint::Length(3)].as_ref())
-        .split(f.size());
+        .split(f.area());
 
     // Main content area
     match app.current_view {
@@ -698,7 +698,7 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
 
     f.render_stateful_widget(
         scrollbar,
-        area.inner(&Margin {
+        area.inner(Margin {
             vertical: 1,
             horizontal: 0,
         }),
@@ -884,7 +884,7 @@ fn render_help(f: &mut Frame, area: Rect) {
 }
 
 fn render_help_overlay(f: &mut Frame, _app: &App) {
-    let area = centered_rect(60, 70, f.size());
+    let area = centered_rect(60, 70, f.area());
     f.render_widget(Clear, area);
     render_help(f, area);
 }

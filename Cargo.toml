@@ -14,7 +14,7 @@ default-run = "doxx"
 docx-rs = "0.4"
 
 # Terminal UI
-ratatui = "0.26"
+ratatui = "0.29"
 crossterm = "0.27"
 arboard = "3.3"
 
