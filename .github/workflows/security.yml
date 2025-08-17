@@ -25,7 +25,7 @@ jobs:
       uses: Swatinem/rust-cache@v2
 
     - name: Run cargo audit
-      uses: rustsec/audit-check@v1.4.1
+      uses: rustsec/audit-check@v2.0.0
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
 
