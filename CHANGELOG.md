@@ -46,7 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `arboard ^3.3` for cross-platform clipboard functionality
 
 ### Changed
-- **Build Optimizations**: Enabled Link-Time Optimization (LTO) for release builds (#1)
+- **Build Optimizations**: Enabled Link-Time Optimization (LTO) for release builds ([#1](https://github.com/bgreenwell/doxx/issues/1))
   - Added `codegen-units = 1` and `lto = true` to `[profile.release]`
   - Reduced binary size from ~5MB to ~3MB (up to 40% smaller)
   - Improved runtime performance through better optimization
