@@ -35,7 +35,7 @@ anyhow = "1.0"
 thiserror = "1.0"
 
 # Configuration
-dirs = "5.0"
+dirs = "6.0"
 toml = "0.8"
 
 # Release optimizations
