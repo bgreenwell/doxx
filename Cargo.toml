@@ -37,3 +37,8 @@ thiserror = "1.0"
 # Configuration
 dirs = "5.0"
 toml = "0.8"
+
+# Release optimizations
+[profile.release]
+codegen-units = 1
+lto = true
