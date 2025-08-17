@@ -50,11 +50,6 @@ This directory contains comprehensive test documents for validating doxx functio
 - **Tests**: Document summarization, key point extraction, business intelligence
 - **Usage**: `cargo run tests/fixtures/business-report.docx --summarize` (when AI is enabled)
 
-### `sample.docx`
-- **Purpose**: Mixed content for general AI testing
-- **Content**: Claude Code conversation with technical discussions
-- **Tests**: Q&A functionality, technical content analysis
-- **Usage**: `cargo run tests/fixtures/sample.docx --ask "What are agents?"`
 
 ## Export Validation
 
@@ -96,7 +91,7 @@ cargo run tests/fixtures/business-report.docx --export json > test_report.json
 # Test search across different document types
 cargo run tests/fixtures/business-report.docx --search "revenue"
 cargo run tests/fixtures/unicode-special.docx --search "emoji"
-cargo run tests/fixtures/sample.docx --search "agent"
+cargo run tests/fixtures/formatting-showcase.docx --search "bold"
 ```
 
 ### Performance Testing

@@ -121,7 +121,6 @@ fn test_all_fixtures_exist() {
         "tests/fixtures/unicode-special.docx",
         "tests/fixtures/business-report.docx",
         "tests/fixtures/export-test.docx",
-        "tests/fixtures/sample.docx",
     ];
     
     for fixture in &fixtures {
