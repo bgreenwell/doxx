@@ -813,10 +813,7 @@ fn calculate_column_widths(headers: &[TableCell], rows: &TableRows) -> Vec<usize
     widths
 }
 
-fn determine_column_alignments(
-    headers: &[TableCell],
-    rows: &TableRows,
-) -> Vec<TextAlignment> {
+fn determine_column_alignments(headers: &[TableCell], rows: &TableRows) -> Vec<TextAlignment> {
     let column_count = headers.len();
     let mut alignments = vec![TextAlignment::Left; column_count];
 
