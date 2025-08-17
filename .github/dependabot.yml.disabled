@@ -1,5 +1,8 @@
-# GitHub Dependabot configuration for doxx
+# GitHub Dependabot configuration for doxx - DISABLED
 # See: https://docs.github.com/en/code-security/dependabot
+# 
+# This is disabled during early development to avoid PR spam.
+# Rename to dependabot.yml when project is stable and ready for automated dependency updates.
 
 version: 2
 updates:
@@ -11,7 +14,7 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "UTC"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 3
     reviewers:
       - "bgreenwell"
     assignees:
@@ -22,7 +25,7 @@ updates:
     labels:
       - "dependencies"
       - "rust"
-    # Group minor and patch updates
+    # Group ALL updates to reduce PR noise
     groups:
       rust-dependencies:
         patterns:
@@ -30,6 +33,7 @@ updates:
         update-types:
           - "minor"
           - "patch"
+          - "major"
     
   # GitHub Actions
   - package-ecosystem: "github-actions"
@@ -39,7 +43,7 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "UTC"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 2
     reviewers:
       - "bgreenwell"
     assignees:
