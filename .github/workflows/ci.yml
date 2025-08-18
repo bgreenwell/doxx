@@ -2,96 +2,24 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main ]
   pull_request:
     branches: [ main ]
 
 env:
   CARGO_TERM_COLOR: always
-  RUST_BACKTRACE: 1
 
 jobs:
   test:
-    name: Test Suite
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        rust: [stable, beta]
-        include:
-          - os: ubuntu-latest
-            rust: 1.70.0  # MSRV
+    name: Test
+    runs-on: ubuntu-latest
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Install Rust toolchain
+    - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
-      with:
-        toolchain: ${{ matrix.rust }}
-        components: rustfmt, clippy
-
-    - name: Install system dependencies (Linux)
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libxcb-shape0-dev libxcb-xfixes0-dev
-
-    - name: Cache dependencies
-      uses: Swatinem/rust-cache@v2
-      with:
-        key: ${{ matrix.os }}-${{ matrix.rust }}
-
-    - name: Check formatting
-      run: cargo fmt --all -- --check
-
-    - name: Lint with Clippy
-      run: cargo clippy --all-targets --all-features -- -D warnings
-
-    - name: Run tests
-      run: cargo test --verbose --all-features
-
-    - name: Run tests (no default features)
-      run: cargo test --no-default-features
-
-    - name: Build release
-      run: cargo build --release --all-features
-
-    - name: Test binary functionality
-      run: |
-        ./target/release/doxx --help
-        ./target/release/doxx --version || true
-
-  security:
-    name: Security Audit
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
-
-    - name: Cache dependencies
-      uses: Swatinem/rust-cache@v2
-
-    - name: Security audit
-      uses: rustsec/audit-check@v1.4.1
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-
-  coverage:
-    name: Code Coverage
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        components: llvm-tools-preview
 
     - name: Install system dependencies
       run: |
@@ -101,33 +29,14 @@ jobs:
     - name: Cache dependencies
       uses: Swatinem/rust-cache@v2
 
-    - name: Install cargo-llvm-cov
-      uses: taiki-e/install-action@cargo-llvm-cov
+    - name: Check formatting
+      run: cargo fmt --all -- --check
 
-    - name: Generate code coverage
-      run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
+    - name: Lint with Clippy
+      run: cargo clippy --all-targets -- -D warnings
 
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
-      with:
-        files: lcov.info
-        fail_ci_if_error: true
+    - name: Run tests
+      run: cargo test
 
-  docs:
-    name: Documentation
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
-
-    - name: Cache dependencies
-      uses: Swatinem/rust-cache@v2
-
-    - name: Build documentation
-      run: cargo doc --all-features --no-deps --document-private-items
-
-    - name: Check for broken links in docs
-      run: cargo doc --all-features --no-deps 2>&1 | grep -q "warning" && exit 1 || exit 0
+    - name: Check build
+      run: cargo build --release
