@@ -26,6 +26,9 @@ coverage/
 # Generated documentation
 /doc
 
+# Project management and development notes
+CLAUDE.md
+
 # macOS
 .DS_Store
 .AppleDouble
