@@ -591,8 +591,10 @@ fn extract_run_formatting(run: &docx_rs::Run) -> TextFormatting {
         // Extract color value through debug formatting as a workaround for private field access
         let color_debug = format!("{color:?}");
         if let Some(start) = color_debug.find("val: \"") {
-            if let Some(end) = color_debug[start + 6..].find("\"") {
-                let color_val = &color_debug[start + 6..start + 6 + end];
+            // Safe: searching for ASCII strings in debug output
+            let search_from = start + 6; // length of "val: \""
+            if let Some(end) = color_debug[search_from..].find("\"") {
+                let color_val = &color_debug[search_from..search_from + end];
                 formatting.color = Some(color_val.to_string());
             }
         }
@@ -710,6 +712,7 @@ fn is_likely_list_item(text: &str) -> bool {
         // If it starts with a number followed by "." and then has substantial content,
         // it's likely a list item, not a heading
         if let Some(dot_pos) = text.find('.') {
+            // Safe: '.' is ASCII, so dot_pos+1 is guaranteed to be a char boundary
             let after_dot = &text[dot_pos + 1..].trim();
             // If there's substantial content after the number and dot, it's likely a list item
             if after_dot.len() > 20 {
@@ -818,22 +821,30 @@ fn clean_list_item_text(text: &str) -> String {
         return text.strip_prefix("• ").unwrap_or(text).trim().to_string();
     }
     if text.starts_with("- ") || text.starts_with("* ") {
-        return text[2..].trim().to_string();
+        return text
+            .strip_prefix("- ")
+            .or_else(|| text.strip_prefix("* "))
+            .unwrap_or(text)
+            .trim()
+            .to_string();
     }
 
-    // Remove numbered list prefixes
+    // Remove numbered list prefixes (Unicode-safe)
     if let Some(dot_pos) = text.find('.') {
         let prefix = &text[..dot_pos];
         if prefix.chars().all(|c| c.is_ascii_digit()) {
+            // Safe: find() returns byte position, but we know '.' is ASCII
+            // so dot_pos+1 is guaranteed to be a valid char boundary
             return text[dot_pos + 1..].trim().to_string();
         }
     }
 
-    // Remove lettered list prefixes
-    if text.len() > 3 && text.chars().nth(1) == Some('.') {
+    // Remove lettered list prefixes (Unicode-safe)
+    if text.chars().count() > 2 && text.chars().nth(1) == Some('.') {
         let first_char = text.chars().next().unwrap();
         if first_char.is_ascii_lowercase() || first_char.is_ascii_uppercase() {
-            return text[2..].trim().to_string();
+            // Safe: skip the first character and the dot, both ASCII
+            return text.chars().skip(2).collect::<String>().trim().to_string();
         }
     }
 

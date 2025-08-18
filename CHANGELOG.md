@@ -39,6 +39,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Force UI Mode**: Added `--force-ui` flag to bypass TTY detection for testing and development
 
 ### Fixed
+- **CRITICAL: Unicode Safety Bug**: Fixed runtime panic when searching documents with emojis and special characters ([#22](https://github.com/bgreenwell/doxx/issues/22))
+  - **Issue**: Unsafe string slicing at byte position 77 in search results could slice through Unicode character boundaries
+  - **Root Cause**: Code used `&result.text[..77]` which panics when position 77 falls inside a multi-byte Unicode character (like emojis)
+  - **Solution**: Implemented Unicode-safe truncation that finds valid UTF-8 boundaries before slicing
+  - **Additional Fixes**: Audited and fixed all unsafe string slicing operations throughout codebase
+    - `src/ui.rs`: Fixed search result truncation with safe boundary detection
+    - `src/document.rs`: Fixed list prefix removal using `strip_prefix()` instead of direct slicing
+    - Added comprehensive Unicode test suite with emojis, CJK text, and accented characters
+  - **Test Coverage**: Created targeted reproduction tests and Unicode safety validation
+  - **Impact**: Application now handles all Unicode content safely without runtime panics
+- **Missing LICENSE File**: Added MIT license file to repository root ([#14](https://github.com/bgreenwell/doxx/issues/14))
+  - **Issue**: Repository missing required LICENSE file for proper open source compliance
+  - **Solution**: Created MIT license file and updated Cargo.toml to use single MIT license
+  - **Compliance**: Now properly licensed for distribution and contribution
+- **Numbered Headings Not Displaying**: Fixed Microsoft Word multilevel list headings not showing numbers ([#16](https://github.com/bgreenwell/doxx/issues/16))
+  - **Issue**: Word documents using "Multilevel List" feature for headings showed content without numbering
+  - **Root Cause**: Word's multilevel list numbering is stored differently than manual text numbering
+  - **Solution**: Implemented automatic heading numbering generation with `HeadingNumberTracker`
+    - Generates hierarchical numbering (1.0, 1.1, 1.2, 2.0, etc.) based on heading levels
+    - Properly resets counters when returning to higher heading levels
+    - Integrates with all export formats (markdown, text, JSON)
+  - **Test Coverage**: Added comprehensive heading numbering tests
+  - **Result**: Professional document structure display matching Word's original numbering
 - **Word Automatic List Formatting**: Fixed automatic lists from Microsoft Word not rendering correctly ([#17](https://github.com/bgreenwell/doxx/issues/17))
   - **Issue**: Word's automatic lists (using numbering buttons) were parsed as headings instead of list items
   - **Root Cause**: Word stores list formatting in paragraph numbering properties (`w:numPr`), not as visible text
@@ -59,6 +82,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Replaced unsafe string slicing with `strip_prefix()` for proper Unicode handling
 
 ### Enhanced
+- **Document Structure Display**: Significantly improved heading and numbering support
+  - **Heading Numbering**: Added automatic hierarchical numbering for Word multilevel list headings
+  - **Professional Output**: Documents now display with proper section numbering (1.0, 1.1, 2.0, etc.)
+  - **Export Integration**: Heading numbers included in all export formats (markdown, text, JSON)
+  - **Unicode Safety**: All text processing now handles Unicode characters safely
 - **Word Document Compatibility**: Significantly improved handling of Microsoft Word documents
   - Enhanced paragraph numbering property parsing for automatic lists
   - Better integration between Word's native formatting and terminal rendering
@@ -92,7 +120,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Thanks to @zamazan4ik for the suggestion!
 
 ### Infrastructure
-- **Code Quality**: Added comprehensive linting and formatting configuration
+- **GitHub Pages Deployment**: Fixed documentation deployment workflow
+  - **Issue**: GitHub Actions deployment failing with "Pages site failed" error
+  - **Solution**: Added `enablement: true` and proper error handling in workflow
+  - **Enhancement**: Improved deployment robustness with continue-on-error and helpful status messages
+  - **Result**: Automated Rust documentation deployment now working reliably
+- **Code Quality**: Enhanced linting and formatting configuration
   - Added `rustfmt.toml` for consistent code formatting
   - Added `clippy.toml` for enhanced linting rules with MSRV support
   - Fixed all clippy warnings including type complexity, format string issues, and dead code warnings

@@ -788,9 +788,20 @@ fn render_search(f: &mut Frame, area: Rect, app: &App) {
                 Style::default()
             };
 
-            // Truncate long results and add context
+            // Truncate long results and add context (Unicode-safe)
             let display_text = if result.text.len() > 80 {
-                format!("{}...", &result.text[..77])
+                // Safe truncation: find the largest valid UTF-8 boundary <= 77 bytes
+                let max_bytes = 77;
+                let safe_boundary = if result.text.len() <= max_bytes {
+                    result.text.len()
+                } else {
+                    let mut boundary = max_bytes;
+                    while boundary > 0 && !result.text.is_char_boundary(boundary) {
+                        boundary -= 1;
+                    }
+                    boundary
+                };
+                format!("{}...", &result.text[..safe_boundary])
             } else {
                 result.text.clone()
             };
