@@ -16,6 +16,7 @@
 
 ### Document viewing
 - 🎨 **Beautiful terminal rendering** with syntax highlighting and formatting
+- 🌈 **Color support** with `--color` flag for Word document text colors (red, blue, green, etc.)
 - 📊 **Professional table display** with smart alignment and Unicode borders
 - 📋 **Nested list support** with proper indentation and multi-level hierarchy
 - 🔍 **Full-text search** with highlighting and context
@@ -49,12 +50,59 @@
 
 ### Installation
 
+#### 📦 Pre-built binaries (recommended)
+
+**doxx** provides pre-built binaries for all major platforms via GitHub releases:
+
+| Platform | Architecture | Download |
+|----------|-------------|----------|
+| 🪟 **Windows** | x86_64 | `doxx-windows-x86_64.zip` |
+| 🐧 **Linux** | x86_64 (musl) | `doxx-linux-x86_64.tar.gz` |
+| 🍎 **macOS** | Intel (x86_64) | `doxx-macos-x86_64.tar.gz` |
+| 🍎 **macOS** | Apple Silicon (ARM64) | `doxx-macos-arm64.tar.gz` |
+
 ```bash
-# Install from source (requires Rust)
+# Download the latest release for your platform
+curl -L https://github.com/bgreenwell/doxx/releases/latest/download/doxx-[platform].tar.gz | tar xz
+
+# Move to your PATH
+sudo mv doxx /usr/local/bin/
+
+# Verify installation
+doxx --version
+```
+
+**✅ Supported operating systems:**
+- Windows 10/11 (x86_64)
+- Linux distributions (x86_64, musl-based for maximum compatibility)
+- macOS 10.12+ (Intel and Apple Silicon)
+
+#### 🍺 Package managers (coming soon!)
+
+We're working on official package manager support:
+
+- 🍺 **Homebrew** (macOS/Linux): `brew install doxx` - *coming soon*
+- 📦 **Chocolatey** (Windows): `choco install doxx` - *coming soon*  
+- 🦀 **Cargo** (all platforms): `cargo install doxx` - *coming soon*
+- 🐧 **APT/YUM** (Linux): Official repo packages - *coming soon*
+
+#### 🔧 Build from source
+
+For the latest development features or unsupported platforms:
+
+```bash
+# Install from source (requires Rust 1.70+)
 git clone https://github.com/bgreenwell/doxx.git
 cd doxx
 cargo install --path .
+
+# Or install directly from Git
+cargo install --git https://github.com/bgreenwell/doxx.git
 ```
+
+**Requirements:**
+- Rust 1.70 or later
+- Git for cloning the repository
 
 ### Basic usage
 
@@ -68,6 +116,9 @@ doxx document.docx --outline
 # Search for specific content
 doxx contract.docx --search "payment terms"
 
+# Enable color support for Word text colors
+doxx presentation.docx --color
+
 # Export to different formats
 doxx spreadsheet.docx --export csv > data.csv
 doxx report.docx --export markdown > report.md
@@ -75,6 +126,9 @@ doxx document.docx --export json > structure.json
 
 # Force interactive UI (useful for development/testing)
 doxx document.docx --force-ui
+
+# Check version
+doxx --version
 
 # Get help
 doxx --help
@@ -129,6 +183,20 @@ doxx meeting-notes.docx --search "action items"
 # Copy document structure for planning
 doxx technical-spec.docx --outline
 # Press 'c' to copy hierarchical outline
+```
+
+### Color rendering workflow
+```bash
+# View presentations with original colors preserved
+doxx marketing-deck.docx --color
+# Red titles, blue highlights, green callouts render in terminal
+
+# Compare colored vs plain text output
+doxx design-review.docx          # Plain text (default)
+doxx design-review.docx --color  # With Word document colors
+
+# Color information always available in exports
+doxx colorful-report.docx --export json | jq '.elements[] | select(.Paragraph.formatting.color != null)'
 ```
 
 ### Pipeline integration

@@ -145,6 +145,9 @@ pub async fn load_document(file_path: &Path) -> Result<Document> {
                 // Check paragraph style for heading information
                 let heading_level = detect_heading_from_paragraph_style(para);
 
+                // Check for list numbering properties (Word's automatic lists)
+                let list_info = detect_list_from_paragraph_numbering(para);
+
                 // Extract text and formatting from runs
                 for child in &para.children {
                     if let docx_rs::ParagraphChild::Run(run) = child {
@@ -165,14 +168,39 @@ pub async fn load_document(file_path: &Path) -> Result<Document> {
                 if !text.trim().is_empty() {
                     word_count += text.split_whitespace().count();
 
-                    // Use paragraph style first, then fallback to text heuristics
-                    let level =
-                        heading_level.or_else(|| detect_heading_from_text(&text, &formatting));
-
-                    if let Some(level) = level {
-                        elements.push(DocumentElement::Heading { level, text });
+                    // Priority: list numbering > heading style > text heuristics
+                    if let Some(list_info) = list_info {
+                        // This is an automatic Word list item - format with proper indentation
+                        let indent = "  ".repeat(list_info.level as usize);
+                        let prefix = if list_info.is_ordered {
+                            // Level-based formatting to match Word's mixed lists
+                            let result = match list_info.level {
+                                0 => "1. ".to_string(),                    // Top level numbers
+                                1 => "a) ".to_string(),                    // Second level letters
+                                2 => "i. ".to_string(), // Third level roman numerals
+                                3 => "A. ".to_string(), // Fourth level caps
+                                4 => "I. ".to_string(), // Fifth level caps roman
+                                _ => format!("{}. ", list_info.level + 1), // Fallback to numbers
+                            };
+                            result
+                        } else {
+                            "* ".to_string() // Bullets for unordered
+                        };
+                        // Mark Word-formatted list items with a special prefix to avoid reprocessing
+                        elements.push(DocumentElement::Paragraph {
+                            text: format!("__WORD_LIST__{}{}{}", indent, prefix, text.trim()),
+                            formatting,
+                        });
                     } else {
-                        elements.push(DocumentElement::Paragraph { text, formatting });
+                        // Check for headings as before
+                        let level =
+                            heading_level.or_else(|| detect_heading_from_text(&text, &formatting));
+
+                        if let Some(level) = level {
+                            elements.push(DocumentElement::Heading { level, text });
+                        } else {
+                            elements.push(DocumentElement::Paragraph { text, formatting });
+                        }
                     }
                 }
             }
@@ -188,8 +216,12 @@ pub async fn load_document(file_path: &Path) -> Result<Document> {
         }
     }
 
-    // Post-process to group consecutive list items
+    // Post-process to group consecutive list items (only for text-based lists)
+    // Word numbering-based lists are already properly formatted
     let elements = group_list_items(elements);
+
+    // Clean up Word list markers
+    let elements = clean_word_list_markers(elements);
 
     let metadata = DocumentMetadata {
         file_path: file_path.to_string_lossy().to_string(),
@@ -225,6 +257,42 @@ fn detect_heading_from_paragraph_style(para: &docx_rs::Paragraph) -> Option<u8> 
     None
 }
 
+#[derive(Debug, Clone)]
+struct ListInfo {
+    level: u8,
+    is_ordered: bool,
+}
+
+fn detect_list_from_paragraph_numbering(para: &docx_rs::Paragraph) -> Option<ListInfo> {
+    // Check if paragraph has numbering properties
+    if let Some(num_pr) = &para.property.numbering_property {
+        // Extract numbering level (default to 0 if not specified)
+        let level = num_pr.level.as_ref().map(|l| l.val as u8).unwrap_or(0);
+
+        // Clean implementation without debug output
+
+        // Enhanced detection for mixed list types (same numId, different levels)
+        let is_ordered = if let Some(num_id) = &num_pr.id {
+            match (num_id.id, level) {
+                // For Word's default mixed list (numId 1):
+                // Level 0 = bullets (•)
+                // Level 1 = letters (a), b), c))
+                // Level 2 = roman numerals (i., ii., iii.)
+                (1, 0) => false,          // Top level: bullets
+                (1, 1) => true,           // Second level: letters
+                (1, 2) => true,           // Third level: roman numerals
+                (1, _) => level % 2 == 1, // Pattern for deeper levels
+                (_, _) => true,           // Other numIds are typically ordered
+            }
+        } else {
+            false
+        };
+
+        return Some(ListInfo { level, is_ordered });
+    }
+    None
+}
+
 fn extract_run_formatting(run: &docx_rs::Run) -> TextFormatting {
     let mut formatting = TextFormatting::default();
 
@@ -233,6 +301,18 @@ fn extract_run_formatting(run: &docx_rs::Run) -> TextFormatting {
     formatting.bold = props.bold.is_some();
     formatting.italic = props.italic.is_some();
     formatting.underline = props.underline.is_some();
+
+    // Extract color information
+    if let Some(color) = &props.color {
+        // Extract color value through debug formatting as a workaround for private field access
+        let color_debug = format!("{color:?}");
+        if let Some(start) = color_debug.find("val: \"") {
+            if let Some(end) = color_debug[start + 6..].find("\"") {
+                let color_val = &color_debug[start + 6..start + 6 + end];
+                formatting.color = Some(color_val.to_string());
+            }
+        }
+    }
 
     // For now, skip font size extraction due to API complexity
     // TODO: Add font size extraction when we understand the API better
@@ -335,6 +415,11 @@ fn determine_heading_level_from_text(text: &str) -> u8 {
 
 fn is_likely_list_item(text: &str) -> bool {
     let text = text.trim();
+
+    // Skip Word-formatted list items to avoid reprocessing
+    if text.starts_with("__WORD_LIST__") {
+        return false;
+    }
 
     // Check for numbered list patterns that are NOT headings
     if text.starts_with(char::is_numeric) {
@@ -898,4 +983,49 @@ pub struct OutlineItem {
     pub title: String,
     pub level: u8,
     pub element_index: usize,
+}
+
+fn clean_word_list_markers(elements: Vec<DocumentElement>) -> Vec<DocumentElement> {
+    elements
+        .into_iter()
+        .map(|element| match element {
+            DocumentElement::Paragraph { text, formatting } => {
+                let cleaned_text = if text.starts_with("__WORD_LIST__") {
+                    text.strip_prefix("__WORD_LIST__")
+                        .unwrap_or(&text)
+                        .to_string()
+                } else {
+                    text
+                };
+                DocumentElement::Paragraph {
+                    text: cleaned_text,
+                    formatting,
+                }
+            }
+            DocumentElement::List { items, ordered } => {
+                let cleaned_items = items
+                    .into_iter()
+                    .map(|item| {
+                        let cleaned_text = if item.text.starts_with("__WORD_LIST__") {
+                            item.text
+                                .strip_prefix("__WORD_LIST__")
+                                .unwrap_or(&item.text)
+                                .to_string()
+                        } else {
+                            item.text
+                        };
+                        ListItem {
+                            text: cleaned_text,
+                            level: item.level,
+                        }
+                    })
+                    .collect();
+                DocumentElement::List {
+                    items: cleaned_items,
+                    ordered,
+                }
+            }
+            other => other,
+        })
+        .collect()
 }

@@ -37,6 +37,7 @@ pub struct App {
     pub ai_chat_history: Vec<ChatMessage>,
     pub clipboard: Option<Clipboard>,
     pub status_message: Option<String>,
+    pub color_enabled: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -71,6 +72,7 @@ impl App {
             ai_chat_history: Vec::new(),
             clipboard: Clipboard::new().ok(),
             status_message: None,
+            color_enabled: cli.color,
         };
 
         // Apply CLI options
@@ -609,6 +611,15 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
                     style = style.add_modifier(Modifier::UNDERLINED);
                 }
 
+                // Apply text color from document formatting (only if color is enabled)
+                if app.color_enabled {
+                    if let Some(color_hex) = &formatting.color {
+                        if let Some(color) = hex_to_color(color_hex) {
+                            style = style.fg(color);
+                        }
+                    }
+                }
+
                 // Add visual indication for different types of content
                 let display_text = if para_text.trim().is_empty() {
                     // Skip empty paragraphs
@@ -1115,4 +1126,20 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
             Constraint::Percentage((100 - percent_x) / 2),
         ])
         .split(popup_layout[1])[1]
+}
+
+/// Convert hex color code to ratatui Color
+fn hex_to_color(hex: &str) -> Option<Color> {
+    // Remove # if present and ensure we have 6 characters
+    let hex = hex.trim_start_matches('#');
+    if hex.len() != 6 {
+        return None;
+    }
+
+    // Parse RGB components
+    let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
+    let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
+    let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+
+    Some(Color::Rgb(r, g, b))
 }

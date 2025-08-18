@@ -21,7 +21,7 @@ arboard = "3.3"
 # AI Integration (temporarily commented out to resolve dependency issues)
 # ollama-rs = "0.2"
 # reqwest = { version = "0.11", features = ["json"] }
-tokio = { version = "1.0", features = ["full"] }
+tokio = { version = "1.0", features = ["rt-multi-thread", "macros", "fs"] }
 
 # Text processing
 unicode-segmentation = "1.10"

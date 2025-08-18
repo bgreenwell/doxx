@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Color Support for Text Rendering**: Added comprehensive color support with optional `--color` flag
+  - **Color Detection**: Extracts hex color codes from Word documents (e.g., `#FF0000`, `#0066CC`)
+  - **Terminal Rendering**: Converts hex colors to RGB terminal colors using ratatui
+  - **Optional Flag**: `--color` enables color rendering (disabled by default for compatibility)
+  - **Format Integration**: Works alongside existing bold, italic, and underline formatting
+  - **Export Support**: Color information preserved in JSON exports regardless of flag
+  - **Multiple Colors**: Supports any hex color from Word documents (red, blue, green, purple, etc.)
+  - **Test Coverage**: Added comprehensive `color-showcase.docx` test document
+  - **Current Limitation**: Single color per paragraph (mixed-color paragraphs show first color only)
+- **Version Flag**: Added `--version` and `-V` command-line flags ([#19](https://github.com/bgreenwell/doxx/issues/19))
+  - Display current version of doxx for bug reports and version verification
+  - Automatically uses version from Cargo.toml (currently `0.1.0`)
+  - Supports both long (`--version`) and short (`-V`) forms
+  - Integrated with clap's built-in version handling
 - **Copy to Clipboard Functionality**: Added comprehensive copy-to-clipboard support across all view modes
   - Copy full document content with `c` key in Document and Outline views
   - Copy search results with `F2` key in Search view to avoid input conflicts
@@ -25,6 +39,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Force UI Mode**: Added `--force-ui` flag to bypass TTY detection for testing and development
 
 ### Fixed
+- **Word Automatic List Formatting**: Fixed automatic lists from Microsoft Word not rendering correctly ([#17](https://github.com/bgreenwell/doxx/issues/17))
+  - **Issue**: Word's automatic lists (using numbering buttons) were parsed as headings instead of list items
+  - **Root Cause**: Word stores list formatting in paragraph numbering properties (`w:numPr`), not as visible text
+  - **Solution**: Added comprehensive Word numbering detection system
+    - New `detect_list_from_paragraph_numbering()` function to extract list info from Word's numbering properties
+    - Level-based list type detection for mixed list styles:
+      - Level 0: Bullets (`*`) for unordered lists
+      - Level 1: Letters (`a)`, `b)`, `c)`) for ordered sublists  
+      - Level 2: Roman numerals (`i.`, `ii.`, `iii.`) for nested ordered lists
+    - Smart formatting priority: Word numbering > heading styles > text heuristics
+    - Marker system to prevent interference with existing text-based list processing
+  - **Result**: Perfect rendering of Word's automatic mixed list formatting with proper nesting and indentation
 - **Nested List Display in Interactive UI**: Fixed nested lists not showing proper indentation in terminal interface
   - Root cause: `trim: true` in ratatui Paragraph widget was removing leading whitespace
   - Solution: Changed to `trim: false` to preserve list indentation
@@ -33,16 +59,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Replaced unsafe string slicing with `strip_prefix()` for proper Unicode handling
 
 ### Enhanced
+- **Word Document Compatibility**: Significantly improved handling of Microsoft Word documents
+  - Enhanced paragraph numbering property parsing for automatic lists
+  - Better integration between Word's native formatting and terminal rendering
+  - Improved support for complex nested list structures from Word documents
 - **List Processing Pipeline**: Improved list detection and grouping logic
   - Enhanced `group_list_items()` function to properly combine consecutive list items
   - Better level calculation based on leading whitespace (2 spaces = 1 level)
   - Improved text cleaning for various bullet styles (•, -, *, numbered lists)
+  - Smart processing to avoid conflicts between Word automatic lists and text-based lists
 - **Help Documentation**: Updated help system with copy functionality instructions
   - Added copy shortcuts to navigation help bar
   - Enhanced help overlay with detailed copy instructions for each view mode
   - Context-aware help showing different shortcuts for different views
 
 ### Dependencies
+- **Tokio Optimization**: Reduced tokio feature set from `"full"` to specific features (`"rt-multi-thread"`, `"macros"`, `"fs"`)
+  - Significantly reduces binary size and compilation time
+  - Only includes necessary async runtime features for current functionality
+  - Prepares foundation for future AI integration features
 - Added `arboard ^3.3` for cross-platform clipboard functionality
 - Updated `ratatui` from `0.26` to `0.29` for latest terminal UI features and API compatibility
 - Fixed deprecated GitHub Actions: updated upload/download-artifact@v3→v4, codecov-action@v3→v4, action-gh-release@v1→v2
@@ -60,7 +95,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Code Quality**: Added comprehensive linting and formatting configuration
   - Added `rustfmt.toml` for consistent code formatting
   - Added `clippy.toml` for enhanced linting rules with MSRV support
-  - Fixed all clippy warnings including type complexity and format string issues
+  - Fixed all clippy warnings including type complexity, format string issues, and dead code warnings
+  - Cleaned up unused struct fields and improved code organization
 - **CI/CD Pipeline**: Implemented robust GitHub Actions workflows
   - Multi-platform testing (Linux, Windows, macOS) with different Rust versions
   - Automated security auditing with cargo-audit and cargo-deny

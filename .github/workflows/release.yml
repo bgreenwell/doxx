@@ -1,0 +1,155 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*' # This workflow runs when we push a tag like v0.2.1
+  
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - name: Checkout code 
+        uses: actions/checkout@v4
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body_path: CHANGELOG.md
+          draft: true 
+          prerelease: false
+
+  build-and-upload:
+    name: Build and Upload Binaries
+    needs: create-release
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            asset_name_suffix: "windows-x86_64.zip"
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            asset_name_suffix: "linux-x86_64.tar.gz"
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            asset_name_suffix: "macos-x86_64.tar.gz"
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            asset_name_suffix: "macos-arm64.tar.gz"
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install system dependencies (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxcb-shape0-dev libxcb-xfixes0-dev musl-tools
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Create release archive (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          $binary_path = "target/${{ matrix.target }}/release/doxx.exe"
+          $archive_path = "doxx-${{ matrix.asset_name_suffix }}"
+          Compress-Archive -Path $binary_path -DestinationPath $archive_path
+          echo "ASSET_PATH=$archive_path" >> $env:GITHUB_ENV
+
+      - name: Create release archive (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          binary_path="target/${{ matrix.target }}/release/doxx"
+          archive_path="doxx-${{ matrix.asset_name_suffix }}"
+          tar -czf "$archive_path" -C "$(dirname "$binary_path")" "$(basename "$binary_path")"
+          echo "ASSET_PATH=$archive_path" >> $GITHUB_ENV
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ${{ env.ASSET_PATH }}
+          asset_name: doxx-${{ matrix.asset_name_suffix }}
+          asset_content_type: application/octet-stream
+
+  generate-checksums:
+    name: Generate Checksums
+    needs: [create-release, build-and-upload]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download release assets
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const { owner, repo } = context.repo;
+            const tag = context.ref.replace('refs/tags/', '');
+            
+            // Get release by tag
+            const release = await github.rest.repos.getReleaseByTag({
+              owner,
+              repo,
+              tag
+            });
+            
+            // Download each asset
+            for (const asset of release.data.assets) {
+              const response = await github.rest.repos.getReleaseAsset({
+                owner,
+                repo,
+                asset_id: asset.id,
+                headers: {
+                  Accept: 'application/octet-stream'
+                }
+              });
+              
+              fs.writeFileSync(asset.name, Buffer.from(response.data));
+              console.log(`Downloaded ${asset.name}`);
+            }
+
+      - name: Generate checksums
+        run: |
+          sha256sum doxx-*.* > doxx-checksums.txt
+          cat doxx-checksums.txt
+
+      - name: Upload checksums
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: doxx-checksums.txt
+          asset_name: doxx-checksums.txt
+          asset_content_type: text/plain

@@ -10,6 +10,7 @@ mod ui;
 #[derive(Parser)]
 #[command(
     name = "doxx",
+    version,
     about = "AI-powered terminal document viewer for .docx files",
     long_about = "Beautiful .docx viewing in your terminal with AI intelligence"
 )]
@@ -57,6 +58,10 @@ struct Cli {
     /// Force interactive UI mode (bypass TTY detection)
     #[arg(long)]
     force_ui: bool,
+
+    /// Enable color support for text rendering
+    #[arg(long)]
+    color: bool,
 
     /// Extract citations
     #[arg(long)]
