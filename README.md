@@ -3,7 +3,6 @@
 > Beautiful `.docx` viewing in your terminal — no Microsoft Word required
 
 [![CI](https://github.com/bgreenwell/doxx/workflows/CI/badge.svg)](https://github.com/bgreenwell/doxx/actions/workflows/ci.yml)
-[![Security](https://github.com/bgreenwell/doxx/workflows/Security/badge.svg)](https://github.com/bgreenwell/doxx/actions/workflows/security.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/rust-%23000000.svg?style=flat&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 
