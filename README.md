@@ -1,6 +1,6 @@
 # doxx 📄
 
-> Beautiful `.docx` viewing in your terminal — no Microsoft Word required
+> Expose `.docx` files in your terminal — no Microsoft Word required
 
 [![CI](https://github.com/bgreenwell/doxx/workflows/CI/badge.svg)](https://github.com/bgreenwell/doxx/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
