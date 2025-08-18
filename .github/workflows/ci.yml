@@ -33,7 +33,8 @@ jobs:
     - name: Cache dependencies
       uses: Swatinem/rust-cache@v2
 
-    - name: Check formatting
+    - name: Check formatting (Unix only)
+      if: matrix.os != 'windows-latest'
       run: cargo fmt --all -- --check
 
     - name: Lint with Clippy
