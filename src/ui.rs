@@ -226,13 +226,22 @@ async fn run_non_interactive(document: Document, cli: &Cli) -> Result<()> {
             let preview_count = std::cmp::min(app.document.elements.len(), 20);
             for element in &app.document.elements[0..preview_count] {
                 match element {
-                    DocumentElement::Heading { level, text, .. } => {
+                    DocumentElement::Heading {
+                        level,
+                        text,
+                        number,
+                    } => {
                         let prefix = match level {
                             1 => "# ",
                             2 => "## ",
                             _ => "### ",
                         };
-                        println!("{prefix}{text}");
+                        let heading_text = if let Some(number) = number {
+                            format!("{number} {text}")
+                        } else {
+                            text.clone()
+                        };
+                        println!("{prefix}{heading_text}");
                         println!();
                     }
                     DocumentElement::Paragraph { text, .. } => {
@@ -561,7 +570,7 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
             DocumentElement::Heading {
                 level,
                 text: heading_text,
-                ..
+                number,
             } => {
                 let style = match level {
                     1 => Style::default()
@@ -582,15 +591,21 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
                     _ => "      • ".to_string(),
                 };
 
+                let display_text = if let Some(number) = number {
+                    format!("{number} {heading_text}")
+                } else {
+                    heading_text.clone()
+                };
+
                 let line = if is_search_match {
                     Line::from(vec![
                         Span::styled(prefix.clone(), style),
-                        Span::styled(heading_text, style.bg(Color::Yellow).fg(Color::Black)),
+                        Span::styled(display_text, style.bg(Color::Yellow).fg(Color::Black)),
                     ])
                 } else {
                     Line::from(vec![
                         Span::styled(prefix, style),
-                        Span::styled(heading_text, style),
+                        Span::styled(display_text, style),
                     ])
                 };
                 text.lines.push(line);

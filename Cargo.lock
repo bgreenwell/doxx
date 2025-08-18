@@ -408,6 +408,7 @@ dependencies = [
  "crossterm 0.27.0",
  "dirs",
  "docx-rs",
+ "once_cell",
  "ratatui",
  "regex",
  "serde",
@@ -810,6 +811,12 @@ checksum = "62948e14d923ea95ea2c7c86c71013138b66525b86bdc08d2dcc262bdb497b87"
 dependencies = [
  "memchr",
 ]
+
+[[package]]
+name = "once_cell"
+version = "1.21.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
 
 [[package]]
 name = "once_cell_polyfill"

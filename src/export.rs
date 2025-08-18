@@ -30,9 +30,18 @@ pub fn export_to_markdown(document: &Document) -> Result<()> {
     // Convert document content
     for element in &document.elements {
         match element {
-            DocumentElement::Heading { level, text, .. } => {
+            DocumentElement::Heading {
+                level,
+                text,
+                number,
+            } => {
                 let prefix = "#".repeat(*level as usize + 1); // +1 because title is h1
-                markdown.push_str(&format!("{prefix} {text}\n\n"));
+                let heading_text = if let Some(number) = number {
+                    format!("{number} {text}")
+                } else {
+                    text.clone()
+                };
+                markdown.push_str(&format!("{prefix} {heading_text}\n\n"));
             }
             DocumentElement::Paragraph { text, formatting } => {
                 let mut formatted_text = text.clone();

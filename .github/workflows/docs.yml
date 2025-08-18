@@ -35,7 +35,9 @@ jobs:
         run: echo '<meta http-equiv="refresh" content="0; url=doxx">' > target/doc/index.html
 
       - name: Setup Pages
+        id: pages
         uses: actions/configure-pages@v5
+        continue-on-error: true
       
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
@@ -48,7 +50,20 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: build
+    if: success()
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        continue-on-error: true
+        
+      - name: Pages deployment status
+        run: |
+          if [ "${{ steps.deployment.outcome }}" == "failure" ]; then
+            echo "::warning::GitHub Pages deployment failed. Please enable Pages in repository settings:"
+            echo "::warning::1. Go to Settings > Pages"
+            echo "::warning::2. Set Source to 'GitHub Actions'" 
+            echo "::warning::3. Re-run this workflow"
+          else
+            echo "Documentation deployed successfully!"
+          fi
