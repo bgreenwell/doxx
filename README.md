@@ -80,11 +80,11 @@ doxx --version
 #### 🍺 Package managers (coming soon!)
 
 We're working on official package manager support:
-
+- 🐧 **Arch (AUR)** Available here: https://aur.archlinux.org/packages/doxx-git
+- 🐧 **APT/YUM** (Other Linux): Official repo packages - *coming soon*
 - 🍺 **Homebrew** (macOS/Linux): `brew install doxx` - *coming soon*
 - 📦 **Chocolatey** (Windows): `choco install doxx` - *coming soon*  
 - 🦀 **Cargo** (all platforms): `cargo install doxx` - *coming soon*
-- 🐧 **APT/YUM** (Linux): Official repo packages - *coming soon*
 
 #### 🔧 Build from source
 
