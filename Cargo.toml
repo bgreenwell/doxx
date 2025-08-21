@@ -2,10 +2,10 @@
 name = "doxx"
 version = "0.1.0"
 edition = "2021"
-description = "AI-powered terminal document viewer for .docx files"
+description = "Terminal document viewer for .docx files"
 license = "MIT"
 repository = "https://github.com/bgreenwell/doxx"
-keywords = ["docx", "terminal", "ai", "document", "viewer"]
+keywords = ["docx", "terminal", "document", "viewer", "tui"]
 categories = ["command-line-utilities", "text-processing"]
 default-run = "doxx"
 
@@ -18,9 +18,6 @@ ratatui = "0.29"
 crossterm = "0.27"
 arboard = "3.3"
 
-# AI Integration (temporarily commented out to resolve dependency issues)
-# ollama-rs = "0.2"
-# reqwest = { version = "0.11", features = ["json"] }
 tokio = { version = "1.0", features = ["rt-multi-thread", "macros", "fs"] }
 
 # Text processing

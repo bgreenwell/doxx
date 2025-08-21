@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- **AI Features**: Removed all AI-related functionality to focus on core document viewing capabilities
+  - Removed AI dependencies: `ollama-rs`, AI-specific `reqwest` features
+  - Removed CLI flags: `--summarize`, `--ask`, `--ai-local`, `--ai-cloud`, `--describe-images`, `--extract-citations`, `--extract-actions`
+  - Deleted `src/ai.rs` module entirely
+  - Updated package description from "AI-powered" to standard terminal document viewer
+  - Cleaned up AI references from documentation and roadmap
+  - **Rationale**: Simplified focus on reliable document viewing without AI complexity
+
+### Fixed
+- **Code Quality**: Resolved all clippy warnings with `-D warnings` level enforcement
+  - Fixed dead code warning by adding `#[allow(dead_code)]` to unused `Bullet` enum variant
+  - Resolved type complexity issue by introducing `NumberingCounters` type alias for complex HashMap
+  - Fixed uninlined format argument warnings by updating all `format!` calls to use inline variable syntax
+  - **Result**: Clean clippy run with zero warnings for improved code maintainability
+
 ### Added
 - **Color Support for Text Rendering**: Added comprehensive color support with optional `--color` flag
   - **Color Detection**: Extracts hex color codes from Word documents (e.g., `#FF0000`, `#0066CC`)

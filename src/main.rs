@@ -2,7 +2,6 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
-mod ai;
 mod document;
 mod export;
 mod ui;
@@ -11,8 +10,8 @@ mod ui;
 #[command(
     name = "doxx",
     version,
-    about = "AI-powered terminal document viewer for .docx files",
-    long_about = "Beautiful .docx viewing in your terminal with AI intelligence"
+    about = "Terminal document viewer for .docx files",
+    long_about = "Beautiful .docx viewing in your terminal"
 )]
 struct Cli {
     /// Input document file (.docx)
@@ -31,26 +30,6 @@ struct Cli {
     #[arg(short, long)]
     search: Option<String>,
 
-    /// Generate document summary
-    #[arg(long)]
-    summarize: bool,
-
-    /// Ask a question about the document
-    #[arg(long)]
-    ask: Option<String>,
-
-    /// Use local AI models only
-    #[arg(long)]
-    ai_local: bool,
-
-    /// Use cloud AI services
-    #[arg(long)]
-    ai_cloud: bool,
-
-    /// Describe images with AI
-    #[arg(long)]
-    describe_images: bool,
-
     /// Export format
     #[arg(long, value_enum)]
     export: Option<ExportFormat>,
@@ -62,14 +41,6 @@ struct Cli {
     /// Enable color support for text rendering
     #[arg(long)]
     color: bool,
-
-    /// Extract citations
-    #[arg(long)]
-    extract_citations: bool,
-
-    /// Extract action items
-    #[arg(long)]
-    extract_actions: bool,
 
     /// Configuration commands
     #[command(subcommand)]
@@ -127,18 +98,6 @@ async fn main() -> Result<()> {
     }
 
     let document = document::load_document(&file_path).await?;
-
-    if cli.summarize {
-        // TODO: Generate AI summary
-        println!("Document summary: [AI summary would go here]");
-        return Ok(());
-    }
-
-    if let Some(question) = &cli.ask {
-        // TODO: AI Q&A functionality
-        println!("Answer to '{question}': [AI answer would go here]");
-        return Ok(());
-    }
 
     if let Some(export_format) = &cli.export {
         export::export_document(&document, export_format)?;

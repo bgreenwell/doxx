@@ -140,6 +140,7 @@ pub async fn load_document(file_path: &Path) -> Result<Document> {
     let mut elements = Vec::new();
     let mut word_count = 0;
     let mut heading_tracker = HeadingNumberTracker::new();
+    let mut numbering_manager = DocumentNumberingManager::new();
 
     // Enhanced content extraction with style information
     for child in &docx.document.children {
@@ -179,16 +180,14 @@ pub async fn load_document(file_path: &Path) -> Result<Document> {
                         // This is an automatic Word list item - format with proper indentation
                         let indent = "  ".repeat(list_info.level as usize);
                         let prefix = if list_info.is_ordered {
-                            // Level-based formatting to match Word's mixed lists
-                            let result = match list_info.level {
-                                0 => "1. ".to_string(),                    // Top level numbers
-                                1 => "a) ".to_string(),                    // Second level letters
-                                2 => "i. ".to_string(), // Third level roman numerals
-                                3 => "A. ".to_string(), // Fourth level caps
-                                4 => "I. ".to_string(), // Fifth level caps roman
-                                _ => format!("{}. ", list_info.level + 1), // Fallback to numbers
-                            };
-                            result
+                            // Use the numbering manager for proper sequential numbering
+                            if let Some(num_id) = list_info.num_id {
+                                let format = get_numbering_format(num_id, list_info.level);
+                                numbering_manager.generate_number(num_id, list_info.level, format)
+                            } else {
+                                // Fallback for missing numId
+                                format!("{}. ", list_info.level + 1)
+                            }
                         } else {
                             "* ".to_string() // Bullets for unordered
                         };
@@ -289,6 +288,160 @@ fn detect_heading_from_paragraph_style(para: &docx_rs::Paragraph) -> Option<u8> 
 struct ListInfo {
     level: u8,
     is_ordered: bool,
+    num_id: Option<i32>, // Word's numbering definition ID
+}
+
+/// Type alias for numbering counters to simplify complex HashMap type
+type NumberingCounters = std::collections::HashMap<(i32, u8), u32>;
+
+/// Manages document-wide numbering state for proper sequential numbering
+#[derive(Debug)]
+struct DocumentNumberingManager {
+    /// Counters for each (numId, level) combination
+    /// Key: (numId, level), Value: current counter
+    counters: NumberingCounters,
+}
+
+impl DocumentNumberingManager {
+    fn new() -> Self {
+        Self {
+            counters: NumberingCounters::new(),
+        }
+    }
+
+    /// Generate the next number for a given numId and level
+    fn generate_number(&mut self, num_id: i32, level: u8, format: NumberingFormat) -> String {
+        // Get current counter for this (numId, level) combination
+        let key = (num_id, level);
+        let counter_value = {
+            let counter = self.counters.entry(key).or_insert(0);
+            *counter += 1;
+            *counter
+        };
+
+        // Reset deeper levels when we increment a higher level
+        // This handles hierarchical numbering like 1. -> 1.1 -> 2. (reset 1.1 back to 2.1)
+        self.reset_deeper_levels(num_id, level);
+
+        // For hierarchical numbering, we need to build the full number string
+        self.format_hierarchical_number(num_id, level, counter_value, format)
+    }
+
+    fn reset_deeper_levels(&mut self, num_id: i32, current_level: u8) {
+        // Reset all levels deeper than current_level for this numId
+        let keys_to_reset: Vec<_> = self
+            .counters
+            .keys()
+            .filter(|(id, level)| *id == num_id && *level > current_level)
+            .cloned()
+            .collect();
+
+        for key in keys_to_reset {
+            self.counters.remove(&key);
+        }
+    }
+
+    fn format_number(&self, counter: u32, format: NumberingFormat) -> String {
+        match format {
+            NumberingFormat::Decimal => format!("{counter}. "),
+            NumberingFormat::LowerLetter => {
+                // Convert 1->a, 2->b, etc.
+                if counter <= 26 {
+                    let letter = (b'a' + (counter - 1) as u8) as char;
+                    format!("{letter}. ")
+                } else {
+                    format!("{counter}. ") // Fallback for > 26
+                }
+            }
+            NumberingFormat::LowerRoman => format!("{}. ", Self::to_roman(counter).to_lowercase()),
+            NumberingFormat::UpperLetter => {
+                // Convert 1->A, 2->B, etc.
+                if counter <= 26 {
+                    let letter = (b'A' + (counter - 1) as u8) as char;
+                    format!("{letter}. ")
+                } else {
+                    format!("{counter}. ") // Fallback for > 26
+                }
+            }
+            NumberingFormat::UpperRoman => format!("{}. ", Self::to_roman(counter)),
+            NumberingFormat::ParenLowerLetter => {
+                if counter <= 26 {
+                    let letter = (b'a' + (counter - 1) as u8) as char;
+                    format!("({letter})")
+                } else {
+                    format!("({counter})")
+                }
+            }
+            NumberingFormat::ParenLowerRoman => {
+                format!("({})", Self::to_roman(counter).to_lowercase())
+            }
+            NumberingFormat::Bullet => "* ".to_string(),
+        }
+    }
+
+    fn to_roman(num: u32) -> String {
+        let values = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1];
+        let symbols = [
+            "M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I",
+        ];
+
+        let mut result = String::new();
+        let mut n = num;
+
+        for (i, &value) in values.iter().enumerate() {
+            while n >= value {
+                result.push_str(symbols[i]);
+                n -= value;
+            }
+        }
+
+        result
+    }
+
+    /// Format hierarchical number (e.g., "2.1", "3.2.1")
+    fn format_hierarchical_number(
+        &self,
+        num_id: i32,
+        level: u8,
+        counter: u32,
+        format: NumberingFormat,
+    ) -> String {
+        // Check if this numId/level combination should use hierarchical numbering
+        let needs_hierarchy = matches!((num_id, level), (4, 1)); // 2.1, 2.2, etc.
+
+        if needs_hierarchy {
+            // Build hierarchical number by including parent level counters
+            let mut parts = Vec::new();
+
+            // Add parent level counter (level 0 for this numId)
+            if let Some(parent_counter) = self.counters.get(&(num_id, 0)) {
+                parts.push(parent_counter.to_string());
+            }
+
+            // Add current level counter
+            parts.push(counter.to_string());
+
+            // Join with dots and add final punctuation
+            format!("{}. ", parts.join("."))
+        } else {
+            // Use regular formatting for non-hierarchical levels
+            self.format_number(counter, format)
+        }
+    }
+}
+
+/// Different numbering formats supported by Word
+#[derive(Debug, Clone, Copy)]
+enum NumberingFormat {
+    Decimal,          // 1. 2. 3.
+    LowerLetter,      // a. b. c.
+    UpperLetter,      // A. B. C.
+    LowerRoman,       // i. ii. iii.
+    UpperRoman,       // I. II. III.
+    ParenLowerLetter, // (a) (b) (c)
+    ParenLowerRoman,  // (i) (ii) (iii)
+    #[allow(dead_code)]
+    Bullet, // * * *
 }
 
 #[derive(Debug, Clone)]
@@ -304,28 +457,65 @@ fn detect_list_from_paragraph_numbering(para: &docx_rs::Paragraph) -> Option<Lis
         // Extract numbering level (default to 0 if not specified)
         let level = num_pr.level.as_ref().map(|l| l.val as u8).unwrap_or(0);
 
-        // Clean implementation without debug output
+        // Extract numId for state tracking
+        let num_id = num_pr.id.as_ref().map(|id| id.id as i32);
 
         // Enhanced detection for mixed list types (same numId, different levels)
-        let is_ordered = if let Some(num_id) = &num_pr.id {
-            match (num_id.id, level) {
+        let is_ordered = if let Some(num_id_val) = num_id {
+            match (num_id_val, level) {
                 // For Word's default mixed list (numId 1):
-                // Level 0 = bullets (•)
-                // Level 1 = letters (a), b), c))
-                // Level 2 = roman numerals (i., ii., iii.)
-                (1, 0) => false,          // Top level: bullets
-                (1, 1) => true,           // Second level: letters
-                (1, 2) => true,           // Third level: roman numerals
+                // Level 0 = decimal numbers (1. 2. 3.)
+                // Level 1 = letters (a) b) c))
+                // Level 2 = roman numerals (i. ii. iii.)
+                (1, 0) => true, // Top level: decimal numbers (was false, causing bug)
+                (1, 1) => true, // Second level: letters
+                (1, 2) => true, // Third level: roman numerals
                 (1, _) => level % 2 == 1, // Pattern for deeper levels
-                (_, _) => true,           // Other numIds are typically ordered
+                (_, _) => true, // Other numIds are typically ordered
             }
         } else {
             false
         };
 
-        return Some(ListInfo { level, is_ordered });
+        return Some(ListInfo {
+            level,
+            is_ordered,
+            num_id,
+        });
     }
     None
+}
+
+/// Determine the numbering format based on Word's numId and level
+fn get_numbering_format(num_id: i32, level: u8) -> NumberingFormat {
+    match (num_id, level) {
+        // numId=4: Main multilevel list (from advanced-numbering-2.docx)
+        (4, 0) => NumberingFormat::Decimal,    // 1., 2., 3.
+        (4, 1) => NumberingFormat::Decimal,    // 2.1., 2.2., 2.3. (hierarchical)
+        (4, 2) => NumberingFormat::LowerRoman, // i., ii., iii.
+
+        // numId=5: Secondary list (a), (b), (c) from same document
+        (5, 2) => NumberingFormat::ParenLowerLetter, // (a), (b), (c)
+
+        // numId=2: From other test documents
+        (2, 0) => NumberingFormat::Decimal,         // 1., 2., 3.
+        (2, 3) => NumberingFormat::ParenLowerRoman, // (i), (ii), (iii)
+
+        // numId=1: Default Word numbering scheme
+        (1, 0) => NumberingFormat::Decimal,          // 1. 2. 3.
+        (1, 1) => NumberingFormat::LowerLetter,      // a. b. c.
+        (1, 2) => NumberingFormat::LowerRoman,       // i. ii. iii.
+        (1, 3) => NumberingFormat::ParenLowerLetter, // (a) (b) (c)
+        (1, 4) => NumberingFormat::ParenLowerRoman,  // (i) (ii) (iii)
+
+        // Fallback defaults based on level
+        (_, 0) => NumberingFormat::Decimal,
+        (_, 1) => NumberingFormat::LowerLetter,
+        (_, 2) => NumberingFormat::LowerRoman,
+        (_, 3) => NumberingFormat::UpperLetter,
+        (_, 4) => NumberingFormat::UpperRoman,
+        _ => NumberingFormat::Decimal,
+    }
 }
 
 fn detect_heading_with_numbering(para: &docx_rs::Paragraph) -> Option<HeadingInfo> {

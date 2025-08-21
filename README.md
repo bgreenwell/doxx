@@ -291,24 +291,15 @@ src/
 ├── document.rs  # Document parsing and table structures  
 ├── ui.rs        # Terminal interface and rendering
 ├── export.rs    # Export functionality for different formats
-└── ai.rs        # AI integration framework (coming soon)
 ```
 
 ## 🚧 Roadmap
 
 ### Coming soon
-- 🤖 **AI integration** for document summarization and Q&A
 - 🔗 **Hyperlink support** for navigation within documents  
-- 📷 **Image descriptions** with AI-generated alt text
+- 🖼️ **Image display** in supported terminals
 - 🎨 **Themes and customization** for personalized viewing
 - 🌐 **Web interface** for browser-based viewing
-
-### AI-powered features (planned)
-- 📝 **Document summarization** with key points extraction
-- ❓ **Interactive Q&A** about document content
-- 📊 **Smart data extraction** for action items and deadlines
-- 🔍 **Semantic search** beyond keyword matching
-- 🛡️ **Privacy-first** with local AI model support
 
 ## 🤝 Contributing
 
