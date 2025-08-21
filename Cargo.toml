@@ -9,6 +9,10 @@ keywords = ["docx", "terminal", "document", "viewer", "tui"]
 categories = ["command-line-utilities", "text-processing"]
 default-run = "doxx"
 
+[lib]
+name = "doxx"
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 # Document parsing
 docx-rs = "0.4"
@@ -17,6 +21,12 @@ docx-rs = "0.4"
 ratatui = "0.29"
 crossterm = "0.27"
 arboard = "3.3"
+
+# Image support
+viuer = "0.7"
+image = "0.25"
+zip = "2.0"
+ratatui-image = "1.0"
 
 tokio = { version = "1.0", features = ["rt-multi-thread", "macros", "fs"] }
 

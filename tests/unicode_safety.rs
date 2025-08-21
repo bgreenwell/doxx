@@ -35,10 +35,7 @@ mod unicode_safety_tests {
 
         // This is now safe and won't panic
         let _safe_truncated = &text_with_emojis[..safe_boundary];
-        println!(
-            "Safe truncation at boundary {}: working correctly",
-            safe_boundary
-        );
+        println!("Safe truncation at boundary {safe_boundary}: working correctly");
     }
 
     /// Test demonstrating safe Unicode-aware truncation
@@ -53,7 +50,7 @@ mod unicode_safety_tests {
 
         // This should work without panicking
         assert_eq!(safe_truncated.graphemes(true).count(), max_chars);
-        println!("Safe truncation: {}", safe_truncated);
+        println!("Safe truncation: {safe_truncated}");
     }
 
     /// Test different types of Unicode characters that could cause issues
@@ -73,17 +70,14 @@ mod unicode_safety_tests {
         ];
 
         for (name, text) in test_cases {
-            println!("Testing {}: {}", name, text);
+            println!("Testing {name}: {text}");
 
             // Test that these strings don't panic when handled safely
             let char_count = text.chars().count();
             let byte_count = text.len();
             let grapheme_count = text.graphemes(true).count();
 
-            println!(
-                "  Chars: {}, Bytes: {}, Graphemes: {}",
-                char_count, byte_count, grapheme_count
-            );
+            println!("  Chars: {char_count}, Bytes: {byte_count}, Graphemes: {grapheme_count}");
 
             // Demonstrate unsafe slicing could panic
             if byte_count > 10 {
@@ -92,7 +86,7 @@ mod unicode_safety_tests {
 
                 // Safe alternative using char boundaries
                 let safe_slice: String = text.chars().take(10).collect();
-                println!("  Safe slice (10 chars): {}", safe_slice);
+                println!("  Safe slice (10 chars): {safe_slice}");
             }
         }
     }
@@ -122,7 +116,7 @@ mod unicode_safety_tests {
 
             // SAFE alternative:
             let safe_truncated: String = result.text.chars().take(40).collect();
-            println!("Safe truncation: {}", safe_truncated);
+            println!("Safe truncation: {safe_truncated}");
         }
     }
 }

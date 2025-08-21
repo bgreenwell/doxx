@@ -22,6 +22,9 @@ use ratatui::{
 use std::io;
 
 use crate::{document::*, Cli};
+use ratatui_image::{picker::Picker, protocol::StatefulProtocol};
+
+type ImageProtocols = Vec<Box<dyn StatefulProtocol>>;
 
 pub struct App {
     pub document: Document,
@@ -32,12 +35,11 @@ pub struct App {
     pub current_search_index: usize,
     pub outline_state: ListState,
     pub show_help: bool,
-    pub ai_chat_mode: bool,
-    pub ai_chat_input: String,
-    pub ai_chat_history: Vec<ChatMessage>,
     pub clipboard: Option<Clipboard>,
     pub status_message: Option<String>,
     pub color_enabled: bool,
+    pub image_picker: Option<Picker>,
+    pub image_protocols: ImageProtocols,
 }
 
 #[derive(Debug, Clone)]
@@ -47,13 +49,6 @@ pub enum ViewMode {
     Search,
     #[allow(dead_code)]
     Help,
-    AIChat,
-}
-
-#[derive(Debug, Clone)]
-pub struct ChatMessage {
-    pub role: String,
-    pub content: String,
 }
 
 impl App {
@@ -67,12 +62,11 @@ impl App {
             current_search_index: 0,
             outline_state: ListState::default(),
             show_help: false,
-            ai_chat_mode: false,
-            ai_chat_input: String::new(),
-            ai_chat_history: Vec::new(),
             clipboard: Clipboard::new().ok(),
             status_message: None,
             color_enabled: cli.color,
+            image_picker: None,
+            image_protocols: Vec::new(),
         };
 
         // Apply CLI options
@@ -92,7 +86,43 @@ impl App {
             app.scroll_offset = (page.saturating_sub(1)) * elements_per_page;
         }
 
+        // Initialize image support if images are enabled
+        if cli.images {
+            app.init_image_support();
+        }
+
         app
+    }
+
+    fn init_image_support(&mut self) {
+        // Try to initialize picker from termios, fallback to manual font size
+        let mut picker = if let Ok(p) = Picker::from_termios() {
+            p
+        } else {
+            // Fallback to manual font size
+            Picker::new((8, 16))
+        };
+
+        picker.guess_protocol();
+
+        // Process all images in the document
+        for element in &self.document.elements {
+            if let DocumentElement::Image {
+                image_path: Some(path),
+                ..
+            } = element
+            {
+                // Try to load and create protocol for each image
+                if let Ok(img) = image::ImageReader::open(path) {
+                    if let Ok(dyn_img) = img.decode() {
+                        let protocol = picker.new_resize_protocol(dyn_img);
+                        self.image_protocols.push(protocol);
+                    }
+                }
+            }
+        }
+
+        self.image_picker = Some(picker);
     }
 
     pub fn next_search_result(&mut self) {
@@ -264,9 +294,30 @@ async fn run_non_interactive(document: Document, cli: &Cli) -> Result<()> {
                         println!("[Table content - use --export csv to view]");
                         println!();
                     }
-                    DocumentElement::Image { description, .. } => {
-                        println!("[Image: {description}]");
-                        println!();
+                    DocumentElement::Image {
+                        description,
+                        image_path,
+                        ..
+                    } => {
+                        if let Some(path) = image_path {
+                            // Try to display the image inline using terminal protocols
+                            match crate::terminal_image::TerminalImageRenderer::new()
+                                .render_image_from_path(path, description)
+                            {
+                                Ok(_) => {
+                                    // Image displayed successfully
+                                    println!();
+                                }
+                                Err(_) => {
+                                    // Fallback to text description
+                                    println!("📷 [Image: {description}]");
+                                    println!();
+                                }
+                            }
+                        } else {
+                            println!("📷 [Image: {description}]");
+                            println!();
+                        }
                     }
                     DocumentElement::PageBreak => {
                         println!("---");
@@ -347,10 +398,6 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                             KeyCode::Char('q') => break,
                             KeyCode::Char('o') => app.current_view = ViewMode::Outline,
                             KeyCode::Char('s') => app.current_view = ViewMode::Search,
-                            KeyCode::Char('a') => {
-                                app.current_view = ViewMode::AIChat;
-                                app.ai_chat_mode = true;
-                            }
                             KeyCode::Char('h') | KeyCode::F(1) => app.show_help = !app.show_help,
                             KeyCode::Char('c') => app.copy_content(),
                             KeyCode::Up | KeyCode::Char('k') => app.scroll_up(),
@@ -424,31 +471,6 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                             }
                             KeyCode::Enter | KeyCode::Down => app.next_search_result(),
                             KeyCode::Up => app.prev_search_result(),
-                            _ => {}
-                        },
-                        ViewMode::AIChat => match key.code {
-                            KeyCode::Esc => {
-                                app.current_view = ViewMode::Document;
-                                app.ai_chat_mode = false;
-                            }
-                            KeyCode::Char(c) => app.ai_chat_input.push(c),
-                            KeyCode::Backspace => {
-                                app.ai_chat_input.pop();
-                            }
-                            KeyCode::Enter => {
-                                if !app.ai_chat_input.trim().is_empty() {
-                                    app.ai_chat_history.push(ChatMessage {
-                                        role: "User".to_string(),
-                                        content: app.ai_chat_input.clone(),
-                                    });
-                                    // TODO: Send to AI and get response
-                                    app.ai_chat_history.push(ChatMessage {
-                                        role: "AI".to_string(),
-                                        content: "[AI response would go here]".to_string(),
-                                    });
-                                    app.ai_chat_input.clear();
-                                }
-                            }
                             _ => {}
                         },
                         ViewMode::Help => match key.code {
@@ -525,7 +547,6 @@ fn ui(f: &mut Frame, app: &mut App) {
         ViewMode::Document => render_document(f, chunks[0], app),
         ViewMode::Outline => render_outline(f, chunks[0], app),
         ViewMode::Search => render_search(f, chunks[0], app),
-        ViewMode::AIChat => render_ai_chat(f, chunks[0], app),
         ViewMode::Help => render_help(f, chunks[0]),
     }
 
@@ -681,6 +702,7 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
                 description,
                 width,
                 height,
+                image_path,
                 ..
             } => {
                 let dimensions = match (width, height) {
@@ -688,10 +710,19 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
                     _ => String::new(),
                 };
 
+                let status = if image_path.is_some() && !app.image_protocols.is_empty() {
+                    " [Rendering inline...]"
+                } else if image_path.is_some() {
+                    " [Image available - use --export text to view]"
+                } else {
+                    " [Image not extracted]"
+                };
+
                 let line = Line::from(vec![
                     Span::styled("🖼️  ", Style::default().fg(Color::Magenta)),
                     Span::styled(description, Style::default().fg(Color::Gray)),
                     Span::styled(dimensions, Style::default().fg(Color::DarkGray)),
+                    Span::styled(status, Style::default().fg(Color::Green)),
                 ]);
                 text.lines.push(line);
                 text.lines.push(Line::from(""));
@@ -828,54 +859,6 @@ fn render_search(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(results_list, chunks[1]);
 }
 
-fn render_ai_chat(f: &mut Frame, area: Rect, app: &App) {
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Min(0), Constraint::Length(3)].as_ref())
-        .split(area);
-
-    // Chat history
-    let mut text = Text::default();
-    for message in &app.ai_chat_history {
-        let style = if message.role == "User" {
-            Style::default().fg(Color::Cyan)
-        } else {
-            Style::default().fg(Color::Green)
-        };
-
-        text.lines.push(Line::from(vec![
-            Span::styled(
-                format!("{}: ", message.role),
-                style.add_modifier(Modifier::BOLD),
-            ),
-            Span::styled(&message.content, Style::default()),
-        ]));
-        text.lines.push(Line::from(""));
-    }
-
-    let chat_area = Paragraph::new(text)
-        .block(
-            Block::default()
-                .title("💬 AI Document Chat")
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Magenta)),
-        )
-        .wrap(Wrap { trim: true });
-
-    f.render_widget(chat_area, chunks[0]);
-
-    // Input area
-    let input = Paragraph::new(app.ai_chat_input.as_str())
-        .style(Style::default().fg(Color::White))
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title("Type your question...")
-                .border_style(Style::default().fg(Color::Magenta)),
-        );
-    f.render_widget(input, chunks[1]);
-}
-
 fn render_help(f: &mut Frame, area: Rect) {
     let help_text = vec![
         "🆘 doxx - Help",
@@ -896,7 +879,6 @@ fn render_help(f: &mut Frame, area: Rect) {
         "📋 Other Features:",
         "  o          Show outline",
         "  c          Copy content to clipboard",
-        "  a          AI chat",
         "  h/F1       Toggle help",
         "  q          Quit",
         "",
@@ -932,7 +914,6 @@ fn render_status_bar(f: &mut Frame, area: Rect, app: &App) {
         ViewMode::Document => "📄 Document",
         ViewMode::Outline => "📋 Outline",
         ViewMode::Search => "🔍 Search",
-        ViewMode::AIChat => "🤖 AI Chat",
         ViewMode::Help => "❓ Help",
     };
 
@@ -985,7 +966,7 @@ fn render_status_bar(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(status, area);
 
     // Navigation help
-    let help_text = "[↕] Scroll [o] Outline [s] Search [c] Copy [a] AI chat [h] Help [q] Quit";
+    let help_text = "[↕] Scroll [o] Outline [s] Search [c] Copy [h] Help [q] Quit";
     let help_area = Rect {
         x: area.x,
         y: area.y + 1,

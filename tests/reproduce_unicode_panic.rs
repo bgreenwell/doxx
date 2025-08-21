@@ -26,7 +26,7 @@ mod reproduce_panic {
         text.push_str("⭐️"); // This should make position 77 fall in middle of an emoji
 
         println!("Text length: {} bytes", text.len());
-        println!("Text: {}", text);
+        println!("Text: {text}");
 
         // Check if position 77 is a valid char boundary
         println!(
@@ -59,7 +59,7 @@ mod reproduce_panic {
         };
 
         let safe_truncated = &text[..safe_boundary];
-        println!("Safe truncation: {}...", safe_truncated);
+        println!("Safe truncation: {safe_truncated}...");
 
         // This should never panic
         assert!(text.is_char_boundary(safe_boundary));

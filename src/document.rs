@@ -48,6 +48,8 @@ pub enum DocumentElement {
         description: String,
         width: Option<u32>,
         height: Option<u32>,
+        relationship_id: Option<String>, // Link to DOCX relationship for image extraction
+        image_path: Option<std::path::PathBuf>, // Path to extracted image file
     },
     PageBreak,
 }
@@ -123,7 +125,7 @@ pub struct SearchResult {
     pub end_pos: usize,
 }
 
-pub async fn load_document(file_path: &Path) -> Result<Document> {
+pub async fn load_document(file_path: &Path, enable_images: bool) -> Result<Document> {
     let file_size = std::fs::metadata(file_path)?.len();
 
     // For now, create a simple implementation that reads the docx file
@@ -142,6 +144,15 @@ pub async fn load_document(file_path: &Path) -> Result<Document> {
     let mut heading_tracker = HeadingNumberTracker::new();
     let mut numbering_manager = DocumentNumberingManager::new();
 
+    // Extract images if enabled
+    let image_extractor = if enable_images {
+        let mut extractor = crate::image_extractor::ImageExtractor::new()?;
+        extractor.extract_images_from_docx(file_path)?;
+        Some(extractor)
+    } else {
+        None
+    };
+
     // Enhanced content extraction with style information
     for child in &docx.document.children {
         match child {
@@ -154,6 +165,39 @@ pub async fn load_document(file_path: &Path) -> Result<Document> {
 
                 // Check for list numbering properties (Word's automatic lists)
                 let list_info = detect_list_from_paragraph_numbering(para);
+
+                // Check for images in this paragraph first
+                for child in &para.children {
+                    if let docx_rs::ParagraphChild::Run(run) = child {
+                        for run_child in &run.children {
+                            if let docx_rs::RunChild::Drawing(_drawing) = run_child {
+                                // Create an Image element with consistent ordering
+                                if let Some(ref extractor) = image_extractor {
+                                    let images = extractor.get_extracted_images_sorted();
+                                    if !images.is_empty() {
+                                        // Count images processed so far to maintain document order
+                                        let image_count = elements
+                                            .iter()
+                                            .filter(|e| matches!(e, DocumentElement::Image { .. }))
+                                            .count();
+
+                                        // Use the image index in sorted order
+                                        let image_index = image_count % images.len();
+                                        let (_, image_path) = &images[image_index];
+
+                                        elements.push(DocumentElement::Image {
+                                            description: format!("Image {}", image_count + 1),
+                                            width: None,
+                                            height: None,
+                                            relationship_id: None,
+                                            image_path: Some(image_path.clone()),
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
 
                 // Extract text and formatting from runs
                 for child in &para.children {

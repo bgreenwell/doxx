@@ -21,9 +21,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed dead code warning by adding `#[allow(dead_code)]` to unused `Bullet` enum variant
   - Resolved type complexity issue by introducing `NumberingCounters` type alias for complex HashMap
   - Fixed uninlined format argument warnings by updating all `format!` calls to use inline variable syntax
+  - Added `ImageProtocols` type alias to reduce type complexity in image handling
+  - Improved nested pattern matching to satisfy clippy's collapsible match warnings
+  - Removed unused imports and variables across multiple modules
   - **Result**: Clean clippy run with zero warnings for improved code maintainability
 
 ### Added
+- **Image Rendering Support (Work in Progress)**: Added foundational image extraction and display capabilities
+  - **Image Extraction**: Extract embedded images from DOCX files with proper metadata preservation
+  - **Terminal Image Display**: Support for image rendering in text export mode using terminal graphics protocols
+  - **Protocol Support**: Compatible with modern terminals (Kitty, iTerm2, WezTerm) via `viuer` library
+  - **Consistent Ordering**: Fixed random image ordering by implementing sorted filename-based extraction
+  - **CLI Integration**: Added `--images` flag to enable image processing and `--debug-terminal` for capability testing
+  - **Export Mode**: Images display correctly in `--export text` mode with proper document flow
+  - **TUI Infrastructure**: Added `ratatui-image` integration for future interactive TUI image rendering
+  - **Fallback Support**: Graceful degradation with descriptive text for terminals without image support
+  - **Current Status**: Images work in export text mode; TUI integration planned for future release
 - **Color Support for Text Rendering**: Added comprehensive color support with optional `--color` flag
   - **Color Detection**: Extracts hex color codes from Word documents (e.g., `#FF0000`, `#0066CC`)
   - **Terminal Rendering**: Converts hex colors to RGB terminal colors using ratatui

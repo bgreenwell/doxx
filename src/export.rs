@@ -117,6 +117,7 @@ pub fn export_to_markdown(document: &Document) -> Result<()> {
                 description,
                 width,
                 height,
+                ..
             } => {
                 let alt = description;
                 let dimensions = match (width, height) {
@@ -216,8 +217,28 @@ pub fn format_as_text(document: &Document) -> String {
             DocumentElement::PageBreak => {
                 text.push_str("---\n\n");
             }
-            DocumentElement::Image { description, .. } => {
-                text.push_str(&format!("[Image: {description}]\n\n"));
+            DocumentElement::Image {
+                description,
+                image_path,
+                ..
+            } => {
+                // Try to render the image inline if available
+                if let Some(path) = image_path {
+                    match crate::terminal_image::TerminalImageRenderer::new()
+                        .render_image_from_path(path, description)
+                    {
+                        Ok(_) => {
+                            // Image displayed successfully, add spacing
+                            text.push('\n');
+                        }
+                        Err(_) => {
+                            // Fallback to text description
+                            text.push_str(&format!("[Image: {description}]\n\n"));
+                        }
+                    }
+                } else {
+                    text.push_str(&format!("[Image: {description}]\n\n"));
+                }
             }
         }
     }
@@ -226,9 +247,98 @@ pub fn format_as_text(document: &Document) -> String {
 }
 
 pub fn export_to_text(document: &Document) -> Result<()> {
-    let text = format_as_text(document);
-    print!("{text}");
+    export_to_text_with_images(document);
     Ok(())
+}
+
+fn export_to_text_with_images(document: &Document) {
+    // Print title
+    println!("{}\n", document.title);
+
+    // Print metadata
+    println!("Document Information:");
+    println!("- File: {}", document.metadata.file_path);
+    println!("- Pages: {}", document.metadata.page_count);
+    println!("- Words: {}", document.metadata.word_count);
+    if let Some(author) = &document.metadata.author {
+        println!("- Author: {author}");
+    }
+    println!("\n{}\n", "=".repeat(50));
+
+    // Process elements in order, printing immediately
+    for element in &document.elements {
+        match element {
+            DocumentElement::Heading {
+                level,
+                text,
+                number,
+            } => {
+                let prefix = "#".repeat(*level as usize);
+                let heading_text = if let Some(number) = number {
+                    format!("{number} {text}")
+                } else {
+                    text.clone()
+                };
+                println!("{prefix} {heading_text}\n");
+            }
+            DocumentElement::Paragraph { text, formatting } => {
+                let mut formatted_text = text.clone();
+
+                if formatting.bold {
+                    formatted_text = format!("**{formatted_text}**");
+                }
+                if formatting.italic {
+                    formatted_text = format!("*{formatted_text}*");
+                }
+                if formatting.underline {
+                    formatted_text = format!("_{formatted_text}_");
+                }
+
+                println!("{formatted_text}\n");
+            }
+            DocumentElement::List { items, .. } => {
+                for item in items {
+                    println!("- {}", item.text);
+                }
+                println!();
+            }
+            DocumentElement::Table { table } => {
+                // Simple table rendering for text export
+                for row in &table.rows {
+                    let row_content: Vec<String> =
+                        row.iter().map(|cell| cell.content.clone()).collect();
+                    println!("| {} |", row_content.join(" | "));
+                }
+                println!();
+            }
+            DocumentElement::Image {
+                description,
+                image_path,
+                ..
+            } => {
+                // Render image immediately in the correct position
+                if let Some(path) = image_path {
+                    match crate::terminal_image::TerminalImageRenderer::new()
+                        .render_image_from_path(path, description)
+                    {
+                        Ok(_) => {
+                            // Image displayed successfully, add spacing
+                            println!();
+                        }
+                        Err(_) => {
+                            // Fallback to text description
+                            println!("[Image: {description}]\n");
+                        }
+                    }
+                } else {
+                    println!("[Image: {description}]\n");
+                }
+            }
+            DocumentElement::PageBreak => {
+                println!("{}\n", "-".repeat(50));
+            }
+        }
+    }
 }
 
 pub fn export_to_csv(document: &Document) -> Result<()> {
