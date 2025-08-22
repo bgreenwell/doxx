@@ -95,13 +95,17 @@ impl App {
     }
 
     fn init_image_support(&mut self) {
-        // Try to initialize picker from termios, fallback to manual font size
+        // Try to initialize picker from termios on Unix, use default on Windows
+        #[cfg(unix)]
         let mut picker = if let Ok(p) = Picker::from_termios() {
             p
         } else {
             // Fallback to manual font size
             Picker::new((8, 16))
         };
+        
+        #[cfg(not(unix))]
+        let mut picker = Picker::new((8, 16));
 
         picker.guess_protocol();
 
