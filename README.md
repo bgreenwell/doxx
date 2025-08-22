@@ -65,6 +65,12 @@ yay -S doxx-git
 ```
 *Thanks to [@mhegreberg](https://github.com/mhegreberg) for creating and maintaining the AUR package!*
 
+#### Nix (cross-platform)
+```bash
+nix profile install github:bgreenwell/doxx
+```
+*Thanks to [@bobberb](https://github.com/bobberb) for creating the Nix flake!*
+
 #### Scoop (Windows)
 ```bash
 # Coming soon

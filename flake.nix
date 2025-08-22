@@ -23,16 +23,16 @@
         # Define the package
         doxx = pkgs.rustPlatform.buildRustPackage rec {
           pname = "doxx";
-          version = "0.1.0";
+          version = "0.1.1";
 
           src = pkgs.fetchFromGitHub {
             owner = "bgreenwell";
             repo = "doxx";
-            rev = "main"; # We will want to pin this to a specific commit/tag/revision
-            sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="; # To be be updated
+            rev = "v0.1.1";
+            sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
           };
 
-          cargoHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="; # To be updated
+          cargoHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 
           # Native build inputs (build-time dependencies)
           nativeBuildInputs = with pkgs; [
