@@ -51,9 +51,7 @@ A fast, terminal-native document viewer for Word files. View, search, and export
 
 #### Homebrew (macOS/Linux)
 ```bash
-# Add our tap (coming soon)
-brew tap bgreenwell/doxx
-brew install doxx
+brew install bgreenwell/doxx/doxx
 ```
 
 #### Cargo (cross-platform)
