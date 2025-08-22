@@ -32,6 +32,39 @@ impl TerminalImageRenderer {
         }
     }
 
+    /// Create a new terminal image renderer with custom size limits
+    pub fn with_size_limits(max_width: Option<u32>, max_height: Option<u32>) -> Self {
+        let support = Self::detect_capabilities();
+        let (default_width, default_height) = Self::get_terminal_size();
+
+        Self {
+            support,
+            max_width: max_width.unwrap_or(default_width),
+            max_height: max_height.unwrap_or(default_height),
+        }
+    }
+
+    /// Create a new terminal image renderer with custom size limits and scaling
+    pub fn with_options(
+        max_width: Option<u32>,
+        max_height: Option<u32>,
+        scale: Option<f32>,
+    ) -> Self {
+        let support = Self::detect_capabilities();
+        let (default_width, default_height) = Self::get_terminal_size();
+
+        let scale_factor = scale.unwrap_or(1.0).clamp(0.1, 2.0); // Clamp between 0.1 and 2.0
+
+        let scaled_width = max_width.unwrap_or(default_width);
+        let scaled_height = max_height.unwrap_or(default_height);
+
+        Self {
+            support,
+            max_width: ((scaled_width as f32) * scale_factor) as u32,
+            max_height: ((scaled_height as f32) * scale_factor) as u32,
+        }
+    }
+
     /// Create a renderer with specific capabilities (for testing)
     pub fn with_support(support: TerminalImageSupport) -> Self {
         let (max_width, max_height) = Self::get_terminal_size();
@@ -94,6 +127,8 @@ impl TerminalImageRenderer {
                 Ok(())
             }
             _ => {
+                let display_path = image_path.to_path_buf();
+
                 // Use viuer to display the image with appropriate protocol
                 let mut conf = viuer::Config {
                     transparent: true,
@@ -116,7 +151,7 @@ impl TerminalImageRenderer {
                     _ => {}
                 }
 
-                match viuer::print_from_file(image_path, &conf) {
+                match viuer::print_from_file(&display_path, &conf) {
                     Ok(_) => {
                         // Print description after the image
                         if !description.is_empty() {

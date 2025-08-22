@@ -58,6 +58,18 @@ struct Cli {
     #[arg(long)]
     extract_images: Option<PathBuf>,
 
+    /// Maximum image width in terminal columns (default: auto-detect)
+    #[arg(long, value_name = "COLS")]
+    image_width: Option<u32>,
+
+    /// Maximum image height in terminal rows (default: auto-detect)  
+    #[arg(long, value_name = "ROWS")]
+    image_height: Option<u32>,
+
+    /// Image scaling factor (0.1 to 2.0, default: 1.0)
+    #[arg(long, value_name = "SCALE")]
+    image_scale: Option<f32>,
+
     /// Test terminal image capabilities
     #[arg(long)]
     debug_terminal: bool,
@@ -117,8 +129,13 @@ async fn main() -> Result<()> {
         anyhow::bail!("File not found: {}", file_path.display());
     }
 
-    let enable_images = cli.images;
-    let document = document::load_document(&file_path, enable_images).await?;
+    let image_options = document::ImageOptions {
+        enabled: cli.images,
+        max_width: cli.image_width,
+        max_height: cli.image_height,
+        scale: cli.image_scale,
+    };
+    let document = document::load_document(&file_path, image_options).await?;
 
     // Handle image extraction flag
     if let Some(extract_dir) = &cli.extract_images {

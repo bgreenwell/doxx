@@ -1,363 +1,162 @@
-# doxx
+# doxx 📄
 
-> Expose `.docx` files in your terminal — no Microsoft Word required
+> `.docx` files in your terminal — no Microsoft Word required
 
 [![CI](https://github.com/bgreenwell/doxx/workflows/CI/badge.svg)](https://github.com/bgreenwell/doxx/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/rust-%23000000.svg?style=flat&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 
-> **Under Active Development**: New features and improvements are being added regularly. Check back often for updates!
-
-**doxx** is a lightning-fast, terminal-native document viewer for Microsoft Word files. Built with Rust for performance and reliability, it brings Word documents to your command line with beautiful rendering, smart table support, and powerful export capabilities.
+A fast, terminal-native document viewer for Word files. View, search, and export `.docx` documents without leaving your command line.
 
 ![doxx screenshot](assets/doxx-screenshot.png)
 
-## Features
+## ✨ Features
 
-### Document viewing
-- **Beautiful terminal rendering** with syntax highlighting and formatting
-- **Color support** with `--color` flag for Word document text colors (red, blue, green, etc.)
-- **Professional table display** with smart alignment and Unicode borders
-- **Nested list support** with proper indentation and multi-level hierarchy
-- **Full-text search** with highlighting and context
-- **Document outline** for quick navigation
-- **Multiple view modes** — document, outline, search, and help
+- **Beautiful terminal rendering** with formatting, tables, and lists
+- **Fast search** with highlighting 🔍
+- **Smart tables** with proper alignment and Unicode borders
+- **Copy to clipboard** — grab content directly from the terminal
+- **Export formats** — Markdown, CSV, JSON, plain text
+- **Terminal images** for Kitty, iTerm2, WezTerm 🖼️
+- **Color support** — see Word document colors in your terminal
 
-### Image support (work in progress)
-- **Image extraction** from DOCX files with proper metadata
-- **Terminal image display** in text export mode for supported terminals (Kitty, iTerm2, WezTerm)
-- **Fallback descriptions** for terminals without image support
-- **Interactive TUI integration** planned for future releases
+## 🚀 Installation
 
-### Smart table support
-- **Advanced table parsing** with automatic header detection
-- **Intelligent alignment** — numbers right-aligned, text left-aligned, booleans centered  
-- **Data type detection** for currency, percentages, dates, and more
-- **Professional ASCII rendering** with scalable Unicode borders
-- **Search within tables** across headers and cell content
+### Pre-built binaries
 
-### Copy & clipboard
-- **Copy to clipboard** - Copy rendered content directly from the terminal UI
-- **Context-aware copying** - Different content based on current view:
-  - **Document view**: Copy full formatted document with headings, lists, and tables
-  - **Outline view**: Copy document structure with indented headings
-  - **Search view**: Copy search results with context
-- **Cross-platform**: Works on Windows, macOS, and Linux (X11/Wayland)
-- **Visual feedback** with status messages and error handling
-
-### Export & integration
-- **Markdown export** with proper table alignment indicators
-- **CSV extraction** for data analysis workflows
-- **Plain text** output for piping to other tools (with image support)
-- **JSON export** with full document structure
-- **CLI-friendly** for scripts and automation
-
-## Quick start
-
-### Installation
-
-#### Pre-built binaries (recommended)
-
-**doxx** provides pre-built binaries for all major platforms via GitHub releases:
-
-| Platform | Architecture | Download |
-|----------|-------------|----------|
-| **Windows** | x86_64 | `doxx-windows-x86_64.zip` |
-| **Linux** | x86_64 (musl) | `doxx-linux-x86_64.tar.gz` |
-| **macOS** | Intel (x86_64) | `doxx-macos-x86_64.tar.gz` |
-| **macOS** | Apple Silicon (ARM64) | `doxx-macos-arm64.tar.gz` |
+Download from [GitHub releases](https://github.com/bgreenwell/doxx/releases):
 
 ```bash
-# Download the latest release for your platform
-curl -L https://github.com/bgreenwell/doxx/releases/latest/download/doxx-[platform].tar.gz | tar xz
-
-# Move to your PATH
+# macOS/Linux
+curl -L https://github.com/bgreenwell/doxx/releases/latest/download/doxx-$(uname -s)-$(uname -m).tar.gz | tar xz
 sudo mv doxx /usr/local/bin/
 
-# Verify installation
+# Verify
 doxx --version
 ```
 
-**Supported operating systems:**
-- Windows 10/11 (x86_64)
-- Linux distributions (x86_64, musl-based for maximum compatibility)
-- macOS 10.12+ (Intel and Apple Silicon)
-
-#### Package managers (coming soon!)
-
-We're working on official package manager support:
-
-- **Homebrew** (macOS/Linux): `brew install doxx` - *coming soon*
-- **Chocolatey** (Windows): `choco install doxx` - *coming soon*  
-- **Cargo** (all platforms): `cargo install doxx` - *coming soon*
-- **APT/YUM** (Linux): Official repo packages - *coming soon*
-
-#### Build from source
-
-For the latest development features or unsupported platforms:
+### Build from source
 
 ```bash
-# Install from source (requires Rust 1.70+)
 git clone https://github.com/bgreenwell/doxx.git
 cd doxx
 cargo install --path .
-
-# Or install directly from Git
-cargo install --git https://github.com/bgreenwell/doxx.git
 ```
 
-**Requirements:**
-- Rust 1.70 or later
-- Git for cloning the repository
-
-### Basic usage
+## 🎯 Usage
 
 ```bash
 # View a document
-doxx quarterly-report.docx
+doxx report.docx
+
+# Search for content
+doxx contract.docx --search "payment"
 
 # Start with outline view
 doxx document.docx --outline
 
-# Search for specific content
-doxx contract.docx --search "payment terms"
-
-# Enable color support for Word text colors
-doxx presentation.docx --color
-
-# View images in terminal (text export mode)
-doxx report.docx --images --export text
-
 # Export to different formats
-doxx spreadsheet.docx --export csv > data.csv
+doxx data.docx --export csv > data.csv
 doxx report.docx --export markdown > report.md
-doxx document.docx --export json > structure.json
 
-# Force interactive UI (useful for development/testing)
-doxx document.docx --force-ui
-
-# Check terminal image capabilities
-doxx --debug-terminal
-
-# Check version
-doxx --version
-
-# Get help
-doxx --help
-```
-
-## Terminal UI
-
-Navigate documents with intuitive keyboard shortcuts and mouse support:
-
-| Input | Action |
-|-------|--------|
-| `↑`/`k` or mouse wheel up | Scroll up |
-| `↓`/`j` or mouse wheel down | Scroll down |
-| `Page Up`/`Page Down` | Page navigation |
-| `Home`/`End` | Jump to start/end |
-| `o` | Toggle outline view |
-| `s` | Open search |
-| `c` | **Copy content to clipboard** |
-| `F2` | Copy content (in search view) |
-| `n`/`p` | Next/previous search result |
-| `h`/`F1` | Toggle help |
-| `q` | Quit |
-
-## Examples
-
-### Document analysis
-```bash
-# Quick document overview
-doxx annual-report.docx
-
-# Find all tables and export as CSV
-doxx financial-data.docx --export csv
-
-# Search for specific terms with context
-doxx legal-contract.docx --search "liability"
-
-# Navigate large documents with outline
-doxx technical-manual.docx --outline
-```
-
-### Image viewing workflow
-```bash
-# View documents with images in terminal (supported terminals only)
+# View with images (supported terminals)
 doxx presentation.docx --images --export text
 
-# Check if your terminal supports image display
-doxx --debug-terminal
-
-# Interactive viewing shows image availability
-doxx report.docx --images
-# Shows: "Image available - use --export text to view" for each image
+# Enable color rendering
+doxx slides.docx --color
 ```
 
-### Copy & clipboard workflow
+## ⌨️ Navigation
+
+| Key | Action |
+|-----|--------|
+| `↑`/`k` | Scroll up |
+| `↓`/`j` | Scroll down |
+| `o` | Toggle outline |
+| `s` | Search |
+| `c` | Copy to clipboard |
+| `h` | Help |
+| `q` | Quit |
+
+## 🔧 Why doxx?
+
+Current terminal tools for Word documents:
+- **docx2txt** → Loses all formatting, mangled tables
+- **pandoc** → Complex chain, formatting lost
+- **antiword** → Only handles old `.doc` files
+
+**doxx** gives you:
+- ✅ Rich formatting preserved (bold, italic, headers)
+- ✅ Professional table rendering with alignment
+- ✅ Interactive navigation and search
+- ✅ Multiple export formats for workflows
+- ✅ Terminal image display for modern terminals
+- ✅ Fast startup (50ms vs Word's 8+ seconds)
+
+Perfect for developers, sysadmins, and anyone who prefers the terminal.
+
+## 📊 Examples
+
+### Quick document analysis
 ```bash
-# Interactive document review with copy
+# Get overview and search
 doxx quarterly-report.docx
-# Navigate to important section, press 'c' to copy to clipboard
-# Paste into email, Slack, or other applications
+doxx --search "revenue"
 
-# Copy search results for sharing
-doxx meeting-notes.docx --search "action items"
-# Press F2 to copy all search results with context
-
-# Copy document structure for planning
-doxx technical-spec.docx --outline
-# Press 'c' to copy hierarchical outline
+# Extract tables for analysis
+doxx financial-data.docx --export csv | python analyze.py
 ```
 
-### Color rendering workflow
+### Copy workflows
 ```bash
-# View presentations with original colors preserved
-doxx marketing-deck.docx --color
-# Red titles, blue highlights, green callouts render in terminal
+# Review and copy sections
+doxx meeting-notes.docx
+# Press 'c' to copy current view to clipboard
 
-# Compare colored vs plain text output
-doxx design-review.docx          # Plain text (default)
-doxx design-review.docx --color  # With Word document colors
-
-# Color information always available in exports
-doxx colorful-report.docx --export json | jq '.elements[] | select(.Paragraph.formatting.color != null)'
+# Copy search results
+doxx specs.docx --search "requirements"
+# Press F2 to copy results with context
 ```
 
 ### Pipeline integration
 ```bash
-# Extract text for further processing
-doxx meeting-notes.docx --export text | grep "action items"
+# Extract text for processing
+doxx notes.docx --export text | grep "action items"
 
-# Convert Word tables to CSV for analysis
-doxx survey-results.docx --export csv | python analyze.py
-
-# Get document metadata as JSON
+# Get document structure
 doxx report.docx --export json | jq '.metadata'
 ```
 
-## Architecture
+## 🏗️ Architecture
 
-Built with modern Rust for maximum performance:
+Built with Rust for performance:
+- **[docx-rs](https://crates.io/crates/docx-rs)** — Document parsing
+- **[ratatui](https://crates.io/crates/ratatui)** — Terminal UI
+- **[viuer](https://crates.io/crates/viuer)** — Image rendering
+- **[unicode-segmentation](https://crates.io/crates/unicode-segmentation)** — Proper Unicode handling
 
-- **Document parsing**: [`docx-rs`](https://crates.io/crates/docx-rs) for robust `.docx` file handling
-- **Terminal UI**: [`ratatui`](https://crates.io/crates/ratatui) for beautiful cross-platform interfaces  
-- **Image rendering**: [`viuer`](https://crates.io/crates/viuer) for terminal image display with [`ratatui-image`](https://crates.io/crates/ratatui-image) integration
-- **Text processing**: [`unicode-segmentation`](https://crates.io/crates/unicode-segmentation) for proper Unicode support
-- **Search**: [`regex`](https://crates.io/crates/regex) for powerful pattern matching
-
-## Why doxx?
-
-**doxx fills a critical gap**: there's no good way to view Word documents in the terminal. Current solutions force you to choose between losing all formatting or switching to GUI applications.
-
-### The Problem with Existing Tools
-
-| Tool | Type | DOCX Support | Formatting | Tables | Interactive |
-|------|------|-------------|------------|---------|------------|
-| **docx2txt** | Text extractor | ✅ Basic | ❌ Lost | ❌ Mangled | ❌ No |
-| **antiword** | Legacy converter | ❌ .doc only | ❌ Lost | ❌ Basic | ❌ No |
-| **pandoc** | Universal converter | ✅ Via chain | ❌ Lost | ❌ Basic | ❌ No |
-| **glow** | Markdown viewer | ❌ Wrong format | ✅ Rich | ✅ Good | ✅ Yes |
-| **Microsoft Word** | GUI application | ✅ Native | ✅ Rich | ✅ Perfect | ✅ Yes |
-
-### What doxx Brings
-
-**doxx** is the **first terminal-native DOCX viewer** that preserves formatting and provides an interactive experience:
-
-| Feature | doxx | Best Alternative |
-|---------|------|------------------|
-| **Rich DOCX viewing** | ✅ Native with formatting | ❌ Plain text only |
-| **Smart table rendering** | ✅ Aligned with borders | ❌ Unformatted text |
-| **Interactive navigation** | ✅ Full TUI interface | ❌ Pipe to `less` |
-| **Terminal integration** | ✅ SSH-friendly, scriptable | ❌ GUI required |
-| **Multiple exports** | ✅ Markdown, CSV, JSON | ❌ Text only |
-| **Image support** | ✅ Terminal display (WIP) | ❌ None |
-
-### vs. Microsoft Word
-- **Instant startup** (50ms vs 8+ seconds)
-- **Minimal memory** (15MB vs 500MB+ RAM)
-- **Zero licensing costs** ($0 vs $149+ per license)
-- **SSH-friendly** for remote server access
-- **Scriptable** for automation workflows
-
-### vs. Text Extractors (docx2txt, antiword)
-- **Preserves formatting** (bold, italic, structure)
-- **Intelligent table rendering** with proper alignment
-- **Interactive interface** vs. static text output
-- **Built-in search** with highlighting and navigation
-- **Smart exports** with format-aware output
-
-### vs. Terminal Document Viewers (glow, bat, mdcat)
-- **Native DOCX support** vs. markdown/code only
-- **Business document focused** vs. developer files
-- **Advanced table intelligence** for spreadsheet-like data
-- **Multiple export formats** for downstream processing
-
-## Development
-
-### Building from source
+## 🛠️ Development
 
 ```bash
-# Clone the repository
-git clone https://github.com/bgreenwell/doxx.git
-cd doxx
-
-# Build and run
+# Build and test
 cargo build --release
-cargo run -- --help
-
-# Run tests
 cargo test
+
+# Run with sample document
+cargo run -- tests/fixtures/sample.docx
 ```
 
-### Project structure
+## 📋 Roadmap
 
-```
-src/
-├── main.rs            # CLI argument parsing and entry point
-├── document.rs        # Document parsing and table structures  
-├── ui.rs              # Terminal interface and rendering
-├── export.rs          # Export functionality for different formats
-├── terminal_image.rs  # Terminal image display capabilities
-├── image_extractor.rs # DOCX image extraction
-```
+- Enhanced table support (merged cells, complex layouts)
+- Performance improvements for large documents
+- Hyperlink navigation
+- Custom themes
 
-## Roadmap
+## 📝 License
 
-### Current focus
-- **Image rendering improvements** - Full TUI integration and better terminal compatibility
-- **Performance optimizations** - Faster loading for large documents
-- **Enhanced table support** - Merged cells and complex layouts
-
-### Coming soon
-- **Hyperlink support** for navigation within documents  
-- **Themes and customization** for personalized viewing
-- **Enhanced image formats** - SVG and other embedded graphics
-- **Plugin system** for extensible functionality
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a pull request or open an issue.
-
-1. **Fork the repository**
-2. **Create a feature branch** (`git checkout -b feature/amazing-feature`)
-3. **Commit your changes** (`git commit -m 'Add amazing feature'`)
-4. **Push to the branch** (`git push origin feature/amazing-feature`)
-5. **Open a pull request**
-
-## License
-
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- Built with the amazing [Rust](https://www.rust-lang.org/) programming language
-- Terminal UI powered by [ratatui](https://ratatui.rs/)
-- Document parsing with [docx-rs](https://crates.io/crates/docx-rs)
-- Image rendering with [viuer](https://crates.io/crates/viuer) and [ratatui-image](https://crates.io/crates/ratatui-image)
-- Inspired by [Charm's Glow](https://github.com/charmbracelet/glow) for beautiful CLI rendering
-- Influenced by the terminal-first development philosophy
+MIT License — see [LICENSE](LICENSE) file for details.
 
 ---
 
-**Made with care for developers who live in the terminal**
+**Made for developers who live in the terminal** 🚀

@@ -7,36 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Removed
-- **AI Features**: Removed all AI-related functionality to focus on core document viewing capabilities
-  - Removed AI dependencies: `ollama-rs`, AI-specific `reqwest` features
-  - Removed CLI flags: `--summarize`, `--ask`, `--ai-local`, `--ai-cloud`, `--describe-images`, `--extract-citations`, `--extract-actions`
-  - Deleted `src/ai.rs` module entirely
-  - Updated package description from "AI-powered" to standard terminal document viewer
-  - Cleaned up AI references from documentation and roadmap
-  - **Rationale**: Simplified focus on reliable document viewing without AI complexity
-
-### Fixed
-- **Code Quality**: Resolved all clippy warnings with `-D warnings` level enforcement
-  - Fixed dead code warning by adding `#[allow(dead_code)]` to unused `Bullet` enum variant
-  - Resolved type complexity issue by introducing `NumberingCounters` type alias for complex HashMap
-  - Fixed uninlined format argument warnings by updating all `format!` calls to use inline variable syntax
-  - Added `ImageProtocols` type alias to reduce type complexity in image handling
-  - Improved nested pattern matching to satisfy clippy's collapsible match warnings
-  - Removed unused imports and variables across multiple modules
-  - **Result**: Clean clippy run with zero warnings for improved code maintainability
-
 ### Added
-- **Image Rendering Support (Work in Progress)**: Added foundational image extraction and display capabilities
-  - **Image Extraction**: Extract embedded images from DOCX files with proper metadata preservation
-  - **Terminal Image Display**: Support for image rendering in text export mode using terminal graphics protocols
-  - **Protocol Support**: Compatible with modern terminals (Kitty, iTerm2, WezTerm) via `viuer` library
-  - **Consistent Ordering**: Fixed random image ordering by implementing sorted filename-based extraction
-  - **CLI Integration**: Added `--images` flag to enable image processing and `--debug-terminal` for capability testing
-  - **Export Mode**: Images display correctly in `--export text` mode with proper document flow
-  - **TUI Infrastructure**: Added `ratatui-image` integration for future interactive TUI image rendering
-  - **Fallback Support**: Graceful degradation with descriptive text for terminals without image support
-  - **Current Status**: Images work in export text mode; TUI integration planned for future release
+- **Terminal Document Viewer**: Beautiful .docx viewing in your terminal
+  - **Rich Text Rendering**: Headers, bold, italic, underline with proper formatting
+  - **Table Support**: ASCII tables with intelligent alignment and formatting
+  - **Document Navigation**: Outline view, search functionality, page jumping
+  - **Multiple Export Formats**: Text, Markdown, JSON, CSV with table extraction
+  - **Cross-Platform**: Works on Linux, macOS, and Windows
+
+- **Smart Heading System**: Intelligent document structure detection
+  - **Automatic Numbering**: Sequential numbering for structured documents (1, 2, 3...)
+  - **Manual Numbering Support**: Preserves explicit numbering ("1. Introduction", "2.1 Overview")
+  - **Plain Title Handling**: Correctly displays titles like "Heading 1" without adding numbers
+  - **Hierarchical Structure**: Multi-level numbering (1.1, 1.2, 2.1, etc.)
+
+- **Terminal Image Display**: Full-featured image rendering with controls
+  - **Protocol Support**: Kitty, iTerm2, and half-block fallback for maximum compatibility
+  - **Size Controls**: `--image-width`, `--image-height`, `--image-scale` options
+  - **Smart Integration**: Works across all export modes (text, markdown, UI)
+  - **Quality Options**: Automatic protocol selection for best available image quality
+  - **Example**: `doxx document.docx --images --image-width 40 --image-scale 0.8`
+
+- **Professional Infrastructure**: Enterprise-grade development setup
+  - **CI/CD Pipeline**: Multi-platform testing and automated releases
+  - **Code Quality**: Zero clippy warnings with comprehensive linting
+  - **Security Auditing**: Automated vulnerability scanning and dependency validation
+  - **Unicode Safety**: Proper handling of international characters and emojis
 - **Color Support for Text Rendering**: Added comprehensive color support with optional `--color` flag
   - **Color Detection**: Extracts hex color codes from Word documents (e.g., `#FF0000`, `#0066CC`)
   - **Terminal Rendering**: Converts hex colors to RGB terminal colors using ratatui

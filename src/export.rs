@@ -224,8 +224,12 @@ pub fn format_as_text(document: &Document) -> String {
             } => {
                 // Try to render the image inline if available
                 if let Some(path) = image_path {
-                    match crate::terminal_image::TerminalImageRenderer::new()
-                        .render_image_from_path(path, description)
+                    match crate::terminal_image::TerminalImageRenderer::with_options(
+                        document.image_options.max_width,
+                        document.image_options.max_height,
+                        document.image_options.scale,
+                    )
+                    .render_image_from_path(path, description)
                     {
                         Ok(_) => {
                             // Image displayed successfully, add spacing
@@ -318,8 +322,12 @@ fn export_to_text_with_images(document: &Document) {
             } => {
                 // Render image immediately in the correct position
                 if let Some(path) = image_path {
-                    match crate::terminal_image::TerminalImageRenderer::new()
-                        .render_image_from_path(path, description)
+                    match crate::terminal_image::TerminalImageRenderer::with_options(
+                        document.image_options.max_width,
+                        document.image_options.max_height,
+                        document.image_options.scale,
+                    )
+                    .render_image_from_path(path, description)
                     {
                         Ok(_) => {
                             // Image displayed successfully, add spacing

@@ -8,11 +8,22 @@ type TableRows = Vec<Vec<TableCell>>;
 type NumberingInfo = (i32, u8);
 type HeadingNumberInfo = (String, String);
 
+/// Image rendering options
+#[derive(Debug, Clone, Default)]
+pub struct ImageOptions {
+    pub enabled: bool,
+    pub max_width: Option<u32>,
+    pub max_height: Option<u32>,
+    pub scale: Option<f32>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Document {
     pub title: String,
     pub metadata: DocumentMetadata,
     pub elements: Vec<DocumentElement>,
+    #[serde(skip)]
+    pub image_options: ImageOptions,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -125,7 +136,7 @@ pub struct SearchResult {
     pub end_pos: usize,
 }
 
-pub async fn load_document(file_path: &Path, enable_images: bool) -> Result<Document> {
+pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Result<Document> {
     let file_size = std::fs::metadata(file_path)?.len();
 
     // For now, create a simple implementation that reads the docx file
@@ -141,11 +152,17 @@ pub async fn load_document(file_path: &Path, enable_images: bool) -> Result<Docu
 
     let mut elements = Vec::new();
     let mut word_count = 0;
-    let mut heading_tracker = HeadingNumberTracker::new();
     let mut numbering_manager = DocumentNumberingManager::new();
+    let mut heading_tracker = HeadingNumberTracker::new();
+
+    // Analyze document structure to determine if auto-numbering should be enabled
+    let should_auto_number = analyze_heading_structure(&docx.document);
+    if should_auto_number {
+        heading_tracker.enable_auto_numbering();
+    }
 
     // Extract images if enabled
-    let image_extractor = if enable_images {
+    let image_extractor = if image_options.enabled {
         let mut extractor = crate::image_extractor::ImageExtractor::new()?;
         extractor.extract_images_from_docx(file_path)?;
         Some(extractor)
@@ -181,17 +198,18 @@ pub async fn load_document(file_path: &Path, enable_images: bool) -> Result<Docu
                                             .filter(|e| matches!(e, DocumentElement::Image { .. }))
                                             .count();
 
-                                        // Use the image index in sorted order
-                                        let image_index = image_count % images.len();
-                                        let (_, image_path) = &images[image_index];
+                                        // Only create Image element if we have an actual image file available
+                                        if image_count < images.len() {
+                                            let (_, image_path) = &images[image_count];
 
-                                        elements.push(DocumentElement::Image {
-                                            description: format!("Image {}", image_count + 1),
-                                            width: None,
-                                            height: None,
-                                            relationship_id: None,
-                                            image_path: Some(image_path.clone()),
-                                        });
+                                            elements.push(DocumentElement::Image {
+                                                description: format!("Image {}", image_count + 1),
+                                                width: None,
+                                                height: None,
+                                                relationship_id: None,
+                                                image_path: Some(image_path.clone()),
+                                            });
+                                        }
                                     }
                                 }
                             }
@@ -245,12 +263,16 @@ pub async fn load_document(file_path: &Path, enable_images: bool) -> Result<Docu
                         if let Some(heading_info) = heading_info {
                             let heading_text = heading_info.clean_text.unwrap_or(text.clone());
 
-                            // If no explicit numbering found, generate automatic numbering
                             let number = if heading_info.number.is_some() {
                                 heading_info.number
                             } else {
-                                // Generate automatic numbering for consistent heading styles
-                                Some(heading_tracker.get_number(heading_info.level))
+                                // Generate automatic numbering if enabled for this document
+                                let auto_number = heading_tracker.get_number(heading_info.level);
+                                if auto_number.is_empty() {
+                                    None
+                                } else {
+                                    Some(auto_number)
+                                }
                             };
 
                             elements.push(DocumentElement::Heading {
@@ -307,6 +329,7 @@ pub async fn load_document(file_path: &Path, enable_images: bool) -> Result<Docu
         title,
         metadata,
         elements,
+        image_options,
     })
 }
 
@@ -693,18 +716,29 @@ fn reconstruct_heading_number(num_id: i32, level: u8, heading_level: u8) -> Stri
     }
 }
 
-/// Track heading numbering state across the document
 #[derive(Debug)]
 struct HeadingNumberTracker {
     counters: [u32; 6], // Support up to 6 heading levels
+    auto_numbering_enabled: bool,
 }
 
 impl HeadingNumberTracker {
     fn new() -> Self {
-        Self { counters: [0; 6] }
+        Self {
+            counters: [0; 6],
+            auto_numbering_enabled: false,
+        }
+    }
+
+    fn enable_auto_numbering(&mut self) {
+        self.auto_numbering_enabled = true;
     }
 
     fn get_number(&mut self, level: u8) -> String {
+        if !self.auto_numbering_enabled {
+            return String::new();
+        }
+
         let level_index = (level.saturating_sub(1) as usize).min(5);
 
         // Increment current level
@@ -727,12 +761,52 @@ impl HeadingNumberTracker {
     }
 }
 
+/// Analyze document structure to determine if automatic numbering should be enabled
+fn analyze_heading_structure(document: &docx_rs::Document) -> bool {
+    let mut heading_count = 0;
+    let mut has_explicit_numbering = false;
+    let mut level_counts = [0u32; 6]; // Count headings at each level
+
+    for child in &document.children {
+        if let docx_rs::DocumentChild::Paragraph(para) = child {
+            if let Some(heading_level) = detect_heading_from_paragraph_style(para) {
+                let text = extract_paragraph_text(para);
+
+                // Check if this heading has explicit numbering in the text
+                if extract_heading_number_from_text(&text).is_some() {
+                    has_explicit_numbering = true;
+                }
+
+                heading_count += 1;
+                let level_index = (heading_level.saturating_sub(1) as usize).min(5);
+                level_counts[level_index] += 1;
+            }
+        }
+    }
+
+    // Don't auto-number if:
+    // 1. Any headings have explicit numbering
+    // 2. Very few headings (less than 3)
+    // 3. Only one level of headings (no hierarchy)
+    if has_explicit_numbering || heading_count < 3 {
+        return false;
+    }
+
+    // Check if we have a real hierarchy (headings at multiple levels)
+    let levels_with_headings = level_counts.iter().filter(|&&count| count > 0).count();
+
+    // Auto-number if we have multiple levels or multiple headings at level 1
+    levels_with_headings > 1 || level_counts[0] > 1
+}
+
 // Lazy static regex patterns for heading number detection
 // Focused on common patterns for manual numbering in text
 static HEADING_NUMBER_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
     vec![
         // Standard decimal numbering: "1.", "1.1", "1.1.1", "2.1.1" (most common)
-        Regex::new(r"^(\d+(?:\.\d+)*\.?)\s+(.+)$").unwrap(),
+        // For single numbers, require a period to distinguish from "Heading 1" style titles
+        // For hierarchical numbers (1.1, 1.2.3), period is optional
+        Regex::new(r"^(\d+(?:\.\d+)+\.?|\d+\.)\s+(.+)$").unwrap(),
         // Section numbering: "Section 1.2", "Chapter 3"
         Regex::new(r"^((?:Section|Chapter|Part)\s+\d+(?:\.\d+)*\.?)\s+(.+)$").unwrap(),
         // Alternative numbering schemes (less common, but still useful)
@@ -808,6 +882,16 @@ mod tests {
 
         // Test no numbering (should fall back to automatic generation)
         assert_eq!(extract_heading_number_from_text("Introduction"), None);
+
+        // Test titles with numbers that should NOT be treated as numbered headings
+        assert_eq!(extract_heading_number_from_text("Heading 1"), None);
+        // Note: "Chapter 5 Summary" will match the section pattern, which is intentional
+        // The section pattern is designed to match "Chapter 5 Something" formats
+        assert_eq!(
+            extract_heading_number_from_text("Chapter 5 Summary"),
+            Some(("Chapter 5".to_string(), "Summary".to_string()))
+        );
+        assert_eq!(extract_heading_number_from_text("Version 2"), None);
     }
 }
 

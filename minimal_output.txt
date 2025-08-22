@@ -1,7 +1,0 @@
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.03s
-     Running `target/debug/doxx tests/fixtures/minimal.docx`
-Document: minimal
-Pages: 1
-Words: 26
-
-Use --export to save content, or run in an interactive terminal for full UI.

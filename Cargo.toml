@@ -8,6 +8,17 @@ repository = "https://github.com/bgreenwell/doxx"
 keywords = ["docx", "terminal", "document", "viewer", "tui"]
 categories = ["command-line-utilities", "text-processing"]
 default-run = "doxx"
+exclude = [
+    "CLAUDE.md",
+    "assets/",
+    "src/bin/generate_test_docs.rs",
+    "tests/fixtures/README.md",
+    ".DS_Store",
+    "*.tmp",
+    "*.log",
+    "*.bak",
+    "*~"
+]
 
 [lib]
 name = "doxx"

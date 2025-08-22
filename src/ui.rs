@@ -301,8 +301,12 @@ async fn run_non_interactive(document: Document, cli: &Cli) -> Result<()> {
                     } => {
                         if let Some(path) = image_path {
                             // Try to display the image inline using terminal protocols
-                            match crate::terminal_image::TerminalImageRenderer::new()
-                                .render_image_from_path(path, description)
+                            match crate::terminal_image::TerminalImageRenderer::with_options(
+                                app.document.image_options.max_width,
+                                app.document.image_options.max_height,
+                                app.document.image_options.scale,
+                            )
+                            .render_image_from_path(path, description)
                             {
                                 Ok(_) => {
                                     // Image displayed successfully
