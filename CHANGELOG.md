@@ -168,6 +168,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Configured cargo-deny for supply chain security
   - Prepared Dependabot configuration (disabled during early development to avoid PR spam)
 
+## [0.1.1] - 2024-XX-XX
+
+### Added
+- **Comprehensive release pipeline** with automated package manager support
+  - Cross-platform binary builds (Linux, macOS Intel/ARM, Windows)
+  - Automated crates.io publishing on release
+  - Homebrew formula with automatic updates
+  - SHA256 checksums for security verification
+- **Enhanced installation options** in README with package manager instructions
+- **Release automation script** (`scripts/release.sh`) for easy version management
+- **Comprehensive release documentation** (RELEASE.md)
+
+### Changed
+- **Updated README** to use sentence case consistently throughout
+- **Improved TUI image placeholder messages** to be clearer about functionality
+- **Enhanced Markdown export** to use actual image paths instead of placeholder text
+- **Modernized GitHub Actions** workflows for better reliability
+
+### Fixed
+- **Platform-specific image picker initialization** on Windows (clippy compatibility)
+- **CSV export documentation** now clearly explains table-only extraction purpose
+
+### Documentation
+- **Added detailed command line options reference** with examples and use cases
+- **Enhanced installation section** with multiple package manager options
+- **Clarified CSV export purpose** for structured data extraction workflows
+
 ## [0.1.0] - Initial Release
 
 ### Added
