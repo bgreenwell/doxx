@@ -47,18 +47,44 @@ A fast, terminal-native document viewer for Word files. View, search, and export
 
 ## 🚀 Installation
 
+### Package managers
+
+#### Homebrew (macOS/Linux)
+```bash
+# Add our tap (coming soon)
+brew tap bgreenwell/doxx
+brew install doxx
+```
+
+#### Cargo (cross-platform)
+```bash
+cargo install doxx
+```
+
+#### Scoop (Windows)
+```bash
+# Coming soon
+scoop bucket add doxx https://github.com/bgreenwell/doxx-scoop
+scoop install doxx
+```
+
 ### Pre-built binaries
 
 Download from [GitHub releases](https://github.com/bgreenwell/doxx/releases):
 
 ```bash
-# macOS/Linux
+# macOS/Linux - automatic platform detection
 curl -L https://github.com/bgreenwell/doxx/releases/latest/download/doxx-$(uname -s)-$(uname -m).tar.gz | tar xz
 sudo mv doxx /usr/local/bin/
 
-# Verify
+# Verify installation
 doxx --version
 ```
+
+**Available platforms:**
+- **Linux**: `x86_64-unknown-linux-musl` (statically linked)
+- **macOS**: `x86_64-apple-darwin` (Intel) and `aarch64-apple-darwin` (Apple Silicon)
+- **Windows**: `x86_64-pc-windows-msvc`
 
 ### Build from source
 
@@ -66,7 +92,14 @@ doxx --version
 git clone https://github.com/bgreenwell/doxx.git
 cd doxx
 cargo install --path .
+
+# Or for development
+cargo build --release
 ```
+
+**Requirements:**
+- Rust 1.70+ 
+- System dependencies: `libxcb` (Linux only)
 
 ## 🎯 Usage
 
