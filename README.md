@@ -281,6 +281,12 @@ cargo run -- tests/fixtures/sample.docx
 - Hyperlink navigation
 - Custom themes
 
+## 💡 Inspiration
+
+This project was inspired by [Glow](https://github.com/charmbracelet/glow) by Charm Bracelet — the beautiful terminal Markdown renderer that shows how terminal document viewing can be both powerful and elegant. Just as Glow brings rich Markdown rendering to your command line, doxx aims to do the same for Microsoft Word documents.
+
+Thanks to the Charm team for the inspiration! ✨
+
 ## 📝 License
 
 MIT License — see [LICENSE](LICENSE) file for details.
