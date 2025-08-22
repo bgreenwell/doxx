@@ -6,11 +6,9 @@ on:
 
 jobs:
   update-homebrew:
-    if: ${{ github.actor == 'bgreenwell' }}
-
     name: Update Homebrew Formula
     runs-on: ubuntu-latest
-    if: github.event.release.prerelease == false
+    if: ${{ github.actor == 'bgreenwell' && github.event.release.prerelease == false }}
 
     steps:
       - name: Checkout repository
