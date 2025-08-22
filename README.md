@@ -91,6 +91,62 @@ doxx presentation.docx --images --export text
 doxx slides.docx --color
 ```
 
+## 📋 Command Line Options
+
+### Basic Options
+```bash
+doxx [OPTIONS] <FILE>
+```
+
+| Option | Description |
+|--------|-------------|
+| `<FILE>` | Input document file (.docx) |
+| `-h, --help` | Show help information |
+| `-V, --version` | Show version information |
+
+### Viewing Options
+| Option | Description |
+|--------|-------------|
+| `-o, --outline` | Start with outline view for quick navigation |
+| `-p, --page <PAGE>` | Jump to specific page number on startup |
+| `-s, --search <TERM>` | Search and highlight term immediately |
+| `--force-ui` | Force interactive UI mode (bypass TTY detection) |
+| `--color` | Enable color support for text rendering |
+
+### Export Options
+| Option | Values | Description |
+|--------|--------|-------------|
+| `--export <FORMAT>` | `markdown`, `text`, `csv`, `json` | Export document instead of viewing |
+
+**Export Examples:**
+```bash
+doxx report.docx --export markdown  # Convert to Markdown
+doxx data.docx --export csv         # Extract tables as CSV  
+doxx document.docx --export text    # Plain text output
+doxx structure.docx --export json   # Document metadata as JSON
+```
+
+### Image Options
+| Option | Description |
+|--------|-------------|
+| `--images` | Display images inline in terminal (auto-detect capabilities) |
+| `--extract-images <DIR>` | Extract images to specified directory |
+| `--image-width <COLS>` | Maximum image width in terminal columns (default: auto-detect) |
+| `--image-height <ROWS>` | Maximum image height in terminal rows (default: auto-detect) |
+| `--image-scale <SCALE>` | Image scaling factor (0.1 to 2.0, default: 1.0) |
+
+**Image Examples:**
+```bash
+doxx presentation.docx --images                    # Show images inline
+doxx document.docx --images --image-width 80       # Limit image width
+doxx slides.docx --extract-images ./images/        # Save images to folder
+```
+
+**⚠️ Image Display Notes:**
+- `--images` currently works with `--export text` mode and shows placeholders in TUI
+- Supports iTerm2, Kitty, and WezTerm terminals
+
+
 ## ⌨️ Navigation
 
 | Key | Action |
@@ -173,6 +229,7 @@ cargo run -- tests/fixtures/sample.docx
 
 ## 📋 Roadmap
 
+- Image support in TUI via ratatui-image crate
 - Enhanced table support (merged cells, complex layouts)
 - Performance improvements for large documents
 - Hyperlink navigation

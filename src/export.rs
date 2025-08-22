@@ -117,14 +117,19 @@ pub fn export_to_markdown(document: &Document) -> Result<()> {
                 description,
                 width,
                 height,
+                image_path,
                 ..
             } => {
                 let alt = description;
+                let url = image_path
+                    .as_ref()
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_else(|| description.clone());
                 let dimensions = match (width, height) {
                     (Some(w), Some(h)) => format!(" <!-- {w}x{h} -->"),
                     _ => String::new(),
                 };
-                markdown.push_str(&format!("![{alt}]({description}){dimensions}\n\n"));
+                markdown.push_str(&format!("![{alt}]({url}){dimensions}\n\n"));
             }
             DocumentElement::PageBreak => {
                 markdown.push_str("\n---\n\n");

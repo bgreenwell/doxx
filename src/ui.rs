@@ -719,7 +719,7 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
                 };
 
                 let status = if image_path.is_some() && !app.image_protocols.is_empty() {
-                    " [Rendering inline...]"
+                    " [TUI placeholder - use --export text to view images]"
                 } else if image_path.is_some() {
                     " [Image available - use --export text to view]"
                 } else {
