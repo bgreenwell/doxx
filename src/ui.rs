@@ -103,7 +103,7 @@ impl App {
             // Fallback to manual font size
             Picker::new((8, 16))
         };
-        
+
         #[cfg(not(unix))]
         let mut picker = Picker::new((8, 16));
 
