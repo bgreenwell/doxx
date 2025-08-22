@@ -8,7 +8,32 @@
 
 A fast, terminal-native document viewer for Word files. View, search, and export `.docx` documents without leaving your command line.
 
-![doxx screenshot](assets/doxx-screenshot.png)
+## Screenshots
+
+<div align="center">
+  <table>
+    <tr>
+      <td align="center">
+        <img src="assets/screenshot1-images.png" alt="Terminal image display" width="400">
+        <br><em>Terminal image display</em>
+      </td>
+      <td align="center">
+        <img src="assets/screenshot2-colors.png" alt="Color support" width="400">
+        <br><em>Color support</em>
+      </td>
+    </tr>
+    <tr>
+      <td align="center">
+        <img src="assets/screenshot3-tables.png" alt="Smart tables" width="400">
+        <br><em>Smart tables with alignment</em>
+      </td>
+      <td align="center">
+        <img src="assets/screenshot4-lists.png" alt="Lists and formatting" width="400">
+        <br><em>Lists and formatting</em>
+      </td>
+    </tr>
+  </table>
+</div>
 
 ## ✨ Features
 
