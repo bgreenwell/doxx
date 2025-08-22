@@ -59,6 +59,12 @@ brew install bgreenwell/doxx/doxx
 cargo install doxx
 ```
 
+#### AUR (Arch Linux)
+```bash
+yay -S doxx-git
+```
+*Thanks to [@mhegreberg](https://github.com/mhegreberg) for creating and maintaining the AUR package!*
+
 #### Scoop (Windows)
 ```bash
 # Coming soon
