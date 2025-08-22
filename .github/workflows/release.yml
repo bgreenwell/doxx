@@ -3,8 +3,8 @@ name: Create Release
 on:
   push:
     tags:
-      - 'v*.*.*' # This workflow runs when we push a tag like v0.2.1
-  
+      - "v*.*.*" # This workflow runs when we push a tag like v0.2.1
+
   workflow_dispatch:
 
 permissions:
@@ -12,11 +12,13 @@ permissions:
 
 jobs:
   create-release:
+    if: ${{ github.actor == 'bgreenwell' }}
+
     name: Create Release
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code 
-        uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v5
 
       - name: Create Release
         id: create_release
@@ -48,10 +50,10 @@ jobs:
             os: macos-latest
             asset_name_suffix: "macos-arm64.tar.gz"
     runs-on: ${{ matrix.os }}
-    
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -100,7 +102,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Download release assets
         uses: actions/github-script@v7
@@ -109,14 +111,14 @@ jobs:
             const fs = require('fs');
             const { owner, repo } = context.repo;
             const tag = context.ref.replace('refs/tags/', '');
-            
+
             // Get release by tag
             const release = await github.rest.repos.getReleaseByTag({
               owner,
               repo,
               tag
             });
-            
+
             // Download each asset
             for (const asset of release.data.assets) {
               const response = await github.rest.repos.getReleaseAsset({
@@ -148,21 +150,21 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.release.prerelease == false
     needs: [create-release]
-    
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
-        
+        uses: actions/checkout@v5
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-        
+
       - name: Install system dependencies (Linux)
         run: |
           sudo apt-get update
           sudo apt-get install -y libxcb-shape0-dev libxcb-xfixes0-dev
-        
+
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
-        
+
       - name: Publish to crates.io
         run: cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}

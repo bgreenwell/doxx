@@ -17,17 +17,19 @@ concurrency:
 
 jobs:
   build:
+    if: ${{ github.actor == 'bgreenwell' }}
+
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-      
+        uses: actions/checkout@v5
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-      
+
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
-      
+
       - name: Build documentation
         run: cargo doc --no-deps
 
@@ -38,11 +40,11 @@ jobs:
         id: pages
         uses: actions/configure-pages@v5
         continue-on-error: true
-      
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './target/doc'
+          path: "./target/doc"
 
   deploy:
     environment:
@@ -56,7 +58,7 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
         continue-on-error: true
-        
+
       - name: Pages deployment status
         run: |
           if [ "${{ steps.deployment.outcome }}" == "failure" ]; then
