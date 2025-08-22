@@ -55,3 +55,7 @@ Icon
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# Miscellaneous
+*_files
+*.html
