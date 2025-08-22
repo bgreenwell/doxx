@@ -17,6 +17,7 @@ fn main() -> Result<(), DynError> {
     generate_business_report_doc()?;
     generate_unicode_special_doc()?;
     generate_export_test_doc()?;
+    generate_retro_gaming_guide()?;
 
     println!("All test documents generated successfully!");
     Ok(())
@@ -505,6 +506,199 @@ fn generate_export_test_doc() -> Result<(), DynError> {
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text("This document validates that all export formats (markdown, text, CSV, JSON) work correctly with various content types.")));
 
     let path = "tests/fixtures/export-test.docx";
+    let file = File::create(path)?;
+    doc.build().pack(file)?;
+    println!("Generated: {path}");
+    Ok(())
+}
+
+fn generate_retro_gaming_guide() -> Result<(), DynError> {
+    let doc = Docx::new()
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("🚀 RETRO GAMING GUIDE 🎮").bold().size(28)))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("The Ultimate Journey Through Gaming History").italic().size(16)))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("A comprehensive guide to the golden age of video games").size(12)))
+
+        // Table of Contents with numbering
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Table of Contents").bold().size(20)))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("1. The Dawn of Gaming (1970s)").size(14)))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("2. The Arcade Revolution (1980s)").size(14)))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("3. Console Wars Begin (1985-1995)").size(14)))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("4. Legendary Games That Changed Everything").size(14)))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("5. Modern Retro: The Revival").size(14)))
+
+        // Chapter 1
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("1. The Dawn of Gaming (1970s)").bold().size(22)))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("In the beginning, there was Pong. The year was 1972, and Atari had just launched what would become the foundation of an entire industry. This simple game of electronic tennis would spark a revolution that continues to this day.")))
+
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("1.1 Pong: The Genesis").bold().size(18)))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Created by Allan Alcorn at Atari, Pong was deceptively simple: two paddles, one ball, and endless hours of entertainment. The game's success was immediate and profound.")))
+
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Key Features:").bold()))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• Two-player competitive gameplay")))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• Simple controls: up and down")))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• Increasing ball speed for difficulty")))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• Distinctive 'beep' sound effects")))
+
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("1.2 Space Invaders: The Phenomenon").bold().size(18)))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Released in 1978 by Taito, Space Invaders created the template for the shoot-'em-up genre. Players controlled a cannon at the bottom of the screen, defending Earth from descending alien invaders.")))
+
+        // Chapter 2
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("2. The Arcade Revolution (1980s)").bold().size(22)))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("The 1980s brought us into the golden age of arcade gaming. Dimly lit rooms filled with the sounds of electronic music, coin drops, and joystick clicks became cultural epicenters.")))
+
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("2.1 Pac-Man: The Cultural Icon").bold().size(18)))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Released by Namco in 1980, Pac-Man wasn't just a game—it was a cultural phenomenon. The yellow circle with a voracious appetite became one of the most recognizable characters in gaming history.")))
+
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Game Mechanics:").bold()))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• Navigate mazes while eating dots")))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• Avoid four uniquely behaved ghosts:")))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("  • Blinky (red): Aggressive pursuer")))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("  • Pinky (pink): Ambush predator")))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("  • Inky (cyan): Unpredictable behavior")))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("  • Clyde (orange): Shy and random")))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• Power pellets temporarily reverse the chase")))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• Bonus fruits for extra points")))
+
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("2.2 Donkey Kong: Nintendo's Breakthrough").bold().size(18)))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("In 1981, a young designer named Shigeru Miyamoto created Donkey Kong for Nintendo. This platformer introduced the world to Mario (originally called Jumpman) and established Nintendo as a major player in the arcade scene.")))
+
+        // Chapter 3
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("3. Console Wars Begin (1985-1995)").bold().size(22)))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("The mid-1980s marked the transition from arcade dominance to home console supremacy. The Nintendo Entertainment System (NES) launched in North America in 1985, revitalizing the video game industry after the crash of 1983.")))
+
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("3.1 Nintendo vs. Sega: The Epic Battle").bold().size(18)))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("The console wars of the late 80s and early 90s were defined by two titans: Nintendo and Sega. Each company had its mascot, its philosophy, and its passionate fanbase.")))
+
+        // Comparison Table
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Console Comparison").bold().size(16)))
+        .add_table(
+            Table::new(vec![
+                TableRow::new(vec![
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("Feature").bold())),
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("Nintendo NES").bold())),
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("Sega Genesis").bold())),
+                ]),
+                TableRow::new(vec![
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("CPU"))),
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("6502 @ 1.79 MHz"))),
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("68000 @ 7.6 MHz"))),
+                ]),
+                TableRow::new(vec![
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("Graphics"))),
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("2C02 PPU"))),
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("VDP @ 256x224"))),
+                ]),
+                TableRow::new(vec![
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("Colors"))),
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("54 total, 25 on screen"))),
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("512 total, 61 on screen"))),
+                ]),
+                TableRow::new(vec![
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("Mascot"))),
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("Mario 🍄"))),
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("Sonic 💨"))),
+                ]),
+                TableRow::new(vec![
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("Launch Year"))),
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("1985 (US)"))),
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("1989 (US)"))),
+                ]),
+            ])
+        )
+
+        // Chapter 4
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("4. Legendary Games That Changed Everything").bold().size(22)))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Certain games transcended entertainment to become cultural touchstones. These titles didn't just entertain—they redefined what video games could be.")))
+
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("4.1 Super Mario Bros. (1985)").bold().size(18)))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Shigeru Miyamoto's masterpiece established the platformer genre and saved the video game industry in North America. Its precise controls, memorable music, and imaginative level design remain influential today.")))
+
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Revolutionary Features:").bold()))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• Precise character physics and momentum")))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• Iconic power-up system (mushroom, fire flower)")))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• Memorable soundtrack by Koji Kondo")))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• Hidden secrets and warp zones")))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• Perfect difficulty curve")))
+
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("4.2 The Legend of Zelda (1986)").bold().size(18)))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Nintendo's adventure epic introduced open-world exploration, battery-backed save files, and a level of freedom unprecedented in console gaming.")))
+
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("4.3 Sonic the Hedgehog (1991)").bold().size(18)))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Sega's answer to Mario brought speed, attitude, and technical prowess to the platformer genre. Sonic's fluid animation and breakneck pace showcased the Genesis hardware.")))
+
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Speed Mechanics:").bold()))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• Momentum-based physics system")))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• Loop-de-loops and corkscrews")))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• Ring collection system")))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• Special Stage bonus rounds")))
+
+        // Chapter 5
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("5. Modern Retro: The Revival").bold().size(22)))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("The 2010s brought an unexpected renaissance of retro gaming. Indie developers embraced pixel art aesthetics, major publishers released mini consoles, and speedrunning communities celebrated the technical mastery of classic games.")))
+
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("5.1 The Indie Revolution").bold().size(18)))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Modern indie games like Shovel Knight, Celeste, and Hollow Knight proved that retro aesthetics could house cutting-edge game design. These titles combined nostalgic visuals with contemporary mechanical sophistication.")))
+
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("5.2 Speedrunning Culture").bold().size(18)))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("The pursuit of perfect game completion times has elevated classic games to new heights. Communities have discovered glitches, optimizations, and techniques that push 30-year-old games to their absolute limits.")))
+
+        // Famous Speedrun Times Table
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Famous Speedrun Records").bold().size(16)))
+        .add_table(
+            Table::new(vec![
+                TableRow::new(vec![
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("Game").bold())),
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("Category").bold())),
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("World Record").bold())),
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("Technique").bold())),
+                ]),
+                TableRow::new(vec![
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("Super Mario Bros."))),
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("Any%"))),
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("4:54.798"))),
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("Frame-perfect inputs"))),
+                ]),
+                TableRow::new(vec![
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("The Legend of Zelda"))),
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("Any%"))),
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("29:36"))),
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("Screen wrapping glitches"))),
+                ]),
+                TableRow::new(vec![
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("Sonic the Hedgehog"))),
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("Any%"))),
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("14:28"))),
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("Zip glitches"))),
+                ]),
+                TableRow::new(vec![
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("Pac-Man"))),
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("Perfect Game"))),
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("3,333,360 pts"))),
+                    TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("Pattern memorization"))),
+                ]),
+            ])
+        )
+
+        // Conclusion
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Conclusion: The Eternal Appeal").bold().size(20)))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Retro games endure because they represent pure game design distilled to its essence. Without the crutch of photorealistic graphics or complex narratives, these games succeed through tight controls, clever mechanics, and that indefinable quality we call 'fun'.")))
+
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("The influence of these pioneering titles can be seen in every modern game. From the precise platforming of Mario to the pattern-based challenges of Space Invaders, the DNA of retro gaming lives on in today's most innovative titles.")))
+
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Game Preservation Resources:").bold()))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• Internet Archive's Console Living Room")))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• Video Game History Foundation")))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• RetroGaming subreddit community")))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("• Local retro gaming meetups and conventions")))
+
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("---").italic()))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("\"The best games are timeless. They transcend the technology that created them.\"").italic()))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("— Shigeru Miyamoto").italic().size(10)))
+
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Document created with doxx 📄✨").size(10)))
+        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("For testing terminal document viewing with style 🎮🚀").size(10)));
+
+    let path = "tests/fixtures/retro-gaming-guide.docx";
     let file = File::create(path)?;
     doc.build().pack(file)?;
     println!("Generated: {path}");

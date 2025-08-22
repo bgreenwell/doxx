@@ -119,7 +119,7 @@ impl ImageExtractor {
     }
 
     /// List all extracted images
-    pub fn list_images(&self) -> ImageList {
+    pub fn list_images(&self) -> ImageList<'_> {
         self.extracted_images.iter().collect()
     }
 
