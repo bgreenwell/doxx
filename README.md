@@ -93,7 +93,7 @@ doxx slides.docx --color
 
 ## 📋 Command Line Options
 
-### Basic Options
+### Basic options
 ```bash
 doxx [OPTIONS] <FILE>
 ```
@@ -104,7 +104,7 @@ doxx [OPTIONS] <FILE>
 | `-h, --help` | Show help information |
 | `-V, --version` | Show version information |
 
-### Viewing Options
+### Viewing options
 | Option | Description |
 |--------|-------------|
 | `-o, --outline` | Start with outline view for quick navigation |
@@ -113,20 +113,23 @@ doxx [OPTIONS] <FILE>
 | `--force-ui` | Force interactive UI mode (bypass TTY detection) |
 | `--color` | Enable color support for text rendering |
 
-### Export Options
+### Export options
 | Option | Values | Description |
 |--------|--------|-------------|
 | `--export <FORMAT>` | `markdown`, `text`, `csv`, `json` | Export document instead of viewing |
 
-**Export Examples:**
+**Export examples:**
 ```bash
 doxx report.docx --export markdown  # Convert to Markdown
-doxx data.docx --export csv         # Extract tables as CSV  
+doxx data.docx --export csv         # Extract tables as CSV (tables only!)
 doxx document.docx --export text    # Plain text output
 doxx structure.docx --export json   # Document metadata as JSON
 ```
 
-### Image Options
+**📊 CSV export note:**
+The CSV export extracts **only tables** from the document, ignoring all text content. Perfect for pulling structured data from business reports, research papers, or surveys for analysis in Excel, Python, or databases.
+
+### Image options
 | Option | Description |
 |--------|-------------|
 | `--images` | Display images inline in terminal (auto-detect capabilities) |
@@ -135,14 +138,14 @@ doxx structure.docx --export json   # Document metadata as JSON
 | `--image-height <ROWS>` | Maximum image height in terminal rows (default: auto-detect) |
 | `--image-scale <SCALE>` | Image scaling factor (0.1 to 2.0, default: 1.0) |
 
-**Image Examples:**
+**Image examples:**
 ```bash
 doxx presentation.docx --images                    # Show images inline
 doxx document.docx --images --image-width 80       # Limit image width
 doxx slides.docx --extract-images ./images/        # Save images to folder
 ```
 
-**⚠️ Image Display Notes:**
+**⚠️ Image display notes:**
 - `--images` currently works with `--export text` mode and shows placeholders in TUI
 - Supports iTerm2, Kitty, and WezTerm terminals
 
