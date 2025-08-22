@@ -6,14 +6,16 @@ on:
 
 jobs:
   update-homebrew:
+    if: ${{ github.actor == 'bgreenwell' }}
+
     name: Update Homebrew Formula
     runs-on: ubuntu-latest
     if: github.event.release.prerelease == false
-    
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
-        
+        uses: actions/checkout@v5
+
       - name: Get release info
         id: release_info
         run: |
@@ -21,19 +23,19 @@ jobs:
           TARBALL_URL="${{ github.event.release.tarball_url }}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tarball_url=$TARBALL_URL" >> $GITHUB_OUTPUT
-          
+
       - name: Download and calculate SHA256
         id: sha256
         run: |
           wget "${{ steps.release_info.outputs.tarball_url }}" -O source.tar.gz
           SHA256=$(sha256sum source.tar.gz | cut -d' ' -f1)
           echo "sha256=$SHA256" >> $GITHUB_OUTPUT
-          
+
       - name: Update Homebrew formula
         run: |
           sed -i 's|url ".*"|url "${{ steps.release_info.outputs.tarball_url }}"|g' Formula/doxx.rb
           sed -i 's|sha256 ".*"|sha256 "${{ steps.sha256.outputs.sha256 }}"|g' Formula/doxx.rb
-          
+
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v5
         with:
@@ -42,10 +44,10 @@ jobs:
           title: "Update Homebrew formula to v${{ steps.release_info.outputs.version }}"
           body: |
             Automated update of Homebrew formula for release v${{ steps.release_info.outputs.version }}
-            
+
             - Updated URL to point to new release tarball
             - Updated SHA256 checksum
-            
+
             Release: ${{ github.event.release.html_url }}
           branch: update-homebrew-v${{ steps.release_info.outputs.version }}
           delete-branch: true
