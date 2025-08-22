@@ -5,6 +5,29 @@
 ///
 /// The root cause is unsafe string slicing at src/ui.rs:793 where &result.text[..77]
 /// can slice through Unicode character boundaries.
+/// Helper function to demonstrate safe string truncation
+/// This is what should replace the unsafe slicing in ui.rs
+pub fn safe_truncate_string(s: &str, max_graphemes: usize) -> String {
+    use unicode_segmentation::UnicodeSegmentation;
+
+    s.graphemes(true).take(max_graphemes).collect()
+}
+
+/// Helper function for byte-safe truncation
+/// Ensures we don't slice through character boundaries
+pub fn safe_truncate_bytes(s: &str, max_bytes: usize) -> &str {
+    if s.len() <= max_bytes {
+        return s;
+    }
+
+    // Find the largest valid UTF-8 boundary <= max_bytes
+    let mut boundary = max_bytes;
+    while boundary > 0 && !s.is_char_boundary(boundary) {
+        boundary -= 1;
+    }
+
+    &s[..boundary]
+}
 
 #[cfg(test)]
 mod unicode_safety_tests {
@@ -119,28 +142,4 @@ mod unicode_safety_tests {
             println!("Safe truncation: {safe_truncated}");
         }
     }
-}
-
-/// Helper function to demonstrate safe string truncation
-/// This is what should replace the unsafe slicing in ui.rs
-pub fn safe_truncate_string(s: &str, max_graphemes: usize) -> String {
-    use unicode_segmentation::UnicodeSegmentation;
-
-    s.graphemes(true).take(max_graphemes).collect()
-}
-
-/// Helper function for byte-safe truncation
-/// Ensures we don't slice through character boundaries
-pub fn safe_truncate_bytes(s: &str, max_bytes: usize) -> &str {
-    if s.len() <= max_bytes {
-        return s;
-    }
-
-    // Find the largest valid UTF-8 boundary <= max_bytes
-    let mut boundary = max_bytes;
-    while boundary > 0 && !s.is_char_boundary(boundary) {
-        boundary -= 1;
-    }
-
-    &s[..boundary]
 }
