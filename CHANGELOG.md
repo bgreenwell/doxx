@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Extended Package Manager Support**: Added community-contributed package managers for broader ecosystem coverage
+  - **Nix Package Manager**: Cross-platform reproducible builds with `nix profile install github:bgreenwell/doxx` (thanks to [@bobberb](https://github.com/bobberb))
+  - **AUR (Arch User Repository)**: Arch Linux support with `yay -S doxx-git` (thanks to [@mhegreberg](https://github.com/mhegreberg))
+  - **Total Coverage**: Now supports 5 package managers across all major platforms (Homebrew, Cargo, AUR, Nix, Scoop)
+- **Documentation Enhancement**: Added inspiration acknowledgment to Glow by Charm Bracelet for setting the standard of elegant terminal document viewing
 - **Terminal Document Viewer**: Beautiful .docx viewing in your terminal
   - **Rich Text Rendering**: Headers, bold, italic, underline with proper formatting
   - **Table Support**: ASCII tables with intelligent alignment and formatting
