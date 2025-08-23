@@ -64,7 +64,14 @@ brew install bgreenwell/doxx/doxx
 cargo install doxx
 ```
 
-#### AUR (Arch Linux)
+#### Arch Linux
+
+```bash
+pacman -S doxx
+```
+
+The AUR package is also available for the development version:
+
 ```bash
 yay -S doxx-git
 ```
