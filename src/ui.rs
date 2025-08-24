@@ -5,10 +5,11 @@ use crossterm::{
         self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, MouseEventKind,
     },
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
     tty::IsTty,
 };
 use ratatui::{
+    Frame, Terminal,
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Direction, Layout, Margin, Rect},
     style::{Color, Modifier, Style},
@@ -17,14 +18,11 @@ use ratatui::{
         Block, Borders, Clear, List, ListItem, ListState, Paragraph, Scrollbar,
         ScrollbarOrientation, ScrollbarState, Wrap,
     },
-    Frame, Terminal,
 };
 use std::io;
 
-use crate::{document::*, Cli};
+use crate::{Cli, document::*};
 use ratatui_image::{picker::Picker, protocol::StatefulProtocol};
-
-type ImageProtocols = Vec<Box<dyn StatefulProtocol>>;
 
 pub struct App {
     pub document: Document,
@@ -39,7 +37,7 @@ pub struct App {
     pub status_message: Option<String>,
     pub color_enabled: bool,
     pub image_picker: Option<Picker>,
-    pub image_protocols: ImageProtocols,
+    pub image_protocols: Vec<StatefulProtocol>,
 }
 
 #[derive(Debug, Clone)]
@@ -95,33 +93,29 @@ impl App {
     }
 
     fn init_image_support(&mut self) {
-        // Try to initialize picker from termios on Unix, use default on Windows
+        //linux & macos
         #[cfg(unix)]
-        let mut picker = if let Ok(p) = Picker::from_termios() {
+        let picker = if let Ok(p) = Picker::from_query_stdio() {
             p
         } else {
-            // Fallback to manual font size
-            Picker::new((8, 16))
+            Picker::from_fontsize((8, 16))
         };
 
+        //windows
         #[cfg(not(unix))]
-        let mut picker = Picker::new((8, 16));
+        let mut picker = Picker::from_fontsize((8, 16));
 
-        picker.guess_protocol();
-
-        // Process all images in the document
         for element in &self.document.elements {
             if let DocumentElement::Image {
                 image_path: Some(path),
                 ..
             } = element
             {
-                // Try to load and create protocol for each image
-                if let Ok(img) = image::ImageReader::open(path) {
-                    if let Ok(dyn_img) = img.decode() {
-                        let protocol = picker.new_resize_protocol(dyn_img);
-                        self.image_protocols.push(protocol);
-                    }
+                if let Ok(img_reader) = image::ImageReader::open(path)
+                    && let Ok(dyn_img) = img_reader.decode()
+                {
+                    let protocol = picker.new_resize_protocol(dyn_img);
+                    self.image_protocols.push(protocol);
                 }
             }
         }
