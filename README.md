@@ -79,6 +79,15 @@ nix profile install github:bgreenwell/doxx
 ```
 *Thanks to [@bobberb](https://github.com/bobberb) for creating the Nix flake!*
 
+#### Conda-Forge (cross-platform)
+```bash
+conda install doxx
+```
+or globally using [Pixi](pixi.sh):
+```bash
+pixi global install doxx
+```
+
 #### Scoop (Windows)
 ```bash
 # Coming soon
