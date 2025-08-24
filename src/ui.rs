@@ -103,7 +103,7 @@ impl App {
 
         //windows
         #[cfg(not(unix))]
-        let mut picker = Picker::from_fontsize((8, 16));
+        let picker = Picker::from_fontsize((8, 16));
 
         for element in &self.document.elements {
             if let DocumentElement::Image {
