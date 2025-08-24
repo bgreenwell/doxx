@@ -19,10 +19,10 @@ use ratatui::{
         ScrollbarOrientation, ScrollbarState, Wrap,
     },
 };
+use ratatui_image::{picker::Picker, protocol::StatefulProtocol};
 use std::io;
 
 use crate::{Cli, document::*};
-use ratatui_image::{picker::Picker, protocol::StatefulProtocol};
 
 pub struct App {
     pub document: Document,
@@ -110,13 +110,11 @@ impl App {
                 image_path: Some(path),
                 ..
             } = element
+                && let Ok(img_reader) = image::ImageReader::open(path)
+                && let Ok(dyn_img) = img_reader.decode()
             {
-                if let Ok(img_reader) = image::ImageReader::open(path)
-                    && let Ok(dyn_img) = img_reader.decode()
-                {
-                    let protocol = picker.new_resize_protocol(dyn_img);
-                    self.image_protocols.push(protocol);
-                }
+                let protocol = picker.new_resize_protocol(dyn_img);
+                self.image_protocols.push(protocol);
             }
         }
 
@@ -438,14 +436,13 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                                 }
                             }
                             KeyCode::Enter => {
-                                if let Some(selected) = app.outline_state.selected() {
-                                    if let Some(outline_item) =
+                                if let Some(selected) = app.outline_state.selected()
+                                    && let Some(outline_item) =
                                         crate::document::generate_outline(&app.document)
                                             .get(selected)
-                                    {
-                                        app.scroll_offset = outline_item.element_index;
-                                        app.current_view = ViewMode::Document;
-                                    }
+                                {
+                                    app.scroll_offset = outline_item.element_index;
+                                    app.current_view = ViewMode::Document;
                                 }
                             }
                             _ => {}
@@ -650,12 +647,11 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
                 }
 
                 // Apply text color from document formatting (only if color is enabled)
-                if app.color_enabled {
-                    if let Some(color_hex) = &formatting.color {
-                        if let Some(color) = hex_to_color(color_hex) {
-                            style = style.fg(color);
-                        }
-                    }
+                if app.color_enabled
+                    && let Some(color_hex) = &formatting.color
+                    && let Some(color) = hex_to_color(color_hex)
+                {
+                    style = style.fg(color);
                 }
 
                 // Add visual indication for different types of content
