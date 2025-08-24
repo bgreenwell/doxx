@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::{document::*, ExportFormat};
+use crate::{ExportFormat, document::*};
 
 pub fn export_document(document: &Document, format: &ExportFormat) -> Result<()> {
     match format {
@@ -448,38 +448,37 @@ pub fn extract_bibliography(document: &Document) -> Result<Vec<Citation>> {
 
     // Look for bibliography or references section
     for (index, element) in document.elements.iter().enumerate() {
-        if let DocumentElement::Heading { text, .. } = element {
-            if text.to_lowercase().contains("reference")
+        if let DocumentElement::Heading { text, .. } = element
+            && (text.to_lowercase().contains("reference")
                 || text.to_lowercase().contains("bibliography")
-                || text.to_lowercase().contains("works cited")
-            {
-                // Process following elements as bibliography entries
-                for (bib_index, bib_element) in document.elements[index + 1..].iter().enumerate() {
-                    match bib_element {
-                        DocumentElement::Paragraph { text, .. } => {
-                            if !text.trim().is_empty() {
-                                bibliography.push(Citation {
-                                    text: text.clone(),
-                                    element_index: index + bib_index + 1,
-                                    citation_type: CitationType::Bibliography,
-                                });
-                            }
+                || text.to_lowercase().contains("works cited"))
+        {
+            // Process following elements as bibliography entries
+            for (bib_index, bib_element) in document.elements[index + 1..].iter().enumerate() {
+                match bib_element {
+                    DocumentElement::Paragraph { text, .. } => {
+                        if !text.trim().is_empty() {
+                            bibliography.push(Citation {
+                                text: text.clone(),
+                                element_index: index + bib_index + 1,
+                                citation_type: CitationType::Bibliography,
+                            });
                         }
-                        DocumentElement::List { items, .. } => {
-                            for item in items {
-                                bibliography.push(Citation {
-                                    text: item.text.clone(),
-                                    element_index: index + bib_index + 1,
-                                    citation_type: CitationType::Bibliography,
-                                });
-                            }
-                        }
-                        DocumentElement::Heading { .. } => break, // Next section
-                        _ => {}
                     }
+                    DocumentElement::List { items, .. } => {
+                        for item in items {
+                            bibliography.push(Citation {
+                                text: item.text.clone(),
+                                element_index: index + bib_index + 1,
+                                citation_type: CitationType::Bibliography,
+                            });
+                        }
+                    }
+                    DocumentElement::Heading { .. } => break, // Next section
+                    _ => {}
                 }
-                break;
             }
+            break;
         }
     }
 

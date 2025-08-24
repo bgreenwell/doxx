@@ -5,10 +5,11 @@ use crossterm::{
         self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, MouseEventKind,
     },
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
     tty::IsTty,
 };
 use ratatui::{
+    Frame, Terminal,
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Direction, Layout, Margin, Rect},
     style::{Color, Modifier, Style},
@@ -17,14 +18,11 @@ use ratatui::{
         Block, Borders, Clear, List, ListItem, ListState, Paragraph, Scrollbar,
         ScrollbarOrientation, ScrollbarState, Wrap,
     },
-    Frame, Terminal,
 };
+use ratatui_image::{picker::Picker, protocol::StatefulProtocol};
 use std::io;
 
-use crate::{document::*, Cli};
-use ratatui_image::{picker::Picker, protocol::StatefulProtocol};
-
-type ImageProtocols = Vec<Box<dyn StatefulProtocol>>;
+use crate::{Cli, document::*};
 
 pub struct App {
     pub document: Document,
@@ -39,7 +37,7 @@ pub struct App {
     pub status_message: Option<String>,
     pub color_enabled: bool,
     pub image_picker: Option<Picker>,
-    pub image_protocols: ImageProtocols,
+    pub image_protocols: Vec<StatefulProtocol>,
 }
 
 #[derive(Debug, Clone)]
@@ -95,34 +93,28 @@ impl App {
     }
 
     fn init_image_support(&mut self) {
-        // Try to initialize picker from termios on Unix, use default on Windows
+        //linux & macos
         #[cfg(unix)]
-        let mut picker = if let Ok(p) = Picker::from_termios() {
+        let picker = if let Ok(p) = Picker::from_query_stdio() {
             p
         } else {
-            // Fallback to manual font size
-            Picker::new((8, 16))
+            Picker::from_fontsize((8, 16))
         };
 
+        //windows
         #[cfg(not(unix))]
-        let mut picker = Picker::new((8, 16));
+        let picker = Picker::from_fontsize((8, 16));
 
-        picker.guess_protocol();
-
-        // Process all images in the document
         for element in &self.document.elements {
             if let DocumentElement::Image {
                 image_path: Some(path),
                 ..
             } = element
+                && let Ok(img_reader) = image::ImageReader::open(path)
+                && let Ok(dyn_img) = img_reader.decode()
             {
-                // Try to load and create protocol for each image
-                if let Ok(img) = image::ImageReader::open(path) {
-                    if let Ok(dyn_img) = img.decode() {
-                        let protocol = picker.new_resize_protocol(dyn_img);
-                        self.image_protocols.push(protocol);
-                    }
-                }
+                let protocol = picker.new_resize_protocol(dyn_img);
+                self.image_protocols.push(protocol);
             }
         }
 
@@ -444,14 +436,13 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                                 }
                             }
                             KeyCode::Enter => {
-                                if let Some(selected) = app.outline_state.selected() {
-                                    if let Some(outline_item) =
+                                if let Some(selected) = app.outline_state.selected()
+                                    && let Some(outline_item) =
                                         crate::document::generate_outline(&app.document)
                                             .get(selected)
-                                    {
-                                        app.scroll_offset = outline_item.element_index;
-                                        app.current_view = ViewMode::Document;
-                                    }
+                                {
+                                    app.scroll_offset = outline_item.element_index;
+                                    app.current_view = ViewMode::Document;
                                 }
                             }
                             _ => {}
@@ -656,12 +647,11 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
                 }
 
                 // Apply text color from document formatting (only if color is enabled)
-                if app.color_enabled {
-                    if let Some(color_hex) = &formatting.color {
-                        if let Some(color) = hex_to_color(color_hex) {
-                            style = style.fg(color);
-                        }
-                    }
+                if app.color_enabled
+                    && let Some(color_hex) = &formatting.color
+                    && let Some(color) = hex_to_color(color_hex)
+                {
+                    style = style.fg(color);
                 }
 
                 // Add visual indication for different types of content
