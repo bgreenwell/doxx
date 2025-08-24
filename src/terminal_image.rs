@@ -79,10 +79,10 @@ impl TerminalImageRenderer {
     /// Detect terminal image display capabilities
     pub fn detect_capabilities() -> TerminalImageSupport {
         // Check for WezTerm FIRST - it supports Kitty protocol
-        if let Ok(term_program) = std::env::var("TERM_PROGRAM") {
-            if term_program == "WezTerm" {
-                return TerminalImageSupport::Kitty;
-            }
+        if let Ok(term_program) = std::env::var("TERM_PROGRAM")
+            && term_program == "WezTerm"
+        {
+            return TerminalImageSupport::Kitty;
         }
 
         // Check for iTerm2 (this function exists)

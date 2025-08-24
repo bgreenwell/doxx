@@ -338,10 +338,10 @@ fn detect_heading_from_paragraph_style(para: &docx_rs::Paragraph) -> Option<u8> 
     if let Some(style) = &para.property.style {
         // Check for heading styles (Heading1, Heading2, etc.)
         if style.val.starts_with("Heading") || style.val.starts_with("heading") {
-            if let Some(level_char) = style.val.chars().last() {
-                if let Some(level) = level_char.to_digit(10) {
-                    return Some(level.min(6) as u8);
-                }
+            if let Some(level_char) = style.val.chars().last()
+                && let Some(level) = level_char.to_digit(10)
+            {
+                return Some(level.min(6) as u8);
             }
             // Default to level 1 for unspecified heading styles
             return Some(1);
@@ -768,19 +768,19 @@ fn analyze_heading_structure(document: &docx_rs::Document) -> bool {
     let mut level_counts = [0u32; 6]; // Count headings at each level
 
     for child in &document.children {
-        if let docx_rs::DocumentChild::Paragraph(para) = child {
-            if let Some(heading_level) = detect_heading_from_paragraph_style(para) {
-                let text = extract_paragraph_text(para);
+        if let docx_rs::DocumentChild::Paragraph(para) = child
+            && let Some(heading_level) = detect_heading_from_paragraph_style(para)
+        {
+            let text = extract_paragraph_text(para);
 
-                // Check if this heading has explicit numbering in the text
-                if extract_heading_number_from_text(&text).is_some() {
-                    has_explicit_numbering = true;
-                }
-
-                heading_count += 1;
-                let level_index = (heading_level.saturating_sub(1) as usize).min(5);
-                level_counts[level_index] += 1;
+            // Check if this heading has explicit numbering in the text
+            if extract_heading_number_from_text(&text).is_some() {
+                has_explicit_numbering = true;
             }
+
+            heading_count += 1;
+            let level_index = (heading_level.saturating_sub(1) as usize).min(5);
+            level_counts[level_index] += 1;
         }
     }
 
@@ -825,15 +825,15 @@ fn extract_heading_number_from_text(text: &str) -> Option<HeadingNumberInfo> {
 
     // Try each pattern until one matches
     for pattern in HEADING_NUMBER_PATTERNS.iter() {
-        if let Some(captures) = pattern.captures(text) {
-            if let (Some(number_match), Some(text_match)) = (captures.get(1), captures.get(2)) {
-                let number = number_match.as_str().trim_end_matches('.');
-                let remaining_text = text_match.as_str().trim();
+        if let Some(captures) = pattern.captures(text)
+            && let (Some(number_match), Some(text_match)) = (captures.get(1), captures.get(2))
+        {
+            let number = number_match.as_str().trim_end_matches('.');
+            let remaining_text = text_match.as_str().trim();
 
-                // Only return if we have both number and meaningful text
-                if !number.is_empty() && !remaining_text.is_empty() {
-                    return Some((number.to_string(), remaining_text.to_string()));
-                }
+            // Only return if we have both number and meaningful text
+            if !number.is_empty() && !remaining_text.is_empty() {
+                return Some((number.to_string(), remaining_text.to_string()));
             }
         }
     }
