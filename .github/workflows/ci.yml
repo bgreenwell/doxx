@@ -46,21 +46,14 @@ jobs:
       - name: Check build
         run: cargo build --release
 
-  nix-build:
-    name: Build with Nix
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
+      # Nix build
       - name: Install Nix
+        if: matrix.os != 'windows-latest'
         uses: cachix/install-nix-action@v31
         with:
           nix_path: nixpkgs=channel:nixos-unstable
 
       - name: Build with Nix
+        if: matrix.os != 'windows-latest'
         run: nix build
+
