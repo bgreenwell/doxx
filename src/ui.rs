@@ -278,7 +278,8 @@ async fn run_non_interactive(document: Document, cli: &Cli) -> Result<()> {
                         println!("{prefix}{heading_text}");
                         println!();
                     }
-                    DocumentElement::Paragraph { text, .. } => {
+                    DocumentElement::Paragraph { runs } => {
+                        let text: String = runs.iter().map(|run| run.text.as_str()).collect();
                         println!("{text}");
                         println!();
                     }
@@ -640,47 +641,60 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
                 text.lines.push(line);
                 text.lines.push(Line::from(""));
             }
-            DocumentElement::Paragraph {
-                text: para_text,
-                formatting,
-            } => {
-                let mut style = Style::default();
-                if formatting.bold {
-                    style = style.add_modifier(Modifier::BOLD);
-                }
-                if formatting.italic {
-                    style = style.add_modifier(Modifier::ITALIC);
-                }
-                if formatting.underline {
-                    style = style.add_modifier(Modifier::UNDERLINED);
+            DocumentElement::Paragraph { runs } => {
+                // Skip empty paragraphs
+                if runs.is_empty() || runs.iter().all(|run| run.text.trim().is_empty()) {
+                    continue;
                 }
 
-                // Apply text color from document formatting (only if color is enabled)
-                if app.color_enabled {
-                    if let Some(color_hex) = &formatting.color {
-                        if let Some(color) = hex_to_color(color_hex) {
-                            style = style.fg(color);
+                // Build spans from individual runs with their formatting
+                let mut spans = Vec::new();
+                let total_text: String = runs.iter().map(|run| run.text.as_str()).collect();
+                
+                for run in runs {
+                    let mut style = Style::default();
+                    
+                    // Apply text formatting
+                    if run.formatting.bold {
+                        style = style.add_modifier(Modifier::BOLD);
+                    }
+                    if run.formatting.italic {
+                        style = style.add_modifier(Modifier::ITALIC);
+                    }
+                    if run.formatting.underline {
+                        style = style.add_modifier(Modifier::UNDERLINED);
+                    }
+
+                    // Apply text color from document formatting (only if color is enabled)
+                    if app.color_enabled {
+                        if let Some(color_hex) = &run.formatting.color {
+                            if let Some(color) = hex_to_color(color_hex) {
+                                style = style.fg(color);
+                            }
                         }
                     }
+
+                    // Add visual indication for different types of content
+                    let display_text = if total_text.len() > 100 {
+                        // Long paragraphs get some indentation for the first run only
+                        if spans.is_empty() {
+                            format!("  {}", run.text)
+                        } else {
+                            run.text.clone()
+                        }
+                    } else {
+                        run.text.clone()
+                    };
+
+                    if is_search_match {
+                        style = style.bg(Color::Yellow).fg(Color::Black);
+                    }
+
+                    spans.push(Span::styled(display_text, style));
                 }
 
-                // Add visual indication for different types of content
-                let display_text = if para_text.trim().is_empty() {
-                    // Skip empty paragraphs
-                    continue;
-                } else if para_text.len() > 100 {
-                    // Long paragraphs get some indentation
-                    format!("  {para_text}")
-                } else {
-                    para_text.clone()
-                };
-
-                if is_search_match {
-                    style = style.bg(Color::Yellow).fg(Color::Black);
-                }
-
-                text.lines
-                    .push(Line::from(Span::styled(display_text, style)));
+                let line = Line::from(spans);
+                text.lines.push(line);
                 text.lines.push(Line::from(""));
             }
             DocumentElement::List { items, ordered } => {
