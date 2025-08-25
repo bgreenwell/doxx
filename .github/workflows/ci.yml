@@ -45,3 +45,12 @@ jobs:
 
       - name: Check build
         run: cargo build --release
+
+      # Nix build
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Build with Nix
+        run: nix build
