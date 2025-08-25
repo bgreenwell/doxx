@@ -43,17 +43,23 @@ pub fn export_to_markdown(document: &Document) -> Result<()> {
                 };
                 markdown.push_str(&format!("{prefix} {heading_text}\n\n"));
             }
-            DocumentElement::Paragraph { text, formatting } => {
-                let mut formatted_text = text.clone();
+            DocumentElement::Paragraph { runs } => {
+                let mut paragraph_text = String::new();
+                
+                for run in runs {
+                    let mut formatted_text = run.text.clone();
 
-                if formatting.bold {
-                    formatted_text = format!("**{formatted_text}**");
-                }
-                if formatting.italic {
-                    formatted_text = format!("*{formatted_text}*");
+                    if run.formatting.bold {
+                        formatted_text = format!("**{formatted_text}**");
+                    }
+                    if run.formatting.italic {
+                        formatted_text = format!("*{formatted_text}*");
+                    }
+
+                    paragraph_text.push_str(&formatted_text);
                 }
 
-                markdown.push_str(&format!("{formatted_text}\n\n"));
+                markdown.push_str(&format!("{paragraph_text}\n\n"));
             }
             DocumentElement::List { items, ordered } => {
                 for (i, item) in items.iter().enumerate() {
@@ -166,9 +172,8 @@ pub fn format_as_text(document: &Document) -> String {
                 text.push_str(&underline.repeat(heading_text.len()));
                 text.push_str("\n\n");
             }
-            DocumentElement::Paragraph {
-                text: para_text, ..
-            } => {
+            DocumentElement::Paragraph { runs } => {
+                let para_text: String = runs.iter().map(|run| run.text.as_str()).collect();
                 text.push_str(&format!("{para_text}\n\n"));
             }
             DocumentElement::List { items, ordered } => {
@@ -290,20 +295,26 @@ fn export_to_text_with_images(document: &Document) {
                 };
                 println!("{prefix} {heading_text}\n");
             }
-            DocumentElement::Paragraph { text, formatting } => {
-                let mut formatted_text = text.clone();
+            DocumentElement::Paragraph { runs } => {
+                let mut paragraph_text = String::new();
+                
+                for run in runs {
+                    let mut formatted_text = run.text.clone();
 
-                if formatting.bold {
-                    formatted_text = format!("**{formatted_text}**");
-                }
-                if formatting.italic {
-                    formatted_text = format!("*{formatted_text}*");
-                }
-                if formatting.underline {
-                    formatted_text = format!("_{formatted_text}_");
+                    if run.formatting.bold {
+                        formatted_text = format!("**{formatted_text}**");
+                    }
+                    if run.formatting.italic {
+                        formatted_text = format!("*{formatted_text}*");
+                    }
+                    if run.formatting.underline {
+                        formatted_text = format!("_{formatted_text}_");
+                    }
+
+                    paragraph_text.push_str(&formatted_text);
                 }
 
-                println!("{formatted_text}\n");
+                println!("{paragraph_text}\n");
             }
             DocumentElement::List { items, .. } => {
                 for item in items {
@@ -415,7 +426,10 @@ pub fn extract_citations(document: &Document) -> Result<Vec<Citation>> {
     // Simple citation extraction - look for common citation patterns
     for (index, element) in document.elements.iter().enumerate() {
         let text = match element {
-            DocumentElement::Heading { text, .. } | DocumentElement::Paragraph { text, .. } => text,
+            DocumentElement::Heading { text, .. } => text,
+            DocumentElement::Paragraph { runs } => {
+                &runs.iter().map(|run| run.text.as_str()).collect::<String>()
+            },
             _ => continue,
         };
 
@@ -456,7 +470,8 @@ pub fn extract_bibliography(document: &Document) -> Result<Vec<Citation>> {
                 // Process following elements as bibliography entries
                 for (bib_index, bib_element) in document.elements[index + 1..].iter().enumerate() {
                     match bib_element {
-                        DocumentElement::Paragraph { text, .. } => {
+                        DocumentElement::Paragraph { runs } => {
+                            let text: String = runs.iter().map(|run| run.text.as_str()).collect();
                             if !text.trim().is_empty() {
                                 bibliography.push(Citation {
                                     text: text.clone(),
