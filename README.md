@@ -35,6 +35,13 @@ A fast, terminal-native document viewer for Word files. View, search, and export
   </table>
 </div>
 
+## 🎬 Demo
+
+<div align="center">
+  <img src="assets/demo.gif" alt="doxx color showcase demo" width="600">
+  <br><em>Color support and interactive navigation</em>
+</div>
+
 ## ✨ Features
 
 - **Beautiful terminal rendering** with formatting, tables, and lists

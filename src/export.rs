@@ -186,7 +186,7 @@ pub fn format_as_text(document: &Document) -> String {
 
                     let indent = "  ".repeat(item.level as usize);
                     let item_text: String = item.runs.iter().map(|run| run.text.as_str()).collect();
-                    text.push_str(&format!("{indent}{bullet}{}\n", item_text));
+                    text.push_str(&format!("{indent}{bullet}{item_text}\n"));
                 }
                 text.push('\n');
             }
@@ -320,7 +320,7 @@ fn export_to_text_with_images(document: &Document) {
             DocumentElement::List { items, .. } => {
                 for item in items {
                     let item_text: String = item.runs.iter().map(|run| run.text.as_str()).collect();
-                    println!("- {}", item_text);
+                    println!("- {item_text}");
                 }
                 println!();
             }
