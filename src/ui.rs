@@ -293,7 +293,7 @@ async fn run_non_interactive(document: Document, cli: &Cli) -> Result<()> {
                             let indent = "  ".repeat(item.level as usize);
                             let item_text: String =
                                 item.runs.iter().map(|run| run.text.as_str()).collect();
-                            println!("{}{}{}", indent, bullet, item_text);
+                            println!("{indent}{bullet}{item_text}");
                         }
                         println!();
                     }
