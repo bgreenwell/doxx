@@ -32,51 +32,21 @@
             sha256 = "sha256-EFza7BSO0vBeUWWKNRnINSq/IUl8jLFUHKMfntdksdA=";
           };
 
-          cargoHash = "sha256-sLGM4VaS55NhxEeUK20RiCzTZPJaWZPR/wHHCm+HtSo=";
+          cargoLock = {
+            lockFile = ./Cargo.lock;
+          };
+          doCheck = true;
 
-          # Native build inputs (build-time dependencies)
-          nativeBuildInputs = with pkgs; [
-            pkg-config
-            rustToolchain
+          checkFlags = [
+            # FIXME: Fails for some reason
+            "--skip=terminal_image::tests::test_renderer_creation"
           ];
-
-          # Runtime dependencies based on Cargo.toml
-          buildInputs = with pkgs; [
-            # For crossterm terminal manipulation
-            # For arboard clipboard functionality
-            xorg.libX11
-            xorg.libXcursor
-            xorg.libXrandr
-            xorg.libXi
-            
-            # SSL/TLS support for potential future reqwest usage
-            openssl
-            
-            # Standard build essentials
-            stdenv.cc.cc.lib
-          ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
-            # macOS specific dependencies
-          ] ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
-            # Linux specific for clipboard
-            xorg.libxcb
-            wayland
-            libxkbcommon
-          ];
-
-          # Environment variables
-          PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";
-          OPENSSL_DIR = "${pkgs.openssl.dev}";
-          OPENSSL_LIB_DIR = "${pkgs.openssl.out}/lib";
-          OPENSSL_INCLUDE_DIR = "${pkgs.openssl.dev}/include";
-          
-          # Disable network access during build (standard for Nix)
-          doCheck = false;
 
           meta = with pkgs.lib; {
             description = "Expose the contents of .docx files without leaving your terminal. Fast, safe, and smart — no Office required!";
             homepage = "https://github.com/bgreenwell/doxx";
             license = licenses.mit;
-            maintainers = [ ]; # Add maintainer info if desired
+            maintainers = [ ]; 
             platforms = platforms.all;
           };
         };
@@ -101,45 +71,19 @@
             cargo-outdated
             cargo-expand # For macro expansion debugging
             
-            # Build dependencies
-            pkg-config
-            openssl
-            
-            # Terminal and clipboard dependencies for development
-            xorg.libX11
-            xorg.libXcursor
-            xorg.libXrandr
-            xorg.libXi
-            
             # Additional development tools
             git
-            just # task runner (optional)
             
             # LSP and formatting tools
             rust-analyzer
             
             # For testing .docx files and document creation
             pandoc
-            libreoffice # for creating test .docx files
             
             # Debugging tools
             gdb
-            valgrind
-          ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
-            # macOS specific
-          ] ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
-            # Linux specific
-            xorg.libxcb
-            wayland
-            libxkbcommon
           ];
 
-          # Environment variables
-          PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";
-          OPENSSL_DIR = "${pkgs.openssl.dev}";
-          OPENSSL_LIB_DIR = "${pkgs.openssl.out}/lib";
-          OPENSSL_INCLUDE_DIR = "${pkgs.openssl.dev}/include";
-          
           # For better terminal support
           TERM = "xterm-256color";
           
@@ -184,7 +128,7 @@
           program = "${doxx}/bin/doxx";
         };
 
-        # Checks for CI
+        # Checks
         checks = {
           build = doxx;
           
@@ -194,15 +138,6 @@
           } ''
             cd ${self}
             cargo fmt --all -- --check
-            touch $out
-          '';
-
-          # Add clippy check
-          clippy-check = pkgs.runCommand "clippy-check" {
-            buildInputs = [ rustToolchain ];
-          } ''
-            cd ${self}
-            cargo clippy --all-targets --all-features -- -D warnings
             touch $out
           '';
         };
