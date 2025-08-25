@@ -38,8 +38,8 @@ A fast, terminal-native document viewer for Word files. View, search, and export
 ## 🎬 Demo
 
 <div align="center">
-  <img src="assets/demo.gif" alt="doxx color showcase demo" width="600">
-  <br><em>Color support and interactive navigation</em>
+  <img src="assets/demo.gif" alt="doxx mixed formatting demo" width="600">
+  <br><em>Mixed formatting with colors, bold, italic, underline and interactive navigation</em>
 </div>
 
 ## ✨ Features
