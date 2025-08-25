@@ -85,10 +85,10 @@ impl FormattedRun {
         if runs.is_empty() {
             return runs;
         }
-        
+
         let mut consolidated = Vec::new();
         let mut current_run = runs[0].clone();
-        
+
         for run in runs.into_iter().skip(1) {
             if current_run.formatting == run.formatting {
                 // Same formatting - merge the text
@@ -99,7 +99,7 @@ impl FormattedRun {
                 current_run = run;
             }
         }
-        
+
         // last run
         consolidated.push(current_run);
         consolidated
@@ -108,7 +108,7 @@ impl FormattedRun {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ListItem {
-    pub text: String,
+    pub runs: Vec<FormattedRun>,
     pub level: u8,
 }
 
@@ -206,8 +206,6 @@ pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Res
     for child in &docx.document.children {
         match child {
             docx_rs::DocumentChild::Paragraph(para) => {
-
-
                 // Check for heading with potential numbering first
                 let heading_info = detect_heading_with_numbering(para);
 
@@ -250,18 +248,18 @@ pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Res
 
                 // Extract runs with individual formatting
                 let mut formatted_runs = Vec::new();
-                
+
                 for child in &para.children {
                     if let docx_rs::ParagraphChild::Run(run) = child {
                         let run_formatting = extract_run_formatting(run);
                         let mut run_text = String::new();
-                        
+
                         for child in &run.children {
                             if let docx_rs::RunChild::Text(text_elem) = child {
                                 run_text.push_str(&text_elem.text);
                             }
                         }
-                        
+
                         if !run_text.is_empty() {
                             formatted_runs.push(FormattedRun {
                                 text: run_text,
@@ -272,8 +270,9 @@ pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Res
                 }
 
                 // Calculate total text for word count and processing
-                let total_text: String = formatted_runs.iter().map(|run| run.text.as_str()).collect();
-                
+                let total_text: String =
+                    formatted_runs.iter().map(|run| run.text.as_str()).collect();
+
                 if !total_text.trim().is_empty() {
                     word_count += total_text.split_whitespace().count();
 
@@ -293,16 +292,17 @@ pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Res
                         } else {
                             "* ".to_string() // Bullets for unordered
                         };
-                        
+
                         // For list items, we'll combine all runs into a single run with list formatting
                         // This preserves the existing list behavior while supporting the new structure
-                        let list_text = format!("__WORD_LIST__{}{}{}", indent, prefix, total_text.trim());
-                        let list_formatting = if !formatted_runs.is_empty() { 
-                            formatted_runs[0].formatting.clone() 
-                        } else { 
-                            TextFormatting::default() 
+                        let list_text =
+                            format!("__WORD_LIST__{}{}{}", indent, prefix, total_text.trim());
+                        let list_formatting = if !formatted_runs.is_empty() {
+                            formatted_runs[0].formatting.clone()
+                        } else {
+                            TextFormatting::default()
                         };
-                        
+
                         elements.push(DocumentElement::Paragraph {
                             runs: vec![FormattedRun {
                                 text: list_text,
@@ -312,7 +312,8 @@ pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Res
                     } else {
                         // Check for headings (with or without numbering)
                         if let Some(heading_info) = heading_info {
-                            let heading_text = heading_info.clean_text.unwrap_or(total_text.clone());
+                            let heading_text =
+                                heading_info.clean_text.unwrap_or(total_text.clone());
 
                             let number = if heading_info.number.is_some() {
                                 heading_info.number
@@ -333,12 +334,12 @@ pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Res
                             });
                         } else {
                             // Fallback to text-based heading detection using first run's formatting
-                            let first_formatting = if !formatted_runs.is_empty() { 
-                                &formatted_runs[0].formatting 
-                            } else { 
-                                &TextFormatting::default() 
+                            let first_formatting = if !formatted_runs.is_empty() {
+                                &formatted_runs[0].formatting
+                            } else {
+                                &TextFormatting::default()
                             };
-                            
+
                             let level = detect_heading_from_text(&total_text, first_formatting);
                             if let Some(level) = level {
                                 elements.push(DocumentElement::Heading {
@@ -348,8 +349,11 @@ pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Res
                                 });
                             } else {
                                 // This is a regular paragraph - consolidate runs and preserve formatting
-                                let consolidated_runs = FormattedRun::consolidate_runs(formatted_runs);
-                                elements.push(DocumentElement::Paragraph { runs: consolidated_runs });
+                                let consolidated_runs =
+                                    FormattedRun::consolidate_runs(formatted_runs);
+                                elements.push(DocumentElement::Paragraph {
+                                    runs: consolidated_runs,
+                                });
                             }
                         }
                     }
@@ -1124,7 +1128,7 @@ fn group_list_items(elements: Vec<DocumentElement>) -> Vec<DocumentElement> {
             DocumentElement::Paragraph { runs } => {
                 // Get the combined text from all runs for list detection
                 let text: String = runs.iter().map(|run| run.text.as_str()).collect();
-                
+
                 if is_likely_list_item(&text) {
                     // Determine if this is an ordered list item
                     let is_ordered = text.trim().starts_with(char::is_numeric);
@@ -1142,11 +1146,11 @@ fn group_list_items(elements: Vec<DocumentElement>) -> Vec<DocumentElement> {
                     // Calculate nesting level from indentation
                     let level = calculate_list_level(&text);
 
-                    // Clean the text (remove bullet/number prefix)
-                    let clean_text = clean_list_item_text(&text);
+                    // Clean the runs (remove bullet/number prefix from first run)
+                    let clean_runs = clean_list_item_runs(runs.clone());
 
                     current_list_items.push(ListItem {
-                        text: clean_text,
+                        runs: clean_runs,
                         level,
                     });
                 } else {
@@ -1193,42 +1197,80 @@ fn calculate_list_level(text: &str) -> u8 {
     (leading_spaces / 2) as u8
 }
 
-fn clean_list_item_text(text: &str) -> String {
-    let text = text.trim();
-
-    // Remove bullet points (handle Unicode characters properly)
-    if text.starts_with("• ") {
-        return text.strip_prefix("• ").unwrap_or(text).trim().to_string();
-    }
-    if text.starts_with("- ") || text.starts_with("* ") {
-        return text
-            .strip_prefix("- ")
-            .or_else(|| text.strip_prefix("* "))
-            .unwrap_or(text)
-            .trim()
-            .to_string();
+fn clean_list_item_runs(runs: Vec<FormattedRun>) -> Vec<FormattedRun> {
+    if runs.is_empty() {
+        return runs;
     }
 
-    // Remove numbered list prefixes (Unicode-safe)
-    if let Some(dot_pos) = text.find('.') {
+    // Get the combined text to determine what prefix to remove
+    let combined_text: String = runs.iter().map(|run| run.text.as_str()).collect();
+    let text = combined_text.trim();
+
+    // Determine what prefix we need to remove
+    let prefix_to_remove = if text.starts_with("• ") {
+        "• "
+    } else if text.starts_with("- ") {
+        "- "
+    } else if text.starts_with("* ") {
+        "* "
+    } else if let Some(dot_pos) = text.find('.') {
         let prefix = &text[..dot_pos];
         if prefix.chars().all(|c| c.is_ascii_digit()) {
-            // Safe: find() returns byte position, but we know '.' is ASCII
-            // so dot_pos+1 is guaranteed to be a valid char boundary
-            return text[dot_pos + 1..].trim().to_string();
+            // For numbered lists, include the dot and following space
+            &text[..dot_pos
+                + if text.chars().nth(dot_pos + 1) == Some(' ') {
+                    2
+                } else {
+                    1
+                }]
+        } else if text.chars().count() > 2 && text.chars().nth(1) == Some('.') {
+            let first_char = text.chars().next().unwrap();
+            if first_char.is_ascii_lowercase() || first_char.is_ascii_uppercase() {
+                // For lettered lists, include the letter, dot, and following space
+                &text[..if text.chars().nth(2) == Some(' ') {
+                    3
+                } else {
+                    2
+                }]
+            } else {
+                ""
+            }
+        } else {
+            ""
+        }
+    } else {
+        ""
+    };
+
+    if prefix_to_remove.is_empty() {
+        return runs;
+    }
+
+    // Remove the prefix from the runs while preserving formatting
+    let mut result_runs = Vec::new();
+    let mut remaining_to_remove = prefix_to_remove.len();
+
+    for run in runs {
+        if remaining_to_remove == 0 {
+            // No more prefix to remove, keep this run as-is
+            result_runs.push(run);
+        } else if run.text.len() <= remaining_to_remove {
+            // This entire run is part of the prefix to remove
+            remaining_to_remove -= run.text.len();
+        } else {
+            // This run contains part of the text we want to keep
+            let keep_text = &run.text[remaining_to_remove..];
+            if !keep_text.is_empty() {
+                result_runs.push(FormattedRun {
+                    text: keep_text.trim_start().to_string(),
+                    formatting: run.formatting,
+                });
+            }
+            remaining_to_remove = 0;
         }
     }
 
-    // Remove lettered list prefixes (Unicode-safe)
-    if text.chars().count() > 2 && text.chars().nth(1) == Some('.') {
-        let first_char = text.chars().next().unwrap();
-        if first_char.is_ascii_lowercase() || first_char.is_ascii_uppercase() {
-            // Safe: skip the first character and the dot, both ASCII
-            return text.chars().skip(2).collect::<String>().trim().to_string();
-        }
-    }
-
-    text.to_string()
+    result_runs
 }
 
 fn is_likely_sentence(text: &str) -> bool {
@@ -1271,15 +1313,16 @@ pub fn search_document(document: &Document, query: &str) -> Vec<SearchResult> {
             DocumentElement::Paragraph { runs } => {
                 // Combine text from all runs for searching
                 &runs.iter().map(|run| run.text.as_str()).collect::<String>()
-            },
+            }
             DocumentElement::List { items, .. } => {
                 // Search in list items
                 for item in items {
-                    let text_lower = item.text.to_lowercase();
+                    let item_text: String = item.runs.iter().map(|run| run.text.as_str()).collect();
+                    let text_lower = item_text.to_lowercase();
                     if let Some(start_pos) = text_lower.find(&query_lower) {
                         results.push(SearchResult {
                             element_index,
-                            text: item.text.clone(),
+                            text: item_text,
                             start_pos,
                             end_pos: start_pos + query.len(),
                         });
@@ -1682,31 +1725,39 @@ fn clean_word_list_markers(elements: Vec<DocumentElement>) -> Vec<DocumentElemen
                     .into_iter()
                     .map(|mut run| {
                         if run.text.starts_with("__WORD_LIST__") {
-                            run.text = run.text.strip_prefix("__WORD_LIST__")
+                            run.text = run
+                                .text
+                                .strip_prefix("__WORD_LIST__")
                                 .unwrap_or(&run.text)
                                 .to_string();
                         }
                         run
                     })
                     .collect();
-                DocumentElement::Paragraph {
-                    runs: cleaned_runs,
-                }
+                DocumentElement::Paragraph { runs: cleaned_runs }
             }
             DocumentElement::List { items, ordered } => {
                 let cleaned_items = items
                     .into_iter()
                     .map(|item| {
-                        let cleaned_text = if item.text.starts_with("__WORD_LIST__") {
-                            item.text
-                                .strip_prefix("__WORD_LIST__")
-                                .unwrap_or(&item.text)
-                                .to_string()
+                        let combined_text: String =
+                            item.runs.iter().map(|run| run.text.as_str()).collect();
+                        let cleaned_runs = if combined_text.starts_with("__WORD_LIST__") {
+                            // Remove the __WORD_LIST__ prefix from the first run
+                            let mut new_runs = item.runs.clone();
+                            if let Some(first_run) = new_runs.first_mut() {
+                                first_run.text = first_run
+                                    .text
+                                    .strip_prefix("__WORD_LIST__")
+                                    .unwrap_or(&first_run.text)
+                                    .to_string();
+                            }
+                            new_runs
                         } else {
-                            item.text
+                            item.runs.clone()
                         };
                         ListItem {
-                            text: cleaned_text,
+                            runs: cleaned_runs,
                             level: item.level,
                         }
                     })

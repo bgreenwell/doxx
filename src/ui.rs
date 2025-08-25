@@ -291,7 +291,9 @@ async fn run_non_interactive(document: Document, cli: &Cli) -> Result<()> {
                                 "• ".to_string()
                             };
                             let indent = "  ".repeat(item.level as usize);
-                            println!("{}{}{}", indent, bullet, item.text);
+                            let item_text: String =
+                                item.runs.iter().map(|run| run.text.as_str()).collect();
+                            println!("{}{}{}", indent, bullet, item_text);
                         }
                         println!();
                     }
@@ -650,10 +652,10 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
                 // Build spans from individual runs with their formatting
                 let mut spans = Vec::new();
                 let total_text: String = runs.iter().map(|run| run.text.as_str()).collect();
-                
+
                 for run in runs {
                     let mut style = Style::default();
-                    
+
                     // Apply text formatting
                     if run.formatting.bold {
                         style = style.add_modifier(Modifier::BOLD);
@@ -709,10 +711,33 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
 
                     // Combine indent and bullet to ensure proper spacing
                     let prefixed_bullet = format!("{indent}{bullet}");
-                    let line = Line::from(vec![
-                        Span::styled(prefixed_bullet, Style::default().fg(Color::Blue)),
-                        Span::raw(&item.text),
-                    ]);
+
+                    // Create spans for the formatted runs
+                    let mut spans = vec![Span::styled(
+                        prefixed_bullet,
+                        Style::default().fg(Color::Blue),
+                    )];
+
+                    for run in &item.runs {
+                        let mut style = Style::default();
+                        if run.formatting.bold {
+                            style = style.add_modifier(Modifier::BOLD);
+                        }
+                        if run.formatting.italic {
+                            style = style.add_modifier(Modifier::ITALIC);
+                        }
+                        if run.formatting.underline {
+                            style = style.add_modifier(Modifier::UNDERLINED);
+                        }
+                        if let Some(color_hex) = &run.formatting.color {
+                            if let Some(color) = hex_to_color(color_hex) {
+                                style = style.fg(color);
+                            }
+                        }
+                        spans.push(Span::styled(run.text.clone(), style));
+                    }
+
+                    let line = Line::from(spans);
                     text.lines.push(line);
                 }
                 text.lines.push(Line::from(""));

@@ -67,8 +67,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Displays nested lists with correct indentation  
   - Previews first 20 elements with fallback message for longer documents
 - **Force UI Mode**: Added `--force-ui` flag to bypass TTY detection for testing and development
+- **Mixed Formatting within Text Elements**: Enhanced formatting preservation for complex Word documents ([#39](https://github.com/bgreenwell/doxx/pull/39))
+  - **List Item Color Support**: List items now preserve individual colors and formatting (red bullets, blue bullets, etc.)
+  - **Run-Based Architecture**: Implemented FormattedRun system for precise formatting preservation within paragraphs and lists
+  - **Enhanced Export Formats**: All export formats (JSON, Markdown, Text, CSV) now preserve mixed formatting
+  - **Terminal UI Enhancement**: Interactive terminal now renders individual list items with their distinct colors, bold, italic, and underline formatting
+  - **Comprehensive Test Coverage**: Added extensive tests for mixed formatting scenarios
+  - **Previous Limitation Resolved**: Previously only single color per paragraph was supported - now supports multiple colors within same paragraph and list items
 
 ### Fixed
+- **Nix Flake Build Issues**: Fixed broken Nix package configuration ([#38](https://github.com/bgreenwell/doxx/pull/38))
+  - **Issue**: Nix flake completely non-functional with incorrect dependencies and placeholder SHA256 hashes
+  - **Root Cause**: Unnecessary OpenSSL dependencies and invalid placeholder SHA256 values preventing builds
+  - **Solution**: Removed unused OpenSSL dependencies and fixed SHA256 hashes for proper Nix reproducible builds
+  - **Impact**: Nix users can now successfully install doxx with `nix profile install github:bgreenwell/doxx`
+  - **Community Contribution**: Thanks to [@claudiushaag](https://github.com/claudiushaag) for identifying and fixing this issue
 - **CRITICAL: Unicode Safety Bug**: Fixed runtime panic when searching documents with emojis and special characters ([#22](https://github.com/bgreenwell/doxx/issues/22))
   - **Issue**: Unsafe string slicing at byte position 77 in search results could slice through Unicode character boundaries
   - **Root Cause**: Code used `&result.text[..77]` which panics when position 77 falls inside a multi-byte Unicode character (like emojis)
