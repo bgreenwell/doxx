@@ -45,8 +45,7 @@ pub enum DocumentElement {
         number: Option<String>,
     },
     Paragraph {
-        text: String,
-        formatting: TextFormatting,
+        runs: Vec<FormattedRun>,
     },
     List {
         items: Vec<ListItem>,
@@ -65,13 +64,46 @@ pub enum DocumentElement {
     PageBreak,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct TextFormatting {
     pub bold: bool,
     pub italic: bool,
     pub underline: bool,
     pub font_size: Option<f32>,
     pub color: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FormattedRun {
+    pub text: String,
+    pub formatting: TextFormatting,
+}
+
+impl FormattedRun {
+    /// Consolidate adjacent runs with identical formatting into single runs
+    pub fn consolidate_runs(runs: Vec<FormattedRun>) -> Vec<FormattedRun> {
+        if runs.is_empty() {
+            return runs;
+        }
+        
+        let mut consolidated = Vec::new();
+        let mut current_run = runs[0].clone();
+        
+        for run in runs.into_iter().skip(1) {
+            if current_run.formatting == run.formatting {
+                // Same formatting - merge the text
+                current_run.text.push_str(&run.text);
+            } else {
+                // Different formatting - push current and start new
+                consolidated.push(current_run);
+                current_run = run;
+            }
+        }
+        
+        // last run
+        consolidated.push(current_run);
+        consolidated
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -174,8 +206,7 @@ pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Res
     for child in &docx.document.children {
         match child {
             docx_rs::DocumentChild::Paragraph(para) => {
-                let mut text = String::new();
-                let mut formatting = TextFormatting::default();
+
 
                 // Check for heading with potential numbering first
                 let heading_info = detect_heading_with_numbering(para);
@@ -217,25 +248,34 @@ pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Res
                     }
                 }
 
-                // Extract text and formatting from runs
+                // Extract runs with individual formatting
+                let mut formatted_runs = Vec::new();
+                
                 for child in &para.children {
                     if let docx_rs::ParagraphChild::Run(run) = child {
-                        // Extract formatting from run properties
-                        if !formatting.bold && !formatting.italic {
-                            // Only extract formatting from the first run with properties
-                            formatting = extract_run_formatting(run);
-                        }
-
+                        let run_formatting = extract_run_formatting(run);
+                        let mut run_text = String::new();
+                        
                         for child in &run.children {
                             if let docx_rs::RunChild::Text(text_elem) = child {
-                                text.push_str(&text_elem.text);
+                                run_text.push_str(&text_elem.text);
                             }
+                        }
+                        
+                        if !run_text.is_empty() {
+                            formatted_runs.push(FormattedRun {
+                                text: run_text,
+                                formatting: run_formatting,
+                            });
                         }
                     }
                 }
 
-                if !text.trim().is_empty() {
-                    word_count += text.split_whitespace().count();
+                // Calculate total text for word count and processing
+                let total_text: String = formatted_runs.iter().map(|run| run.text.as_str()).collect();
+                
+                if !total_text.trim().is_empty() {
+                    word_count += total_text.split_whitespace().count();
 
                     // Priority: list numbering > heading style > text heuristics
                     if let Some(list_info) = list_info {
@@ -253,15 +293,26 @@ pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Res
                         } else {
                             "* ".to_string() // Bullets for unordered
                         };
-                        // Mark Word-formatted list items with a special prefix to avoid reprocessing
+                        
+                        // For list items, we'll combine all runs into a single run with list formatting
+                        // This preserves the existing list behavior while supporting the new structure
+                        let list_text = format!("__WORD_LIST__{}{}{}", indent, prefix, total_text.trim());
+                        let list_formatting = if !formatted_runs.is_empty() { 
+                            formatted_runs[0].formatting.clone() 
+                        } else { 
+                            TextFormatting::default() 
+                        };
+                        
                         elements.push(DocumentElement::Paragraph {
-                            text: format!("__WORD_LIST__{}{}{}", indent, prefix, text.trim()),
-                            formatting,
+                            runs: vec![FormattedRun {
+                                text: list_text,
+                                formatting: list_formatting,
+                            }],
                         });
                     } else {
                         // Check for headings (with or without numbering)
                         if let Some(heading_info) = heading_info {
-                            let heading_text = heading_info.clean_text.unwrap_or(text.clone());
+                            let heading_text = heading_info.clean_text.unwrap_or(total_text.clone());
 
                             let number = if heading_info.number.is_some() {
                                 heading_info.number
@@ -281,16 +332,24 @@ pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Res
                                 number,
                             });
                         } else {
-                            // Fallback to text-based heading detection
-                            let level = detect_heading_from_text(&text, &formatting);
+                            // Fallback to text-based heading detection using first run's formatting
+                            let first_formatting = if !formatted_runs.is_empty() { 
+                                &formatted_runs[0].formatting 
+                            } else { 
+                                &TextFormatting::default() 
+                            };
+                            
+                            let level = detect_heading_from_text(&total_text, first_formatting);
                             if let Some(level) = level {
                                 elements.push(DocumentElement::Heading {
                                     level,
-                                    text,
+                                    text: total_text,
                                     number: None,
                                 });
                             } else {
-                                elements.push(DocumentElement::Paragraph { text, formatting });
+                                // This is a regular paragraph - consolidate runs and preserve formatting
+                                let consolidated_runs = FormattedRun::consolidate_runs(formatted_runs);
+                                elements.push(DocumentElement::Paragraph { runs: consolidated_runs });
                             }
                         }
                     }
@@ -1062,8 +1121,11 @@ fn group_list_items(elements: Vec<DocumentElement>) -> Vec<DocumentElement> {
 
     for element in elements {
         match &element {
-            DocumentElement::Paragraph { text, .. } => {
-                if is_likely_list_item(text) {
+            DocumentElement::Paragraph { runs } => {
+                // Get the combined text from all runs for list detection
+                let text: String = runs.iter().map(|run| run.text.as_str()).collect();
+                
+                if is_likely_list_item(&text) {
                     // Determine if this is an ordered list item
                     let is_ordered = text.trim().starts_with(char::is_numeric);
 
@@ -1078,10 +1140,10 @@ fn group_list_items(elements: Vec<DocumentElement>) -> Vec<DocumentElement> {
                     current_list_ordered = is_ordered;
 
                     // Calculate nesting level from indentation
-                    let level = calculate_list_level(text);
+                    let level = calculate_list_level(&text);
 
                     // Clean the text (remove bullet/number prefix)
-                    let clean_text = clean_list_item_text(text);
+                    let clean_text = clean_list_item_text(&text);
 
                     current_list_items.push(ListItem {
                         text: clean_text,
@@ -1206,7 +1268,10 @@ pub fn search_document(document: &Document, query: &str) -> Vec<SearchResult> {
     for (element_index, element) in document.elements.iter().enumerate() {
         let text = match element {
             DocumentElement::Heading { text, .. } => text,
-            DocumentElement::Paragraph { text, .. } => text,
+            DocumentElement::Paragraph { runs } => {
+                // Combine text from all runs for searching
+                &runs.iter().map(|run| run.text.as_str()).collect::<String>()
+            },
             DocumentElement::List { items, .. } => {
                 // Search in list items
                 for item in items {
@@ -1612,17 +1677,20 @@ fn clean_word_list_markers(elements: Vec<DocumentElement>) -> Vec<DocumentElemen
     elements
         .into_iter()
         .map(|element| match element {
-            DocumentElement::Paragraph { text, formatting } => {
-                let cleaned_text = if text.starts_with("__WORD_LIST__") {
-                    text.strip_prefix("__WORD_LIST__")
-                        .unwrap_or(&text)
-                        .to_string()
-                } else {
-                    text
-                };
+            DocumentElement::Paragraph { runs } => {
+                let cleaned_runs = runs
+                    .into_iter()
+                    .map(|mut run| {
+                        if run.text.starts_with("__WORD_LIST__") {
+                            run.text = run.text.strip_prefix("__WORD_LIST__")
+                                .unwrap_or(&run.text)
+                                .to_string();
+                        }
+                        run
+                    })
+                    .collect();
                 DocumentElement::Paragraph {
-                    text: cleaned_text,
-                    formatting,
+                    runs: cleaned_runs,
                 }
             }
             DocumentElement::List { items, ordered } => {
