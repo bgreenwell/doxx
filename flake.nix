@@ -29,10 +29,10 @@
             owner = "bgreenwell";
             repo = "doxx";
             rev = "v0.1.1";
-            sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+            sha256 = "sha256-EFza7BSO0vBeUWWKNRnINSq/IUl8jLFUHKMfntdksdA=";
           };
 
-          cargoHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+          cargoHash = "sha256-sLGM4VaS55NhxEeUK20RiCzTZPJaWZPR/wHHCm+HtSo=";
 
           # Native build inputs (build-time dependencies)
           nativeBuildInputs = with pkgs; [
@@ -56,11 +56,6 @@
             stdenv.cc.cc.lib
           ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
             # macOS specific dependencies
-            pkgs.darwin.apple_sdk.frameworks.Security
-            pkgs.darwin.apple_sdk.frameworks.CoreFoundation
-            pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
-            pkgs.darwin.apple_sdk.frameworks.AppKit # For clipboard support
-            pkgs.darwin.apple_sdk.frameworks.Cocoa
           ] ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
             # Linux specific for clipboard
             xorg.libxcb
@@ -132,11 +127,6 @@
             valgrind
           ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
             # macOS specific
-            pkgs.darwin.apple_sdk.frameworks.Security
-            pkgs.darwin.apple_sdk.frameworks.CoreFoundation
-            pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
-            pkgs.darwin.apple_sdk.frameworks.AppKit
-            pkgs.darwin.apple_sdk.frameworks.Cocoa
           ] ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
             # Linux specific
             xorg.libxcb
