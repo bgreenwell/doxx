@@ -45,7 +45,7 @@ pub fn export_to_markdown(document: &Document) -> Result<()> {
             }
             DocumentElement::Paragraph { runs } => {
                 let mut paragraph_text = String::new();
-                
+
                 for run in runs {
                     let mut formatted_text = run.text.clone();
 
@@ -70,16 +70,16 @@ pub fn export_to_markdown(document: &Document) -> Result<()> {
                         "- ".to_string()
                     };
 
-                    let mut item_text = item.text.clone();
-                    if false
-                    /* simplified */
-                    {
-                        item_text = format!("**{item_text}**");
-                    }
-                    if false
-                    /* simplified */
-                    {
-                        item_text = format!("*{item_text}*");
+                    let mut item_text = String::new();
+                    for run in &item.runs {
+                        let mut formatted_text = run.text.clone();
+                        if run.formatting.bold {
+                            formatted_text = format!("**{formatted_text}**");
+                        }
+                        if run.formatting.italic {
+                            formatted_text = format!("*{formatted_text}*");
+                        }
+                        item_text.push_str(&formatted_text);
                     }
 
                     markdown.push_str(&format!("{indent}{bullet}{item_text}\n"));
@@ -185,7 +185,8 @@ pub fn format_as_text(document: &Document) -> String {
                     };
 
                     let indent = "  ".repeat(item.level as usize);
-                    text.push_str(&format!("{indent}{bullet}{}\n", item.text));
+                    let item_text: String = item.runs.iter().map(|run| run.text.as_str()).collect();
+                    text.push_str(&format!("{indent}{bullet}{}\n", item_text));
                 }
                 text.push('\n');
             }
@@ -297,7 +298,7 @@ fn export_to_text_with_images(document: &Document) {
             }
             DocumentElement::Paragraph { runs } => {
                 let mut paragraph_text = String::new();
-                
+
                 for run in runs {
                     let mut formatted_text = run.text.clone();
 
@@ -318,7 +319,8 @@ fn export_to_text_with_images(document: &Document) {
             }
             DocumentElement::List { items, .. } => {
                 for item in items {
-                    println!("- {}", item.text);
+                    let item_text: String = item.runs.iter().map(|run| run.text.as_str()).collect();
+                    println!("- {}", item_text);
                 }
                 println!();
             }
@@ -429,7 +431,7 @@ pub fn extract_citations(document: &Document) -> Result<Vec<Citation>> {
             DocumentElement::Heading { text, .. } => text,
             DocumentElement::Paragraph { runs } => {
                 &runs.iter().map(|run| run.text.as_str()).collect::<String>()
-            },
+            }
             _ => continue,
         };
 
@@ -482,8 +484,10 @@ pub fn extract_bibliography(document: &Document) -> Result<Vec<Citation>> {
                         }
                         DocumentElement::List { items, .. } => {
                             for item in items {
+                                let text: String =
+                                    item.runs.iter().map(|run| run.text.as_str()).collect();
                                 bibliography.push(Citation {
-                                    text: item.text.clone(),
+                                    text,
                                     element_index: index + bib_index + 1,
                                     citation_type: CitationType::Bibliography,
                                 });
