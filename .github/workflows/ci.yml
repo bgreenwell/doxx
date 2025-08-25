@@ -46,7 +46,17 @@ jobs:
       - name: Check build
         run: cargo build --release
 
-      # Nix build
+  nix-build:
+    name: Build with Nix
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
       - name: Install Nix
         uses: cachix/install-nix-action@v31
         with:
