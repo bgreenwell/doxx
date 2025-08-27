@@ -294,7 +294,7 @@ cargo build --release
 cargo test
 
 # Run with sample document
-cargo run -- tests/fixtures/sample.docx
+cargo run -- tests/fixtures/minimal.docx
 ```
 
 ## 📋 Roadmap

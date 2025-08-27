@@ -79,7 +79,7 @@ cargo build --release --target x86_64-apple-darwin
 
 # Test CLI works correctly
 ./target/release/doxx --version
-./target/release/doxx tests/fixtures/sample.docx --export text
+./target/release/doxx tests/fixtures/minimal.docx --export text
 ```
 
 ### Verify release assets
