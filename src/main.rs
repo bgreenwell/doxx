@@ -104,17 +104,20 @@ async fn main() -> Result<()> {
     match &cli.config {
         Some(ConfigCommands::Init) => {
             println!("Initializing doxx configuration...");
-            // TODO: Initialize config file
+            doxx::theme::Theme::init_default()?;
+            if let Some(config_path) = doxx::theme::Theme::get_config_path() {
+                println!("Created default theme config at: {}", config_path.display());
+            }
             return Ok(());
         }
         Some(ConfigCommands::Set { key, value }) => {
             println!("Setting {key} = {value}");
-            // TODO: Set config value
+            // TODO: Set specific config values in theme file
             return Ok(());
         }
         Some(ConfigCommands::Get { key }) => {
             println!("Getting {key}");
-            // TODO: Get config value
+            // TODO: Get specific config values from theme file
             return Ok(());
         }
         None => {}

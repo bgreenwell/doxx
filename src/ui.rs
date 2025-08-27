@@ -22,6 +22,7 @@ use ratatui::{
 use std::io;
 
 use crate::{document::*, Cli};
+use doxx::theme::ThemeManager;
 use ratatui_image::{picker::Picker, protocol::StatefulProtocol};
 
 type ImageProtocols = Vec<Box<dyn StatefulProtocol>>;
@@ -40,6 +41,7 @@ pub struct App {
     pub color_enabled: bool,
     pub image_picker: Option<Picker>,
     pub image_protocols: ImageProtocols,
+    pub theme_manager: ThemeManager,
 }
 
 #[derive(Debug, Clone)]
@@ -67,6 +69,7 @@ impl App {
             color_enabled: cli.color,
             image_picker: None,
             image_protocols: Vec::new(),
+            theme_manager: ThemeManager::default(),
         };
 
         // Apply CLI options
@@ -218,6 +221,47 @@ impl App {
 
     pub fn clear_status_message(&mut self) {
         self.status_message = None;
+    }
+
+    // Theme helper methods for UI elements only
+    pub fn get_ui_color(&self, element: &str) -> Color {
+        let theme = self.theme_manager.theme();
+        match element {
+            "document_border" => self
+                .theme_manager
+                .get_cached_color(&theme.ui.document_border),
+            "document_title" => self
+                .theme_manager
+                .get_cached_color(&theme.ui.document_title),
+            "footer_bg" => self.theme_manager.get_cached_color(&theme.ui.footer_bg),
+            "status_bar_fg" => self.theme_manager.get_cached_color(&theme.ui.status_bar_fg),
+            "status_message_fg" => self
+                .theme_manager
+                .get_cached_color(&theme.ui.status_message_fg),
+            "help_bar_fg" => self.theme_manager.get_cached_color(&theme.ui.help_bar_fg),
+            "search_border" => self.theme_manager.get_cached_color(&theme.ui.search_border),
+            "search_input" => self.theme_manager.get_cached_color(&theme.ui.search_input),
+            "search_match_bg" => self
+                .theme_manager
+                .get_cached_color(&theme.ui.search_match_bg),
+            "search_match_fg" => self
+                .theme_manager
+                .get_cached_color(&theme.ui.search_match_fg),
+            "outline_border" => self
+                .theme_manager
+                .get_cached_color(&theme.ui.outline_border),
+            "outline_item" => self.theme_manager.get_cached_color(&theme.ui.outline_item),
+            "outline_selected_bg" => self
+                .theme_manager
+                .get_cached_color(&theme.ui.outline_selected_bg),
+            "outline_selected_fg" => self
+                .theme_manager
+                .get_cached_color(&theme.ui.outline_selected_fg),
+            "help_border" => self.theme_manager.get_cached_color(&theme.ui.help_border),
+            "help_text" => self.theme_manager.get_cached_color(&theme.ui.help_text),
+            "scrollbar" => self.theme_manager.get_cached_color(&theme.ui.scrollbar),
+            _ => Color::White,
+        }
     }
 }
 
@@ -558,7 +602,7 @@ fn ui(f: &mut Frame, app: &mut App) {
         ViewMode::Document => render_document(f, chunks[0], app),
         ViewMode::Outline => render_outline(f, chunks[0], app),
         ViewMode::Search => render_search(f, chunks[0], app),
-        ViewMode::Help => render_help(f, chunks[0]),
+        ViewMode::Help => render_help(f, chunks[0], app),
     }
 
     // Status bar
@@ -575,7 +619,7 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
     let block = Block::default()
         .title(title)
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Blue));
+        .border_style(Style::default().fg(app.get_ui_color("document_border")));
 
     let inner = block.inner(area);
     f.render_widget(block, area);
@@ -632,7 +676,12 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
                 let line = if is_search_match {
                     Line::from(vec![
                         Span::styled(prefix.clone(), style),
-                        Span::styled(display_text, style.bg(Color::Yellow).fg(Color::Black)),
+                        Span::styled(
+                            display_text,
+                            style
+                                .bg(app.get_ui_color("search_match_bg"))
+                                .fg(app.get_ui_color("search_match_fg")),
+                        ),
                     ])
                 } else {
                     Line::from(vec![
@@ -689,7 +738,9 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
                     };
 
                     if is_search_match {
-                        style = style.bg(Color::Yellow).fg(Color::Black);
+                        style = style
+                            .bg(app.get_ui_color("search_match_bg"))
+                            .fg(app.get_ui_color("search_match_fg"));
                     }
 
                     spans.push(Span::styled(display_text, style));
@@ -743,7 +794,7 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
                 text.lines.push(Line::from(""));
             }
             DocumentElement::Table { table } => {
-                render_table_enhanced(table, &mut text);
+                render_table_enhanced(table, &mut text, app);
             }
             DocumentElement::Image {
                 description,
@@ -826,10 +877,14 @@ fn render_outline(f: &mut Frame, area: Rect, app: &mut App) {
             Block::default()
                 .title("📋 Document Outline")
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Green)),
+                .border_style(Style::default().fg(app.get_ui_color("outline_border"))),
         )
-        .style(Style::default().fg(Color::White))
-        .highlight_style(Style::default().bg(Color::Blue).fg(Color::White))
+        .style(Style::default().fg(app.get_ui_color("outline_item")))
+        .highlight_style(
+            Style::default()
+                .bg(app.get_ui_color("outline_selected_bg"))
+                .fg(app.get_ui_color("outline_selected_fg")),
+        )
         .highlight_symbol("➤ ");
 
     f.render_stateful_widget(list, area, &mut app.outline_state);
@@ -843,12 +898,12 @@ fn render_search(f: &mut Frame, area: Rect, app: &App) {
 
     // Search input
     let input = Paragraph::new(app.search_query.as_str())
-        .style(Style::default().fg(Color::Yellow))
+        .style(Style::default().fg(app.get_ui_color("search_input")))
         .block(
             Block::default()
                 .borders(Borders::ALL)
                 .title("🔍 Search")
-                .border_style(Style::default().fg(Color::Yellow)),
+                .border_style(Style::default().fg(app.get_ui_color("search_border"))),
         );
     f.render_widget(input, chunks[0]);
 
@@ -861,7 +916,9 @@ fn render_search(f: &mut Frame, area: Rect, app: &App) {
             let prefix = "📄"; // Simplified for now
 
             let style = if i == app.current_search_index {
-                Style::default().bg(Color::Blue).fg(Color::White)
+                Style::default()
+                    .bg(app.get_ui_color("search_match_bg"))
+                    .fg(app.get_ui_color("search_match_fg"))
             } else {
                 Style::default()
             };
@@ -900,13 +957,13 @@ fn render_search(f: &mut Frame, area: Rect, app: &App) {
                 app.search_results.len()
             ))
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Yellow)),
+            .border_style(Style::default().fg(app.get_ui_color("search_border"))),
     );
 
     f.render_widget(results_list, chunks[1]);
 }
 
-fn render_help(f: &mut Frame, area: Rect) {
+fn render_help(f: &mut Frame, area: Rect, app: &App) {
     let help_text = vec![
         "🆘 doxx - Help",
         "",
@@ -942,17 +999,17 @@ fn render_help(f: &mut Frame, area: Rect) {
             Block::default()
                 .title("Help")
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Yellow)),
+                .border_style(Style::default().fg(app.get_ui_color("help_border"))),
         )
         .wrap(Wrap { trim: true });
 
     f.render_widget(help, area);
 }
 
-fn render_help_overlay(f: &mut Frame, _app: &App) {
+fn render_help_overlay(f: &mut Frame, app: &App) {
     let area = centered_rect(60, 70, f.area());
     f.render_widget(Clear, area);
-    render_help(f, area);
+    render_help(f, area, app);
 }
 
 fn render_status_bar(f: &mut Frame, area: Rect, app: &App) {
@@ -999,11 +1056,13 @@ fn render_status_bar(f: &mut Frame, area: Rect, app: &App) {
     let status_style = if app.status_message.is_some() {
         // Highlight status messages
         Style::default()
-            .fg(Color::Green)
-            .bg(Color::DarkGray)
+            .fg(app.get_ui_color("status_message_fg"))
+            .bg(app.get_ui_color("footer_bg"))
             .add_modifier(Modifier::BOLD)
     } else {
-        Style::default().fg(Color::White).bg(Color::DarkGray)
+        Style::default()
+            .fg(app.get_ui_color("status_bar_fg"))
+            .bg(app.get_ui_color("footer_bg"))
     };
 
     let status = Paragraph::new(status_text)
@@ -1022,13 +1081,31 @@ fn render_status_bar(f: &mut Frame, area: Rect, app: &App) {
     };
 
     let help = Paragraph::new(help_text)
-        .style(Style::default().fg(Color::Gray))
+        .style(
+            Style::default()
+                .fg(app.get_ui_color("help_bar_fg"))
+                .bg(app.get_ui_color("footer_bg")),
+        )
         .block(Block::default());
 
     f.render_widget(help, help_area);
+
+    // Fill the empty third line with footer background
+    let empty_area = Rect {
+        x: area.x,
+        y: area.y + 2,
+        width: area.width,
+        height: 1,
+    };
+
+    let empty_line = Paragraph::new("")
+        .style(Style::default().bg(app.get_ui_color("footer_bg")))
+        .block(Block::default());
+
+    f.render_widget(empty_line, empty_area);
 }
 
-fn render_table_enhanced(table: &TableData, text: &mut Text) {
+fn render_table_enhanced(table: &TableData, text: &mut Text, _app: &App) {
     let metadata = &table.metadata;
 
     // Add table title if present

@@ -7,6 +7,7 @@ pub mod document;
 pub mod export;
 pub mod image_extractor;
 pub mod terminal_image;
+pub mod theme;
 
 /// Export format options
 #[derive(clap::ValueEnum, Clone)]
