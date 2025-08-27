@@ -30,6 +30,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # Document parsing
+infer = "0.19"
 docx-rs = "0.4"
 
 # Terminal UI

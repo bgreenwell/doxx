@@ -169,11 +169,26 @@ pub struct SearchResult {
 }
 
 pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Result<Document> {
+    // Validate docx extension
+    let extension = file_path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.to_lowercase());
+    if !matches!(extension.as_deref(), Some("docx")) {
+        return Err(anyhow::anyhow!("Expected a docx file"));
+    }
+    
     let file_size = std::fs::metadata(file_path)?.len();
 
     // For now, create a simple implementation that reads the docx file
     // This is a simplified version to get the project compiling
     let file_data = std::fs::read(file_path)?;
+
+    // Ensure file is definitely a docx
+    if !infer::doc::is_docx(&file_data) {
+        return Err(anyhow::anyhow!("Expected a docx file"));
+    }
+
     let docx = docx_rs::read_docx(&file_data)?;
 
     let title = file_path
