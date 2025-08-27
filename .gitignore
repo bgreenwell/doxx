@@ -62,3 +62,6 @@ Temporary Items
 
 # Nix build artifacts
 result/
+
+# Sensitive test files
+tests/fixtures/sample.docx
