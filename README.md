@@ -1,11 +1,10 @@
-# doxx 📄
+# doxx 📄 <a href="https://terminaltrove.com/"><img src="https://cdn.terminaltrove.com/media/badges/tool_of_the_week/svg/terminal_trove_tool_of_the_week_green_on_dark_grey_bg.svg" align="right" height="40" /></a>
 
 > `.docx` files in your terminal — no Microsoft Word required
 
 [![CI](https://github.com/bgreenwell/doxx/workflows/CI/badge.svg)](https://github.com/bgreenwell/doxx/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/rust-%23000000.svg?style=flat&logo=rust&logoColor=white)](https://www.rust-lang.org/)
-[<img src="https://cdn.terminaltrove.com/media/badges/tool_of_the_week/svg/terminal_trove_tool_of_the_week_green_on_dark_grey_bg.svg" height="20">](https://terminaltrove.com/)
 
 A fast, terminal-native document viewer for Word files. View, search, and export `.docx` documents without leaving your command line.
 
