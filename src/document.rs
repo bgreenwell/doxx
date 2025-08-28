@@ -1248,25 +1248,28 @@ fn clean_list_item_runs(runs: Vec<FormattedRun>) -> Vec<FormattedRun> {
 
     // Remove the prefix from the runs while preserving formatting
     let mut result_runs = Vec::new();
-    let mut remaining_to_remove = prefix_to_remove.len();
+    let mut chars_to_remove = prefix_to_remove.chars().count();
 
     for run in runs {
-        if remaining_to_remove == 0 {
+        if chars_to_remove == 0 {
             // No more prefix to remove, keep this run as-is
             result_runs.push(run);
-        } else if run.text.len() <= remaining_to_remove {
-            // This entire run is part of the prefix to remove
-            remaining_to_remove -= run.text.len();
         } else {
-            // This run contains part of the text we want to keep
-            let keep_text = &run.text[remaining_to_remove..];
-            if !keep_text.is_empty() {
-                result_runs.push(FormattedRun {
-                    text: keep_text.trim_start().to_string(),
-                    formatting: run.formatting,
-                });
+            let run_char_count = run.text.chars().count();
+            if run_char_count <= chars_to_remove {
+                // This entire run is part of the prefix to remove
+                chars_to_remove -= run_char_count;
+            } else {
+                // This run contains part of the text we want to keep
+                let keep_text: String = run.text.chars().skip(chars_to_remove).collect();
+                if !keep_text.is_empty() {
+                    result_runs.push(FormattedRun {
+                        text: keep_text.trim_start().to_string(),
+                        formatting: run.formatting,
+                    });
+                }
+                chars_to_remove = 0;
             }
-            remaining_to_remove = 0;
         }
     }
 
