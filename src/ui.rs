@@ -460,7 +460,7 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                             _ => {}
                         },
                         ViewMode::Search => match key.code {
-                            KeyCode::Char('q') | KeyCode::Esc => {
+                            KeyCode::Esc => {
                                 app.current_view = ViewMode::Document
                             }
                             KeyCode::F(2) => app.copy_content(), // Use F2 for copy in search mode to avoid conflicts
