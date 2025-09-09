@@ -32,6 +32,7 @@ pub struct App {
     pub scroll_offset: usize,
     pub search_query: String,
     pub search_results: Vec<SearchResult>,
+    pub backup_search_results: Vec<SearchResult>,
     pub current_search_index: usize,
     pub outline_state: ListState,
     pub show_help: bool,
@@ -59,6 +60,7 @@ impl App {
             scroll_offset: 0,
             search_query: String::new(),
             search_results: Vec::new(),
+            backup_search_results: Vec::new(),
             current_search_index: 0,
             outline_state: ListState::default(),
             show_help: false,
@@ -218,6 +220,20 @@ impl App {
 
     pub fn clear_status_message(&mut self) {
         self.status_message = None;
+    }
+
+    pub fn toggle_search_state(&mut self) {
+        if self.search_query.is_empty() {
+            return;
+        }
+        // Toggles search state: clears results if active, restores backup if inactive.
+        if !self.search_results.is_empty() {
+            self.backup_search_results = self.search_results.clone();
+            self.search_results.clear();
+        } else if !self.backup_search_results.is_empty() {
+            self.search_results = self.backup_search_results.clone();
+            self.backup_search_results.clear();
+        }
     }
 }
 
@@ -409,8 +425,9 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                             KeyCode::Char('q') => break,
                             KeyCode::Char('o') => app.current_view = ViewMode::Outline,
                             KeyCode::Char('s') => app.current_view = ViewMode::Search,
-                            KeyCode::Char('h') | KeyCode::F(1) => app.show_help = !app.show_help,
+                            KeyCode::Char('S') => app.toggle_search_state(),
                             KeyCode::Char('c') => app.copy_content(),
+                            KeyCode::Char('h') | KeyCode::F(1) => app.show_help = !app.show_help,
                             KeyCode::Up | KeyCode::Char('k') => app.scroll_up(),
                             KeyCode::Down | KeyCode::Char('j') => app.scroll_down(),
                             KeyCode::PageUp => app.page_up(10),
@@ -460,9 +477,7 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                             _ => {}
                         },
                         ViewMode::Search => match key.code {
-                            KeyCode::Char('q') | KeyCode::Esc => {
-                                app.current_view = ViewMode::Document
-                            }
+                            KeyCode::Esc => app.current_view = ViewMode::Document,
                             KeyCode::F(2) => app.copy_content(), // Use F2 for copy in search mode to avoid conflicts
                             KeyCode::Char(c) => {
                                 app.search_query.push(c);
@@ -922,6 +937,7 @@ fn render_help(f: &mut Frame, area: Rect) {
         "  s          Open search",
         "  n          Next result",
         "  p          Previous result",
+        "  S          Deselect/Reselect current selection",
         "",
         "📋 Other Features:",
         "  o          Show outline",
