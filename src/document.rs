@@ -241,7 +241,11 @@ pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Res
                         let option_sz = &run.run_property.sz;
                         /*
                             ⚠️⚠️⚠️
-                            11pt is the default font size built into English version of office word, which may not be a good value.
+                            11pt is the default font size of the normal style of English word.
+                            If the user changes the font size of the normal style and updates the document, runproperty.sz cannot track its change.
+                            Therefore, although 11.0pt can cope with most situations, it is not a good solution.
+                            Limited level. I hope this part can provide some help to you.
+
                             The unit of `runproperty.sz` is 1/2 point.
                         */
                         let sz_f32 = match option_sz.as_ref() {
