@@ -2,7 +2,7 @@ use anyhow::Result;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::{collections::HashMap, f32, path::Path};
 
 type TableRows = Vec<Vec<TableCell>>;
 type NumberingInfo = (i32, u8);
@@ -203,6 +203,76 @@ pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Res
         None
     };
 
+    //* Gets the document font_size_base_line
+    /*
+        ⚠️ Important note regarding `RunProperty.sz`
+
+        - `RunProperty.sz` does not always represent the actual font size shown in Word.
+        - Many runs will have `sz = None` because font size is inherited, not explicitly defined at the run level.
+
+        Inheritance chain in Word:
+        1. Document defaults (`w:docDefaults`)
+        2. Paragraphcharacter styles (e.g. `Normal`, `Heading1`)
+        3. Run properties (`w:rPr`)
+
+        Consequences:
+        - If the user never sets font size manually, most runs have `sz = None`.
+        - Therefore, computing a "font size baseline" by looking only at `RunProperty.sz` is unreliable.
+        - Title detection based solely on `sz` will fail unless style inheritance is resolved manually.
+        - If the user does not set it actively, the value of `style.style_id` or `style.name` is usually `Normal`.
+
+        Notes:
+        - Word’s built-in default font size depends on locale:
+        - English Word: Calibri 11pt
+        - Simplified Chinese Word: 宋体, 五号 (≈10.5pt)
+        - The unit of `RunProperty.sz` is half-points (e.g. 24 = 12pt).
+
+        The above content comes from translation software. Please feel free to discuss any questions!
+    */
+
+    let mut font_size_haspmap: HashMap<u32, u32> = HashMap::new();
+    let mut font_size_vec: Vec<f32> = Vec::new();
+    let mut font_size_base_line: Option<f32> = None;
+
+    for child in &docx.document.children {
+        match child {
+            docx_rs::DocumentChild::Paragraph(para) => {
+                for child in &para.children {
+                    if let docx_rs::ParagraphChild::Run(run) = child {
+                        let option_sz = &run.run_property.sz;
+                        /*
+                            ⚠️⚠️⚠️
+                            11pt is the default font size built into English version of office word, which may not be a good value.
+                            The unit of `runproperty.sz` is 1/2 point.
+                        */
+                        let sz_f32 = match option_sz.as_ref() {
+                            Some(sz) => match serde_json::to_string(sz).ok() {
+                                Some(s) => {
+                                    let parsed = s.trim_matches('"').parse::<f32>().unwrap_or(11.0);
+                                    Some(parsed / 2.0)
+                                }
+                                None => Some(11.0 as f32),
+                            },
+                            None => Some(11.0 as f32),
+                        };
+                        if let Some(val) = sz_f32 {
+                            font_size_vec.push(val);
+                        }
+                    }
+                }
+            }
+            _ => (),
+        }
+    }
+
+    for i in font_size_vec.iter() {
+        let size_key = (i * 100.0) as u32;
+        *font_size_haspmap.entry(size_key).or_insert(0) += 1;
+    }
+    if let Some((key, _)) = font_size_haspmap.iter().max_by_key(|entry| entry.1) {
+        font_size_base_line = Some(*key as f32 / 100.0)
+    }
+
     // Enhanced content extraction with style information
     for child in &docx.document.children {
         match child {
@@ -346,7 +416,11 @@ pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Res
                                 &TextFormatting::default()
                             };
 
-                            let level = detect_heading_from_text(&total_text, first_formatting);
+                            let level = detect_heading_from_text(
+                                &total_text,
+                                first_formatting,
+                                font_size_base_line,
+                            );
                             if let Some(level) = level {
                                 elements.push(DocumentElement::Heading {
                                     level,
@@ -406,7 +480,16 @@ fn detect_heading_from_paragraph_style(para: &docx_rs::Paragraph) -> Option<u8> 
     // Try to access paragraph properties and style
     if let Some(style) = &para.property.style {
         // Check for heading styles (Heading1, Heading2, etc.)
-        if style.val.starts_with("Heading") || style.val.starts_with("heading") {
+        /*
+            ⚠️ In non-English scenes, styles may be parsed into a single number.
+            For example:' heading1' -> '1', 'heading2' -> '2', etc.
+        */
+
+        let re = Regex::new(r"^\d$").expect("Regular expression syntax error");
+        if style.val.starts_with("Heading")
+            || style.val.starts_with("heading")
+            || re.is_match(&style.val.trim())
+        {
             if let Some(level_char) = style.val.chars().last() {
                 if let Some(level) = level_char.to_digit(10) {
                     return Some(level.min(6) as u8);
@@ -992,10 +1075,26 @@ fn extract_run_formatting(run: &docx_rs::Run) -> TextFormatting {
     // For now, skip font size extraction due to API complexity
     // TODO: Add font size extraction when we understand the API better
 
+    // *Get the font size of each run through serde_json.
+    formatting.font_size = match props.sz.as_ref() {
+        Some(sz) => match serde_json::to_string(sz).ok() {
+            Some(s) => {
+                let parsed = s.trim_matches('"').parse::<f32>().unwrap_or(11.0);
+                Some(parsed / 2.0)
+            }
+            None => Some(11.0),
+        },
+        None => Some(11.0),
+    };
+
     formatting
 }
 
-fn detect_heading_from_text(text: &str, formatting: &TextFormatting) -> Option<u8> {
+fn detect_heading_from_text(
+    text: &str,
+    formatting: &TextFormatting,
+    font_size_base_line: Option<f32>,
+) -> Option<u8> {
     let text = text.trim();
 
     // Be much more conservative and selective
@@ -1070,6 +1169,25 @@ fn detect_heading_from_text(text: &str, formatting: &TextFormatting) -> Option<u
                 if has_meaningful_word && text.chars().next().is_some_and(|c| c.is_uppercase()) {
                     return Some(determine_heading_level_from_text(text));
                 }
+            }
+        }
+
+        // *Identify titles based on font size.
+        if font_size_base_line.is_some()
+            && formatting.font_size.is_some()
+            && font_size_base_line < formatting.font_size
+            && text.len() < 100
+            && text.len() > 3
+        {
+            let difference = match (formatting.font_size, font_size_base_line) {
+                (Some(a), Some(b)) => Some(a - b),
+                _ => return None,
+            };
+            match difference {
+                Some(n) if n < 3.0 => return Some(3),
+                Some(n) if n < 5.0 => return Some(2),
+                Some(n) if n >= 5.0 => return Some(1),
+                _ => return None,
             }
         }
     }
