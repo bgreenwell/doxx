@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Search state toggle functionality - press `S` to hide/show search results ([#50](https://github.com/bgreenwell/doxx/pull/50)) by [@Jianchi-Chen](https://github.com/Jianchi-Chen)
+
+### Fixed
+- Empty search queries no longer match entire document, preventing performance issues ([#50](https://github.com/bgreenwell/doxx/pull/50)) by [@Jianchi-Chen](https://github.com/Jianchi-Chen)
+
+### Changed
+- Help text updated to document new search state toggle functionality
+
+### Added
 - **Extended Package Manager Support**: Added community-contributed package managers for broader ecosystem coverage
   - **Nix Package Manager**: Cross-platform reproducible builds with `nix profile install github:bgreenwell/doxx` (thanks to [@bobberb](https://github.com/bobberb))
   - **AUR (Arch User Repository)**: Arch Linux support with `yay -S doxx-git` (thanks to [@mhegreberg](https://github.com/mhegreberg))
