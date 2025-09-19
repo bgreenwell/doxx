@@ -1308,6 +1308,10 @@ fn estimate_page_count(word_count: usize) -> usize {
 
 pub fn search_document(document: &Document, query: &str) -> Vec<SearchResult> {
     let mut results = Vec::new();
+    // TODO: consider deferring search execution until Enter is pressed
+    if query.is_empty() {
+        return results;
+    }
     let query_lower = query.to_lowercase();
 
     for (element_index, element) in document.elements.iter().enumerate() {
