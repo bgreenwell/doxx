@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **ANSI Export Format**: Rich terminal output with colors and formatting ([#45](https://github.com/bgreenwell/doxx/issues/45))
+  - `--export ansi` option for ANSI-colored terminal output
+  - `--terminal-width`/`-w` option for setting terminal width (default: $COLUMNS or 80)
+  - `--color-depth {auto,1,4,8,24}` option for controlling color rendering depth
+  - Perfect integration with terminal tools like `less -R`, fzf-tab, yazi, and ranger
+  - Support for all formatting: bold, italic, underline, strikethrough, colors
 - **Strikethrough Support**: Complete strikethrough text formatting with `~~text~~` syntax in all export formats ([#47](https://github.com/bgreenwell/doxx/issues/47))
 - Search state toggle functionality - press `S` to hide/show search results ([#50](https://github.com/bgreenwell/doxx/pull/50)) by [@Jianchi-Chen](https://github.com/Jianchi-Chen)
 - **Extended Package Manager Support**: Added community-contributed package managers for broader ecosystem coverage

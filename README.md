@@ -48,7 +48,7 @@ A fast, terminal-native document viewer for Word files. View, search, and export
 - **Fast search** with highlighting 🔍
 - **Smart tables** with proper alignment and Unicode borders
 - **Copy to clipboard** — grab content directly from the terminal
-- **Export formats** — Markdown, CSV, JSON, plain text
+- **Export formats** — Markdown, CSV, JSON, plain text, ANSI-colored output
 - **Terminal images** for Kitty, iTerm2, WezTerm 🖼️
 - **Color support** — see Word document colors in your terminal
 
@@ -183,7 +183,7 @@ doxx [OPTIONS] <FILE>
 ### Export options
 | Option | Values | Description |
 |--------|--------|-------------|
-| `--export <FORMAT>` | `markdown`, `text`, `csv`, `json` | Export document instead of viewing |
+| `--export <FORMAT>` | `markdown`, `text`, `csv`, `json`, `ansi` | Export document instead of viewing |
 
 **Export examples:**
 ```bash
@@ -191,10 +191,33 @@ doxx report.docx --export markdown  # Convert to Markdown
 doxx data.docx --export csv         # Extract tables as CSV (tables only!)
 doxx document.docx --export text    # Plain text output
 doxx structure.docx --export json   # Document metadata as JSON
+doxx document.docx --export ansi    # ANSI-colored terminal output
 ```
 
 **📊 CSV export note:**
 The CSV export extracts **only tables** from the document, ignoring all text content. Perfect for pulling structured data from business reports, research papers, or surveys for analysis in Excel, Python, or databases.
+
+### ANSI export options
+| Option | Values | Description |
+|--------|--------|-------------|
+| `-w, --terminal-width <COLS>` | Number | Set terminal width for formatting (default: $COLUMNS or 80) |
+| `--color-depth <DEPTH>` | `auto`, `1`, `4`, `8`, `24` | Control color rendering depth |
+
+**ANSI export examples:**
+```bash
+doxx document.docx --export ansi                     # Full color ANSI output
+doxx document.docx --export ansi --color-depth 1     # Monochrome (no colors)
+doxx document.docx --export ansi --color-depth 4     # 16 colors
+doxx document.docx --export ansi --terminal-width 80 # Set terminal width
+doxx report.docx --export ansi | less -R             # Pipe to less with color support
+```
+
+**🌈 Color depth options:**
+- `auto` - Auto-detect terminal capabilities
+- `1` - Monochrome (no colors, formatting only)
+- `4` - 16 colors (standard ANSI colors)
+- `8` - 256 colors (extended ANSI palette)
+- `24` - True color (16.7 million colors)
 
 ### Image options
 | Option | Description |
