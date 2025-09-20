@@ -681,6 +681,9 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
                     if run.formatting.underline {
                         style = style.add_modifier(Modifier::UNDERLINED);
                     }
+                    if run.formatting.strikethrough {
+                        style = style.add_modifier(Modifier::CROSSED_OUT);
+                    }
 
                     // Apply text color from document formatting (only if color is enabled)
                     if app.color_enabled {
@@ -743,6 +746,9 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
                         }
                         if run.formatting.underline {
                             style = style.add_modifier(Modifier::UNDERLINED);
+                        }
+                        if run.formatting.strikethrough {
+                            style = style.add_modifier(Modifier::CROSSED_OUT);
                         }
                         if let Some(color_hex) = &run.formatting.color {
                             if let Some(color) = hex_to_color(color_hex) {

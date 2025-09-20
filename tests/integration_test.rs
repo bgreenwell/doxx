@@ -181,6 +181,31 @@ fn test_search_functionality() {
 }
 
 #[test]
+fn test_empty_search_functionality() {
+    let output = Command::new("cargo")
+        .args([
+            "run",
+            "--bin",
+            "doxx",
+            "tests/fixtures/business-report.docx",
+            "--search",
+            "",
+        ])
+        .output()
+        .expect("Failed to execute doxx");
+
+    assert!(
+        output.status.success(),
+        "doxx should handle empty search gracefully"
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("No results found"),
+        "Should show no results for empty search"
+    );
+}
+
+#[test]
 fn test_help_command() {
     let output = Command::new("cargo")
         .args(["run", "--bin", "doxx", "--", "--help"])

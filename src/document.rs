@@ -69,6 +69,7 @@ pub struct TextFormatting {
     pub bold: bool,
     pub italic: bool,
     pub underline: bool,
+    pub strikethrough: bool,
     pub font_size: Option<f32>,
     pub color: Option<String>,
 }
@@ -293,22 +294,27 @@ pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Res
                             "* ".to_string() // Bullets for unordered
                         };
 
-                        // For list items, we'll combine all runs into a single run with list formatting
-                        // This preserves the existing list behavior while supporting the new structure
-                        let list_text =
-                            format!("__WORD_LIST__{}{}{}", indent, prefix, total_text.trim());
-                        let list_formatting = if !formatted_runs.is_empty() {
-                            formatted_runs[0].formatting.clone()
-                        } else {
-                            TextFormatting::default()
-                        };
+                        // For list items, preserve individual run formatting by adding prefix to first run
+                        // This maintains formatting fidelity while supporting Word automatic numbering
+                        if !formatted_runs.is_empty() {
+                            // Add the list prefix to the first run
+                            let prefix_text = format!("__WORD_LIST__{}{}", indent, prefix);
+                            let mut updated_runs = formatted_runs;
+                            updated_runs[0].text = format!("{}{}", prefix_text, updated_runs[0].text.trim());
 
-                        elements.push(DocumentElement::Paragraph {
-                            runs: vec![FormattedRun {
-                                text: list_text,
-                                formatting: list_formatting,
-                            }],
-                        });
+                            elements.push(DocumentElement::Paragraph {
+                                runs: updated_runs,
+                            });
+                        } else {
+                            // Fallback for empty runs
+                            let list_text = format!("__WORD_LIST__{}{}", indent, prefix);
+                            elements.push(DocumentElement::Paragraph {
+                                runs: vec![FormattedRun {
+                                    text: list_text,
+                                    formatting: TextFormatting::default(),
+                                }],
+                            });
+                        }
                     } else {
                         // Check for headings (with or without numbering)
                         if let Some(heading_info) = heading_info {
@@ -966,6 +972,8 @@ fn extract_run_formatting(run: &docx_rs::Run) -> TextFormatting {
     formatting.bold = props.bold.is_some();
     formatting.italic = props.italic.is_some();
     formatting.underline = props.underline.is_some();
+
+    formatting.strikethrough = props.strike.is_some() || props.dstrike.is_some();
 
     // Extract color information
     if let Some(color) = &props.color {
