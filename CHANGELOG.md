@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Strikethrough Support**: Complete strikethrough text formatting with `~~text~~` syntax in all export formats ([#47](https://github.com/bgreenwell/doxx/issues/47))
 - Search state toggle functionality - press `S` to hide/show search results ([#50](https://github.com/bgreenwell/doxx/pull/50)) by [@Jianchi-Chen](https://github.com/Jianchi-Chen)
 - **Extended Package Manager Support**: Added community-contributed package managers for broader ecosystem coverage
   - **Nix Package Manager**: Cross-platform reproducible builds with `nix profile install github:bgreenwell/doxx` (thanks to [@bobberb](https://github.com/bobberb))
@@ -15,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Total Coverage**: Now supports 5 package managers across all major platforms (Homebrew, Cargo, AUR, Nix, Scoop)
 
 ### Fixed
+- **Word Automatic List Formatting**: Fixed formatting being lost in Word automatic numbered lists (affects strikethrough, bold, italic, colors)
 - Empty search queries no longer match entire document, preventing performance issues ([#50](https://github.com/bgreenwell/doxx/pull/50)) by [@Jianchi-Chen](https://github.com/Jianchi-Chen)
 
 ### Changed

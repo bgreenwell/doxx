@@ -39,7 +39,7 @@ A fast, terminal-native document viewer for Word files. View, search, and export
 
 <div align="center">
   <img src="assets/demo.gif" alt="doxx mixed formatting demo" width="600">
-  <br><em>Mixed formatting with colors, bold, italic, underline and interactive navigation</em>
+  <br><em>Mixed formatting with colors, bold, italic, underline, strikethrough and interactive navigation</em>
 </div>
 
 ## ✨ Features

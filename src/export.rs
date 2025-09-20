@@ -55,6 +55,9 @@ pub fn export_to_markdown(document: &Document) -> Result<()> {
                     if run.formatting.italic {
                         formatted_text = format!("*{formatted_text}*");
                     }
+                    if run.formatting.strikethrough {
+                        formatted_text = format!("~~{formatted_text}~~");
+                    }
 
                     paragraph_text.push_str(&formatted_text);
                 }
@@ -78,6 +81,9 @@ pub fn export_to_markdown(document: &Document) -> Result<()> {
                         }
                         if run.formatting.italic {
                             formatted_text = format!("*{formatted_text}*");
+                        }
+                        if run.formatting.strikethrough {
+                            formatted_text = format!("~~{formatted_text}~~");
                         }
                         item_text.push_str(&formatted_text);
                     }
@@ -310,6 +316,9 @@ fn export_to_text_with_images(document: &Document) {
                     }
                     if run.formatting.underline {
                         formatted_text = format!("_{formatted_text}_");
+                    }
+                    if run.formatting.strikethrough {
+                        formatted_text = format!("~~{formatted_text}~~");
                     }
 
                     paragraph_text.push_str(&formatted_text);
