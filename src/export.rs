@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::{document::*, ExportFormat};
+use crate::{document::*, ExportFormat, ColorDepth, ansi::{export_to_ansi_with_options, AnsiOptions}};
 
 pub fn export_document(document: &Document, format: &ExportFormat) -> Result<()> {
     match format {
@@ -8,6 +8,7 @@ pub fn export_document(document: &Document, format: &ExportFormat) -> Result<()>
         ExportFormat::Text => export_to_text(document),
         ExportFormat::Csv => export_to_csv(document),
         ExportFormat::Json => export_to_json(document),
+        ExportFormat::Ansi => export_to_ansi(document),
     }
 }
 
@@ -598,4 +599,30 @@ fn align_text_cell_content(content: &str, alignment: TextAlignment, width: usize
             format!("{trimmed:<width$}")
         }
     }
+}
+
+pub fn export_to_ansi(document: &Document) -> Result<()> {
+    let options = AnsiOptions::default();
+    let ansi_output = export_to_ansi_with_options(document, &options)?;
+    print!("{}", ansi_output);
+    Ok(())
+}
+
+pub fn export_to_ansi_with_cli_options(
+    document: &Document,
+    terminal_width: Option<usize>,
+    color_depth: &ColorDepth,
+) -> Result<()> {
+    let options = AnsiOptions {
+        terminal_width: terminal_width.unwrap_or_else(|| {
+            std::env::var("COLUMNS")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(80)
+        }),
+        color_depth: color_depth.clone(),
+    };
+    let ansi_output = export_to_ansi_with_options(document, &options)?;
+    print!("{}", ansi_output);
+    Ok(())
 }
