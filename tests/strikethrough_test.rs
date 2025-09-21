@@ -1,4 +1,4 @@
-use doxx::document::{TextFormatting, FormattedRun};
+use doxx::document::{FormattedRun, TextFormatting};
 
 #[cfg(test)]
 mod strikethrough_tests {
@@ -83,7 +83,8 @@ mod strikethrough_tests {
         };
 
         let json = serde_json::to_string(&formatting).expect("Failed to serialize");
-        let deserialized: TextFormatting = serde_json::from_str(&json).expect("Failed to deserialize");
+        let deserialized: TextFormatting =
+            serde_json::from_str(&json).expect("Failed to deserialize");
 
         assert_eq!(deserialized.bold, true);
         assert_eq!(deserialized.italic, false);
@@ -179,7 +180,10 @@ mod integration_tests {
             .output()
             .expect("Failed to execute doxx");
 
-        assert!(output.status.success(), "doxx should show help successfully with strikethrough support");
+        assert!(
+            output.status.success(),
+            "doxx should show help successfully with strikethrough support"
+        );
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(stdout.contains("doxx"), "Should contain program name");
     }

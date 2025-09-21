@@ -31,9 +31,12 @@ pub fn export_to_ansi_with_options(document: &Document, options: &AnsiOptions) -
     output.push('\n');
 
     // Add metadata
-    writeln!(output, "{}Document Information{}",
+    writeln!(
+        output,
+        "{}Document Information{}",
         format_ansi_text("", true, false, false, false, None, options),
-        format_ansi_reset())?;
+        format_ansi_reset()
+    )?;
     writeln!(output, "- File: {}", document.metadata.file_path)?;
     writeln!(output, "- Pages: {}", document.metadata.page_count)?;
     writeln!(output, "- Words: {}", document.metadata.word_count)?;
@@ -50,7 +53,11 @@ pub fn export_to_ansi_with_options(document: &Document, options: &AnsiOptions) -
     // Convert document content
     for element in &document.elements {
         match element {
-            DocumentElement::Heading { level, text, number } => {
+            DocumentElement::Heading {
+                level,
+                text,
+                number,
+            } => {
                 let heading_text = if let Some(number) = number {
                     format!("{} {}", number, text)
                 } else {
@@ -75,18 +82,24 @@ pub fn export_to_ansi_with_options(document: &Document, options: &AnsiOptions) -
                 output.push('\n');
             }
             DocumentElement::Image { description, .. } => {
-                writeln!(output, "{}🖼️  [Image: {}]{}",
+                writeln!(
+                    output,
+                    "{}🖼️  [Image: {}]{}",
                     format_ansi_color(Some("#FF00FF"), options), // Magenta
                     description,
-                    format_ansi_reset())?;
+                    format_ansi_reset()
+                )?;
                 output.push('\n');
             }
             DocumentElement::PageBreak => {
                 let separator = "─".repeat(std::cmp::min(60, options.terminal_width));
-                writeln!(output, "{}{}{}",
+                writeln!(
+                    output,
+                    "{}{}{}",
                     format_ansi_color(Some("#666666"), options), // Dark gray
                     separator,
-                    format_ansi_reset())?;
+                    format_ansi_reset()
+                )?;
                 output.push('\n');
             }
         }
@@ -95,7 +108,12 @@ pub fn export_to_ansi_with_options(document: &Document, options: &AnsiOptions) -
     Ok(output)
 }
 
-fn write_ansi_heading(output: &mut String, text: &str, level: u8, options: &AnsiOptions) -> Result<()> {
+fn write_ansi_heading(
+    output: &mut String,
+    text: &str,
+    level: u8,
+    options: &AnsiOptions,
+) -> Result<()> {
     let color = match level {
         1 => Some("#FFFF00"), // Yellow
         2 => Some("#00FF00"), // Green
@@ -111,16 +129,23 @@ fn write_ansi_heading(output: &mut String, text: &str, level: u8, options: &Ansi
 
     let formatted_text = format_ansi_text(
         &format!("{}{}", prefix, text),
-        true, false, false, false,
+        true,
+        false,
+        false,
+        false,
         color,
-        options
+        options,
     );
 
     writeln!(output, "{}{}", formatted_text, format_ansi_reset())?;
     Ok(())
 }
 
-fn write_ansi_paragraph(output: &mut String, runs: &[FormattedRun], options: &AnsiOptions) -> Result<()> {
+fn write_ansi_paragraph(
+    output: &mut String,
+    runs: &[FormattedRun],
+    options: &AnsiOptions,
+) -> Result<()> {
     for run in runs {
         let formatted_text = format_ansi_text(
             &run.text,
@@ -129,7 +154,7 @@ fn write_ansi_paragraph(output: &mut String, runs: &[FormattedRun], options: &An
             run.formatting.underline,
             run.formatting.strikethrough,
             run.formatting.color.as_deref(),
-            options
+            options,
         );
         write!(output, "{}", formatted_text)?;
     }
@@ -138,7 +163,12 @@ fn write_ansi_paragraph(output: &mut String, runs: &[FormattedRun], options: &An
     Ok(())
 }
 
-fn write_ansi_list(output: &mut String, items: &[ListItem], ordered: bool, options: &AnsiOptions) -> Result<()> {
+fn write_ansi_list(
+    output: &mut String,
+    items: &[ListItem],
+    ordered: bool,
+    options: &AnsiOptions,
+) -> Result<()> {
     for (i, item) in items.iter().enumerate() {
         let bullet = if ordered {
             format!("{}. ", i + 1)
@@ -149,8 +179,14 @@ fn write_ansi_list(output: &mut String, items: &[ListItem], ordered: bool, optio
         let indent = "  ".repeat(item.level as usize);
         let bullet_color = format_ansi_color(Some("#0066FF"), options); // Blue
 
-        write!(output, "{}{}{}{}",
-            bullet_color, indent, bullet, format_ansi_reset())?;
+        write!(
+            output,
+            "{}{}{}{}",
+            bullet_color,
+            indent,
+            bullet,
+            format_ansi_reset()
+        )?;
 
         for run in &item.runs {
             let formatted_text = format_ansi_text(
@@ -160,7 +196,7 @@ fn write_ansi_list(output: &mut String, items: &[ListItem], ordered: bool, optio
                 run.formatting.underline,
                 run.formatting.strikethrough,
                 run.formatting.color.as_deref(),
-                options
+                options,
             );
             write!(output, "{}", formatted_text)?;
         }
@@ -175,9 +211,12 @@ fn write_ansi_table(output: &mut String, table: &TableData, options: &AnsiOption
     if let Some(title) = &table.metadata.title {
         let formatted_title = format_ansi_text(
             &format!("📊 {}", title),
-            true, false, false, false,
+            true,
+            false,
+            false,
+            false,
             Some("#0066FF"), // Blue
-            options
+            options,
         );
         writeln!(output, "{}{}", formatted_title, format_ansi_reset())?;
         output.push('\n');
@@ -188,10 +227,13 @@ fn write_ansi_table(output: &mut String, table: &TableData, options: &AnsiOption
         // Headers
         write!(output, "│")?;
         for header in &table.headers {
-            write!(output, " {}{}{} │",
+            write!(
+                output,
+                " {}{}{} │",
                 format_ansi_text("", true, false, false, false, None, options),
                 header.content,
-                format_ansi_reset())?;
+                format_ansi_reset()
+            )?;
         }
         writeln!(output)?;
 
@@ -222,7 +264,7 @@ fn format_ansi_text(
     underline: bool,
     strikethrough: bool,
     color: Option<&str>,
-    options: &AnsiOptions
+    options: &AnsiOptions,
 ) -> String {
     let mut result = String::new();
 

@@ -1,6 +1,10 @@
 use anyhow::Result;
 
-use crate::{document::*, ExportFormat, ColorDepth, ansi::{export_to_ansi_with_options, AnsiOptions}};
+use crate::{
+    ansi::{export_to_ansi_with_options, AnsiOptions},
+    document::*,
+    ColorDepth, ExportFormat,
+};
 
 pub fn export_document(document: &Document, format: &ExportFormat) -> Result<()> {
     match format {
