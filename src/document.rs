@@ -1,4 +1,5 @@
 use anyhow::Result;
+use core::panic;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -257,7 +258,7 @@ pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Res
                                 }
                                 None => Some(11.0 as f32),
                             },
-                            None => Some(11.0 as f32),
+                            None => Some(15.0 as f32), // 默认None如果用户没改过字号的话（即使改动字号，也是一样的）
                         };
                         if let Some(val) = sz_f32 {
                             font_size_vec.push(val);
@@ -276,6 +277,7 @@ pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Res
     if let Some((key, _)) = font_size_haspmap.iter().max_by_key(|entry| entry.1) {
         font_size_base_line = Some(*key as f32 / 100.0)
     }
+    panic!("font_size_base_line: {:?}", font_size_base_line);
 
     // Enhanced content extraction with style information
     for child in &docx.document.children {
