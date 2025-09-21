@@ -16,17 +16,17 @@ mod strikethrough_tests {
             color: None,
         };
 
-        assert_eq!(formatting.strikethrough, true);
-        assert_eq!(formatting.bold, false);
-        assert_eq!(formatting.italic, false);
-        assert_eq!(formatting.underline, false);
+        assert!(formatting.strikethrough);
+        assert!(!formatting.bold);
+        assert!(!formatting.italic);
+        assert!(!formatting.underline);
     }
 
     #[test]
     fn test_strikethrough_formatting_default() {
         // Test that default formatting has strikethrough set to false
         let formatting = TextFormatting::default();
-        assert_eq!(formatting.strikethrough, false);
+        assert!(!formatting.strikethrough);
     }
 
     #[test]
@@ -46,7 +46,7 @@ mod strikethrough_tests {
             formatting,
         };
 
-        assert_eq!(run.formatting.strikethrough, true);
+        assert!(run.formatting.strikethrough);
         assert_eq!(run.text, "This text is struck through");
     }
 
@@ -62,10 +62,10 @@ mod strikethrough_tests {
             color: Some("#FF0000".to_string()),
         };
 
-        assert_eq!(formatting.bold, true);
-        assert_eq!(formatting.italic, true);
-        assert_eq!(formatting.underline, false);
-        assert_eq!(formatting.strikethrough, true);
+        assert!(formatting.bold);
+        assert!(formatting.italic);
+        assert!(!formatting.underline);
+        assert!(formatting.strikethrough);
         assert_eq!(formatting.font_size, Some(12.0));
         assert_eq!(formatting.color, Some("#FF0000".to_string()));
     }
@@ -86,10 +86,10 @@ mod strikethrough_tests {
         let deserialized: TextFormatting =
             serde_json::from_str(&json).expect("Failed to deserialize");
 
-        assert_eq!(deserialized.bold, true);
-        assert_eq!(deserialized.italic, false);
-        assert_eq!(deserialized.underline, true);
-        assert_eq!(deserialized.strikethrough, true);
+        assert!(deserialized.bold);
+        assert!(!deserialized.italic);
+        assert!(deserialized.underline);
+        assert!(deserialized.strikethrough);
         assert_eq!(deserialized.font_size, Some(14.0));
         assert_eq!(deserialized.color, Some("#0000FF".to_string()));
     }
@@ -122,7 +122,7 @@ mod strikethrough_tests {
         let consolidated = FormattedRun::consolidate_runs(runs);
         assert_eq!(consolidated.len(), 1);
         assert_eq!(consolidated[0].text, "First part second part");
-        assert_eq!(consolidated[0].formatting.strikethrough, true);
+        assert!(consolidated[0].formatting.strikethrough);
     }
 
     #[test]
@@ -160,9 +160,9 @@ mod strikethrough_tests {
         let consolidated = FormattedRun::consolidate_runs(runs);
         assert_eq!(consolidated.len(), 2);
         assert_eq!(consolidated[0].text, "Struck text ");
-        assert_eq!(consolidated[0].formatting.strikethrough, true);
+        assert!(consolidated[0].formatting.strikethrough);
         assert_eq!(consolidated[1].text, "normal text");
-        assert_eq!(consolidated[1].formatting.strikethrough, false);
+        assert!(!consolidated[1].formatting.strikethrough);
     }
 }
 

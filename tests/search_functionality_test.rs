@@ -71,7 +71,7 @@ mod search_tests {
         // Search for content that appears in multiple elements
         let results = search_document(&document, "Q4");
         assert!(
-            results.len() >= 1,
+            !results.is_empty(),
             "Should find 'Q4' in the business report"
         );
     }
