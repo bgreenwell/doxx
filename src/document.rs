@@ -215,19 +215,16 @@ pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Res
     let styles_value = serde_json::to_value(&docx.styles).expect("styles -> json");
 
     for child in &docx.document.children {
-        match child {
-            docx_rs::DocumentChild::Paragraph(para) => {
-                for child in &para.children {
-                    if let docx_rs::ParagraphChild::Run(run) = child {
-                        let para_style_id: Option<&str> = None;
-                        let run_sz_opt = run.run_property.sz.as_ref();
-                        let final_pt =
-                            compute_final_font_size_pt(run_sz_opt, para_style_id, &styles_value);
-                        font_size_vec.push(final_pt);
-                    }
+        if let docx_rs::DocumentChild::Paragraph(para) = child {
+            for child in &para.children {
+                if let docx_rs::ParagraphChild::Run(run) = child {
+                    let para_style_id: Option<&str> = None;
+                    let run_sz_opt = run.run_property.sz.as_ref();
+                    let final_pt =
+                        compute_final_font_size_pt(run_sz_opt, para_style_id, &styles_value);
+                    font_size_vec.push(final_pt);
                 }
             }
-            _ => (),
         }
     }
 
@@ -457,7 +454,7 @@ fn detect_heading_from_paragraph_style(para: &docx_rs::Paragraph) -> Option<u8> 
         let re = Regex::new(r"^\d$").expect("Regular expression syntax error");
         if style.val.starts_with("Heading")
             || style.val.starts_with("heading")
-            || re.is_match(&style.val.trim())
+            || re.is_match(style.val.trim())
         {
             if let Some(level_char) = style.val.chars().last() {
                 if let Some(level) = level_char.to_digit(10) {
@@ -1146,7 +1143,7 @@ fn detect_heading_from_text(
             Some(v) => Some(v),
             None => match font_size_base_line {
                 Some(v) => Some(v),
-                None => None,
+                None => font_size_base_line,
             },
         };
         if font_size_base_line.is_some()
@@ -2007,17 +2004,15 @@ fn find_doc_defaults_sz(styles_value: &Value) -> Option<f32> {
         styles_value.get("doc_defaults"),
         styles_value.get("docDefaults".to_string()),
     ];
-    for cand in &doc_defaults_candidates {
-        if let Some(dd) = cand {
-            if let Some(rpd) = dd
-                .get("runPropertyDefault")
-                .or_else(|| dd.get("run_property_default"))
-            {
-                if let Some(rp) = rpd.get("runProperty").or_else(|| rpd.get("run_property")) {
-                    if let Some(szv) = rp.get("sz").or_else(|| rp.get("w:sz")) {
-                        if let Some(pt) = value_sz_to_pt(szv) {
-                            return Some(pt);
-                        }
+    for dd in doc_defaults_candidates.iter().flatten() {
+        if let Some(rpd) = dd
+            .get("runPropertyDefault")
+            .or_else(|| dd.get("run_property_default"))
+        {
+            if let Some(rp) = rpd.get("runProperty").or_else(|| rpd.get("run_property")) {
+                if let Some(szv) = rp.get("sz").or_else(|| rp.get("w:sz")) {
+                    if let Some(pt) = value_sz_to_pt(szv) {
+                        return Some(pt);
                     }
                 }
             }
