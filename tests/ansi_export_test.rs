@@ -98,7 +98,10 @@ fn test_ansi_export_terminal_width() {
     };
     let wide_output = export_to_ansi_with_options(&document, &wide_options).unwrap();
     let wide_lines: Vec<&str> = wide_output.lines().collect();
-    let wide_separator = wide_lines.iter().find(|line| line.contains("====")).unwrap();
+    let wide_separator = wide_lines
+        .iter()
+        .find(|line| line.contains("===="))
+        .unwrap();
     let wide_clean = strip_ansi_codes(wide_separator);
     assert_eq!(wide_clean.len(), 50); // Limited by min(50, width)
 }
@@ -147,14 +150,12 @@ fn create_test_document() -> Document {
             modified: None,
             author: Some("Test Author".to_string()),
         },
-        elements: vec![
-            DocumentElement::Paragraph {
-                runs: vec![FormattedRun {
-                    text: "This is a simple paragraph.".to_string(),
-                    formatting: TextFormatting::default(),
-                }],
-            }
-        ],
+        elements: vec![DocumentElement::Paragraph {
+            runs: vec![FormattedRun {
+                text: "This is a simple paragraph.".to_string(),
+                formatting: TextFormatting::default(),
+            }],
+        }],
         image_options: Default::default(),
     }
 }
@@ -162,17 +163,25 @@ fn create_test_document() -> Document {
 fn create_formatted_document() -> Document {
     use doxx::document::DocumentMetadata;
 
-    let mut bold_formatting = TextFormatting::default();
-    bold_formatting.bold = true;
+    let bold_formatting = TextFormatting {
+        bold: true,
+        ..Default::default()
+    };
 
-    let mut italic_formatting = TextFormatting::default();
-    italic_formatting.italic = true;
+    let italic_formatting = TextFormatting {
+        italic: true,
+        ..Default::default()
+    };
 
-    let mut underline_formatting = TextFormatting::default();
-    underline_formatting.underline = true;
+    let underline_formatting = TextFormatting {
+        underline: true,
+        ..Default::default()
+    };
 
-    let mut strikethrough_formatting = TextFormatting::default();
-    strikethrough_formatting.strikethrough = true;
+    let strikethrough_formatting = TextFormatting {
+        strikethrough: true,
+        ..Default::default()
+    };
 
     Document {
         title: "Formatted Document".to_string(),
@@ -185,28 +194,26 @@ fn create_formatted_document() -> Document {
             modified: None,
             author: None,
         },
-        elements: vec![
-            DocumentElement::Paragraph {
-                runs: vec![
-                    FormattedRun {
-                        text: "Bold text ".to_string(),
-                        formatting: bold_formatting,
-                    },
-                    FormattedRun {
-                        text: "italic text ".to_string(),
-                        formatting: italic_formatting,
-                    },
-                    FormattedRun {
-                        text: "underlined text ".to_string(),
-                        formatting: underline_formatting,
-                    },
-                    FormattedRun {
-                        text: "strikethrough text".to_string(),
-                        formatting: strikethrough_formatting,
-                    },
-                ],
-            }
-        ],
+        elements: vec![DocumentElement::Paragraph {
+            runs: vec![
+                FormattedRun {
+                    text: "Bold text ".to_string(),
+                    formatting: bold_formatting,
+                },
+                FormattedRun {
+                    text: "italic text ".to_string(),
+                    formatting: italic_formatting,
+                },
+                FormattedRun {
+                    text: "underlined text ".to_string(),
+                    formatting: underline_formatting,
+                },
+                FormattedRun {
+                    text: "strikethrough text".to_string(),
+                    formatting: strikethrough_formatting,
+                },
+            ],
+        }],
         image_options: Default::default(),
     }
 }
@@ -214,11 +221,15 @@ fn create_formatted_document() -> Document {
 fn create_colored_document() -> Document {
     use doxx::document::DocumentMetadata;
 
-    let mut red_formatting = TextFormatting::default();
-    red_formatting.color = Some("#FF0000".to_string());
+    let red_formatting = TextFormatting {
+        color: Some("#FF0000".to_string()),
+        ..Default::default()
+    };
 
-    let mut blue_formatting = TextFormatting::default();
-    blue_formatting.color = Some("#0000FF".to_string());
+    let blue_formatting = TextFormatting {
+        color: Some("#0000FF".to_string()),
+        ..Default::default()
+    };
 
     Document {
         title: "Colored Document".to_string(),
@@ -231,20 +242,18 @@ fn create_colored_document() -> Document {
             modified: None,
             author: None,
         },
-        elements: vec![
-            DocumentElement::Paragraph {
-                runs: vec![
-                    FormattedRun {
-                        text: "Red text ".to_string(),
-                        formatting: red_formatting,
-                    },
-                    FormattedRun {
-                        text: "Blue text".to_string(),
-                        formatting: blue_formatting,
-                    },
-                ],
-            }
-        ],
+        elements: vec![DocumentElement::Paragraph {
+            runs: vec![
+                FormattedRun {
+                    text: "Red text ".to_string(),
+                    formatting: red_formatting,
+                },
+                FormattedRun {
+                    text: "Blue text".to_string(),
+                    formatting: blue_formatting,
+                },
+            ],
+        }],
         image_options: Default::default(),
     }
 }
@@ -291,15 +300,13 @@ fn create_list_document() -> Document {
                 ordered: true,
             },
             DocumentElement::List {
-                items: vec![
-                    ListItem {
-                        runs: vec![FormattedRun {
-                            text: "Bullet item".to_string(),
-                            formatting: TextFormatting::default(),
-                        }],
-                        level: 0,
-                    },
-                ],
+                items: vec![ListItem {
+                    runs: vec![FormattedRun {
+                        text: "Bullet item".to_string(),
+                        formatting: TextFormatting::default(),
+                    }],
+                    level: 0,
+                }],
                 ordered: false,
             },
         ],
@@ -308,7 +315,9 @@ fn create_list_document() -> Document {
 }
 
 fn create_table_document() -> Document {
-    use doxx::document::{DocumentMetadata, TableData, TableMetadata, TableCell, TextAlignment, CellDataType};
+    use doxx::document::{
+        CellDataType, DocumentMetadata, TableCell, TableData, TableMetadata, TextAlignment,
+    };
 
     let table = TableData {
         headers: vec![
@@ -325,22 +334,20 @@ fn create_table_document() -> Document {
                 data_type: CellDataType::Number,
             },
         ],
-        rows: vec![
-            vec![
-                TableCell {
-                    content: "Alice".to_string(),
-                    alignment: TextAlignment::Left,
-                    formatting: TextFormatting::default(),
-                    data_type: CellDataType::Text,
-                },
-                TableCell {
-                    content: "30".to_string(),
-                    alignment: TextAlignment::Right,
-                    formatting: TextFormatting::default(),
-                    data_type: CellDataType::Number,
-                },
-            ],
-        ],
+        rows: vec![vec![
+            TableCell {
+                content: "Alice".to_string(),
+                alignment: TextAlignment::Left,
+                formatting: TextFormatting::default(),
+                data_type: CellDataType::Text,
+            },
+            TableCell {
+                content: "30".to_string(),
+                alignment: TextAlignment::Right,
+                formatting: TextFormatting::default(),
+                data_type: CellDataType::Number,
+            },
+        ]],
         metadata: TableMetadata {
             title: Some("Test Table".to_string()),
             column_widths: vec![10, 5],

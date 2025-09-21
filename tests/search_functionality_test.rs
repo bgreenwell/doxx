@@ -1,4 +1,4 @@
-use doxx::document::{search_document, load_document, ImageOptions};
+use doxx::document::{load_document, search_document, ImageOptions};
 use std::path::Path;
 
 async fn load_test_document() -> doxx::document::Document {
@@ -22,7 +22,10 @@ mod search_tests {
 
         // Test whitespace-only string
         let results = search_document(&document, "   ");
-        assert!(results.is_empty(), "Whitespace-only search should return no results");
+        assert!(
+            results.is_empty(),
+            "Whitespace-only search should return no results"
+        );
     }
 
     #[tokio::test]
@@ -30,8 +33,14 @@ mod search_tests {
         let document = load_test_document().await;
 
         let results = search_document(&document, "revenue");
-        assert!(!results.is_empty(), "Search for 'revenue' should return results");
-        assert!(results.len() >= 3, "Should find multiple matches for 'revenue' in business report");
+        assert!(
+            !results.is_empty(),
+            "Search for 'revenue' should return results"
+        );
+        assert!(
+            results.len() >= 3,
+            "Should find multiple matches for 'revenue' in business report"
+        );
     }
 
     #[tokio::test]
@@ -42,8 +51,16 @@ mod search_tests {
         let results_upper = search_document(&document, "REVENUE");
         let results_mixed = search_document(&document, "Revenue");
 
-        assert_eq!(results_lower.len(), results_upper.len(), "Search should be case insensitive");
-        assert_eq!(results_lower.len(), results_mixed.len(), "Search should be case insensitive");
+        assert_eq!(
+            results_lower.len(),
+            results_upper.len(),
+            "Search should be case insensitive"
+        );
+        assert_eq!(
+            results_lower.len(),
+            results_mixed.len(),
+            "Search should be case insensitive"
+        );
         assert!(!results_lower.is_empty(), "Should find revenue mentions");
     }
 
@@ -53,7 +70,10 @@ mod search_tests {
 
         // Search for content that appears in multiple elements
         let results = search_document(&document, "Q4");
-        assert!(results.len() >= 1, "Should find 'Q4' in the business report");
+        assert!(
+            !results.is_empty(),
+            "Should find 'Q4' in the business report"
+        );
     }
 }
 
@@ -73,7 +93,10 @@ mod edge_case_tests {
         assert!(!results.is_empty(), "Should find periods in the text");
 
         let results = search_document(&document, "$");
-        assert!(!results.is_empty(), "Should find dollar signs in financial data");
+        assert!(
+            !results.is_empty(),
+            "Should find dollar signs in financial data"
+        );
     }
 
     #[tokio::test]
@@ -82,7 +105,10 @@ mod edge_case_tests {
 
         let results = search_document(&document, "Executive");
         assert!(!results.is_empty(), "Should find 'Executive' heading");
-        assert!(results[0].element_index < document.elements.len(), "Element index should be valid");
+        assert!(
+            results[0].element_index < document.elements.len(),
+            "Element index should be valid"
+        );
     }
 
     #[tokio::test]
@@ -93,8 +119,15 @@ mod edge_case_tests {
         assert!(!results.is_empty(), "Should find revenue in document");
 
         let result = &results[0];
-        assert!(result.start_pos < result.end_pos, "Start position should be before end position");
-        assert_eq!(result.end_pos - result.start_pos, 7, "Should match the length of 'revenue'");
+        assert!(
+            result.start_pos < result.end_pos,
+            "Start position should be before end position"
+        );
+        assert_eq!(
+            result.end_pos - result.start_pos,
+            7,
+            "Should match the length of 'revenue'"
+        );
     }
 
     #[tokio::test]
@@ -104,6 +137,9 @@ mod edge_case_tests {
         // Business report has table content
         let results = search_document(&document, "Growth");
         // Should find text in various document elements
-        assert!(!results.is_empty(), "Should find search terms across different element types");
+        assert!(
+            !results.is_empty(),
+            "Should find search terms across different element types"
+        );
     }
 }

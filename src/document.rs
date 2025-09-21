@@ -2,7 +2,12 @@ use anyhow::Result;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use serde_json::Value;
+use std::{
+    collections::{HashMap, HashSet},
+    f32,
+    path::Path,
+};
 
 type TableRows = Vec<Vec<TableCell>>;
 type NumberingInfo = (i32, u8);
@@ -203,6 +208,38 @@ pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Res
         None
     };
 
+    // Gets the document font_size_base_line
+    let mut font_size_haspmap: HashMap<u32, u32> = HashMap::new();
+    let mut font_size_vec: Vec<f32> = Vec::new();
+    let mut font_size_base_line: Option<f32> = None;
+    let styles_value = serde_json::to_value(&docx.styles).expect("styles -> json");
+
+    for child in &docx.document.children {
+        if let docx_rs::DocumentChild::Paragraph(para) = child {
+            for child in &para.children {
+                if let docx_rs::ParagraphChild::Run(run) = child {
+                    let para_style_id: Option<&str> = None;
+                    let run_sz_opt = run.run_property.sz.as_ref();
+                    let final_pt =
+                        compute_final_font_size_pt(run_sz_opt, para_style_id, &styles_value);
+                    font_size_vec.push(final_pt);
+                }
+            }
+        }
+    }
+
+    for i in font_size_vec.iter() {
+        let size_key = (i * 100.0) as u32;
+        *font_size_haspmap.entry(size_key).or_insert(0) += 1;
+    }
+    if let Some((key, _)) = font_size_haspmap.iter().max_by_key(|entry| entry.1) {
+        font_size_base_line = Some(*key as f32 / 100.0)
+    }
+    /* debug
+        println!("font_size_haspmap:{:#?}", font_size_haspmap);
+        panic!("font_size_base_line:{:?}", font_size_base_line);
+    */
+
     // Enhanced content extraction with style information
     for child in &docx.document.children {
         match child {
@@ -300,11 +337,10 @@ pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Res
                             // Add the list prefix to the first run
                             let prefix_text = format!("__WORD_LIST__{}{}", indent, prefix);
                             let mut updated_runs = formatted_runs;
-                            updated_runs[0].text = format!("{}{}", prefix_text, updated_runs[0].text.trim());
+                            updated_runs[0].text =
+                                format!("{}{}", prefix_text, updated_runs[0].text.trim());
 
-                            elements.push(DocumentElement::Paragraph {
-                                runs: updated_runs,
-                            });
+                            elements.push(DocumentElement::Paragraph { runs: updated_runs });
                         } else {
                             // Fallback for empty runs
                             let list_text = format!("__WORD_LIST__{}{}", indent, prefix);
@@ -346,7 +382,11 @@ pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Res
                                 &TextFormatting::default()
                             };
 
-                            let level = detect_heading_from_text(&total_text, first_formatting);
+                            let level = detect_heading_from_text(
+                                &total_text,
+                                first_formatting,
+                                font_size_base_line,
+                            );
                             if let Some(level) = level {
                                 elements.push(DocumentElement::Heading {
                                     level,
@@ -406,7 +446,16 @@ fn detect_heading_from_paragraph_style(para: &docx_rs::Paragraph) -> Option<u8> 
     // Try to access paragraph properties and style
     if let Some(style) = &para.property.style {
         // Check for heading styles (Heading1, Heading2, etc.)
-        if style.val.starts_with("Heading") || style.val.starts_with("heading") {
+        /*
+            ⚠️ In non-English scenes, styles may be parsed into a single number.
+            For example:' heading1' -> '1', 'heading2' -> '2', etc.
+        */
+
+        let re = Regex::new(r"^\d$").expect("Regular expression syntax error");
+        if style.val.starts_with("Heading")
+            || style.val.starts_with("heading")
+            || re.is_match(style.val.trim())
+        {
             if let Some(level_char) = style.val.chars().last() {
                 if let Some(level) = level_char.to_digit(10) {
                     return Some(level.min(6) as u8);
@@ -992,10 +1041,26 @@ fn extract_run_formatting(run: &docx_rs::Run) -> TextFormatting {
     // For now, skip font size extraction due to API complexity
     // TODO: Add font size extraction when we understand the API better
 
+    // Gets the font size if the user has set it actively.
+    formatting.font_size = match props.sz.as_ref() {
+        Some(sz) => match serde_json::to_string(sz).ok() {
+            Some(s) => {
+                let parsed = s.trim_matches('"').parse::<f32>().unwrap_or(11.0);
+                Some(parsed / 2.0)
+            }
+            None => None,
+        },
+        None => None,
+    };
+
     formatting
 }
 
-fn detect_heading_from_text(text: &str, formatting: &TextFormatting) -> Option<u8> {
+fn detect_heading_from_text(
+    text: &str,
+    formatting: &TextFormatting,
+    font_size_base_line: Option<f32>,
+) -> Option<u8> {
     let text = text.trim();
 
     // Be much more conservative and selective
@@ -1070,6 +1135,32 @@ fn detect_heading_from_text(text: &str, formatting: &TextFormatting) -> Option<u
                 if has_meaningful_word && text.chars().next().is_some_and(|c| c.is_uppercase()) {
                     return Some(determine_heading_level_from_text(text));
                 }
+            }
+        }
+
+        // Identify titles based on font size.
+        let cur_formatting_font_size = match formatting.font_size {
+            Some(v) => Some(v),
+            None => match font_size_base_line {
+                Some(v) => Some(v),
+                None => font_size_base_line,
+            },
+        };
+        if font_size_base_line.is_some()
+            && cur_formatting_font_size.is_some()
+            && font_size_base_line < cur_formatting_font_size
+            && text.len() < 100
+            && text.len() > 3
+        {
+            let difference = match (cur_formatting_font_size, font_size_base_line) {
+                (Some(a), Some(b)) => Some(a - b),
+                _ => return None,
+            };
+            match difference {
+                Some(n) if n < 3.0 => return Some(3),
+                Some(n) if n < 5.0 => return Some(2),
+                Some(n) if n >= 5.0 => return Some(1),
+                _ => return None,
             }
         }
     }
@@ -1785,4 +1876,230 @@ fn clean_word_list_markers(elements: Vec<DocumentElement>) -> Vec<DocumentElemen
             other => other,
         })
         .collect()
+}
+
+/// Convert sz (number or string) in serde_json::Value into pt(f32).
+fn value_sz_to_pt<T: serde::Serialize>(sz: &T) -> Option<f32> {
+    if let Ok(v) = serde_json::to_value(sz) {
+        if let Some(n) = v.as_f64() {
+            return Some((n as f32) / 2.0);
+        }
+        // In some cases, the value is serialized as the string "21":
+        if let Some(s) = v.as_str() {
+            if let Ok(parsed) = s.parse::<f32>() {
+                return Some(parsed / 2.0);
+            }
+        }
+    }
+    None
+}
+
+/// Convert sz (for example, the Size of docx_rs) that implements Serialize arbitrarily into pt.
+fn serde_sz_to_pt<T: serde::Serialize>(sz: &T) -> Option<f32> {
+    if let Ok(val) = serde_json::to_value(sz) {
+        return value_sz_to_pt(&val);
+    }
+    None
+}
+
+/// Find the style object corresponding to styleId in styles_value (return reference)
+fn find_style_by_id<'a>(styles_value: &'a Value, style_id: &str) -> Option<&'a Value> {
+    // Common location: styles_value["styles"] is an array.
+    if let Some(arr) = styles_value.get("styles").and_then(|v| v.as_array()) {
+        for s in arr {
+            // A variety of possible field names
+            if let Some(idv) = s
+                .get("styleId")
+                .or_else(|| s.get("style_id"))
+                .or_else(|| s.get("id"))
+            {
+                if let Some(id_str) = idv.as_str() {
+                    if id_str == style_id {
+                        return Some(s);
+                    }
+                }
+            }
+        }
+    }
+    // Some serializations may put Vec<Style > directly at the top level (less common), and traverse it if it is an array.
+    if let Some(arr) = styles_value.as_array() {
+        for s in arr {
+            if let Some(idv) = s
+                .get("styleId")
+                .or_else(|| s.get("style_id"))
+                .or_else(|| s.get("id"))
+            {
+                if let Some(id_str) = idv.as_str() {
+                    if id_str == style_id {
+                        return Some(s);
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Take sz of run-property from style_value (try multiple key names).
+fn get_style_run_sz(style_value: &Value) -> Option<f32> {
+    // Common key names: "run property", "RPR", "run _ property", "RPR"
+    let keys = ["runProperty", "rPr", "run_property", "rpr"];
+    for k in &keys {
+        if let Some(rp) = style_value.get(*k) {
+            if let Some(szv) = rp.get("sz").or_else(|| rp.get("w:sz")) {
+                if let Some(pt) = value_sz_to_pt(szv) {
+                    return Some(pt);
+                }
+            }
+            // Sometimes runProperty is a deeper structure (not common), try to find any subkey "sz"
+            if let Some(obj) = rp.as_object() {
+                if let Some((_, any)) = obj.iter().find(|(k, _)| k.to_lowercase().contains("sz")) {
+                    if let Some(pt) = value_sz_to_pt(any) {
+                        return Some(pt);
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Extract the basedOn string from style_value (it may be "Heading1" or {"val":"Heading1"}).
+fn get_based_on_val(style_value: &Value) -> Option<String> {
+    let maybe = style_value
+        .get("basedOn")
+        .or_else(|| style_value.get("based_on"))
+        .or_else(|| style_value.get("basedon"));
+    if let Some(b) = maybe {
+        if let Some(s) = b.as_str() {
+            return Some(s.to_string());
+        }
+        if let Some(val) = b.get("val").and_then(|v| v.as_str()) {
+            return Some(val.to_string());
+        }
+        // Standby: directly serialize and re-parse (not used first, but as the bottom)
+        if let Ok(serialized) = serde_json::to_string(b) {
+            // The format is {"val":"Heading1"}-> simply extract "Heading1".
+            if let Some(idx) = serialized.find("\"val\"") {
+                if let Some(colon) = serialized[idx..].find(':') {
+                    let rest = &serialized[idx + colon + 1..];
+                    if let Some(start) = rest.find('"') {
+                        let rest2 = &rest[start + 1..];
+                        if let Some(end) = rest2.find('"') {
+                            return Some(rest2[..end].to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Look for docdefaults.runpropertydefault.runproperty.sz (if it exists) in styles_value.
+fn find_doc_defaults_sz(styles_value: &Value) -> Option<f32> {
+    // Common field names may be "docDefaults" or directly objects containing runPropertyDefault.
+    let doc_defaults_candidates = [
+        styles_value.get("docDefaults"),
+        styles_value.get("doc_defaults"),
+        styles_value.get("docDefaults".to_string()),
+    ];
+    for dd in doc_defaults_candidates.iter().flatten() {
+        if let Some(rpd) = dd
+            .get("runPropertyDefault")
+            .or_else(|| dd.get("run_property_default"))
+        {
+            if let Some(rp) = rpd.get("runProperty").or_else(|| rpd.get("run_property")) {
+                if let Some(szv) = rp.get("sz").or_else(|| rp.get("w:sz")) {
+                    if let Some(pt) = value_sz_to_pt(szv) {
+                        return Some(pt);
+                    }
+                }
+            }
+        }
+    }
+
+    // Bottom: find out whether there is runPropertyDefault in any child object of styles_value.
+    if let Some(obj) = styles_value.as_object() {
+        for (_, v) in obj.iter() {
+            if v.get("runPropertyDefault").is_some() {
+                if let Some(rpd) = v.get("runPropertyDefault") {
+                    if let Some(rp) = rpd.get("runProperty") {
+                        if let Some(szv) = rp.get("sz") {
+                            if let Some(pt) = value_sz_to_pt(szv) {
+                                return Some(pt);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Recursively parse the style chain and find the first style with sz defined (recursively along basedOn).
+fn resolve_style_sz_recursive_value(
+    start_style_id: &str,
+    styles_value: &Value,
+    visited: &mut HashSet<String>,
+) -> Option<f32> {
+    if visited.contains(start_style_id) {
+        return None; // Prevent circular inheritance
+    }
+    visited.insert(start_style_id.to_string());
+
+    if let Some(style_val) = find_style_by_id(styles_value, start_style_id) {
+        // Look directly at the runProperty.sz of the style first.
+        if let Some(pt) = get_style_run_sz(style_val) {
+            return Some(pt);
+        }
+        // If not, just look at basedOn and recursively
+        if let Some(base_id) = get_based_on_val(style_val) {
+            if let Some(pt) = resolve_style_sz_recursive_value(&base_id, styles_value, visited) {
+                return Some(pt);
+            }
+        }
+    }
+    // No style found or no sz-> try docDefaults.
+    if let Some(pt) = find_doc_defaults_sz(styles_value) {
+        return Some(pt);
+    }
+    None
+}
+
+/// External assistant: given sz (Option<impl Serialize >) of run itself, optional style_id (style of paragraph or run), and serde_json::Value of styles object.
+/// Returns the final pt (fallback 11.0 if nothing is found)
+fn compute_final_font_size_pt<T: serde::Serialize>(
+    run_sz_opt: Option<&T>,
+    style_id_opt: Option<&str>,
+    styles_value: &Value,
+) -> f32 {
+    // 1) Priority run itself
+    if let Some(sz) = run_sz_opt {
+        if let Some(pt) = serde_sz_to_pt(sz) {
+            return pt;
+        }
+    }
+
+    // 2) Try the style chain again (provided styleId or "Normal").
+    let mut visited = HashSet::new();
+    if let Some(sid) = style_id_opt {
+        if let Some(pt) = resolve_style_sz_recursive_value(sid, styles_value, &mut visited) {
+            return pt;
+        }
+    }
+    // Try `Normal`
+    visited.clear();
+    if let Some(pt) = resolve_style_sz_recursive_value("Normal", styles_value, &mut visited) {
+        return pt;
+    }
+
+    // 3) `DocDefaults` (the above will try, but once again)
+    if let Some(pt) = find_doc_defaults_sz(styles_value) {
+        return pt;
+    }
+
+    // Finally `fallback`
+    11.0_f32
 }
