@@ -163,17 +163,25 @@ fn create_test_document() -> Document {
 fn create_formatted_document() -> Document {
     use doxx::document::DocumentMetadata;
 
-    let mut bold_formatting = TextFormatting::default();
-    bold_formatting.bold = true;
+    let bold_formatting = TextFormatting {
+        bold: true,
+        ..Default::default()
+    };
 
-    let mut italic_formatting = TextFormatting::default();
-    italic_formatting.italic = true;
+    let italic_formatting = TextFormatting {
+        italic: true,
+        ..Default::default()
+    };
 
-    let mut underline_formatting = TextFormatting::default();
-    underline_formatting.underline = true;
+    let underline_formatting = TextFormatting {
+        underline: true,
+        ..Default::default()
+    };
 
-    let mut strikethrough_formatting = TextFormatting::default();
-    strikethrough_formatting.strikethrough = true;
+    let strikethrough_formatting = TextFormatting {
+        strikethrough: true,
+        ..Default::default()
+    };
 
     Document {
         title: "Formatted Document".to_string(),
@@ -213,11 +221,15 @@ fn create_formatted_document() -> Document {
 fn create_colored_document() -> Document {
     use doxx::document::DocumentMetadata;
 
-    let mut red_formatting = TextFormatting::default();
-    red_formatting.color = Some("#FF0000".to_string());
+    let red_formatting = TextFormatting {
+        color: Some("#FF0000".to_string()),
+        ..Default::default()
+    };
 
-    let mut blue_formatting = TextFormatting::default();
-    blue_formatting.color = Some("#0000FF".to_string());
+    let blue_formatting = TextFormatting {
+        color: Some("#0000FF".to_string()),
+        ..Default::default()
+    };
 
     Document {
         title: "Colored Document".to_string(),
