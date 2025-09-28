@@ -23,6 +23,8 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
 
       - name: Install system dependencies (Linux)
         if: matrix.os == 'ubuntu-latest'
