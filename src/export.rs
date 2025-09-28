@@ -1,6 +1,10 @@
 use anyhow::Result;
 
-use crate::{document::*, ExportFormat, ColorDepth, ansi::{export_to_ansi_with_options, AnsiOptions}};
+use crate::{
+    ansi::{export_to_ansi_with_options, AnsiOptions},
+    document::*,
+    ColorDepth, ExportFormat,
+};
 
 pub fn export_document(document: &Document, format: &ExportFormat) -> Result<()> {
     match format {
@@ -604,7 +608,7 @@ fn align_text_cell_content(content: &str, alignment: TextAlignment, width: usize
 pub fn export_to_ansi(document: &Document) -> Result<()> {
     let options = AnsiOptions::default();
     let ansi_output = export_to_ansi_with_options(document, &options)?;
-    print!("{}", ansi_output);
+    print!("{ansi_output}");
     Ok(())
 }
 
@@ -623,6 +627,6 @@ pub fn export_to_ansi_with_cli_options(
         color_depth: color_depth.clone(),
     };
     let ansi_output = export_to_ansi_with_options(document, &options)?;
-    print!("{}", ansi_output);
+    print!("{ansi_output}");
     Ok(())
 }

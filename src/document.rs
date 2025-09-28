@@ -298,16 +298,15 @@ pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Res
                         // This maintains formatting fidelity while supporting Word automatic numbering
                         if !formatted_runs.is_empty() {
                             // Add the list prefix to the first run
-                            let prefix_text = format!("__WORD_LIST__{}{}", indent, prefix);
+                            let prefix_text = format!("__WORD_LIST__{indent}{prefix}");
                             let mut updated_runs = formatted_runs;
-                            updated_runs[0].text = format!("{}{}", prefix_text, updated_runs[0].text.trim());
+                            updated_runs[0].text =
+                                format!("{prefix_text}{}", updated_runs[0].text.trim());
 
-                            elements.push(DocumentElement::Paragraph {
-                                runs: updated_runs,
-                            });
+                            elements.push(DocumentElement::Paragraph { runs: updated_runs });
                         } else {
                             // Fallback for empty runs
-                            let list_text = format!("__WORD_LIST__{}{}", indent, prefix);
+                            let list_text = format!("__WORD_LIST__{indent}{prefix}");
                             elements.push(DocumentElement::Paragraph {
                                 runs: vec![FormattedRun {
                                     text: list_text,

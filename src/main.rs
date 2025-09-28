@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
-use doxx::{ExportFormat, ColorDepth};
+use doxx::{ColorDepth, ExportFormat};
 
 mod ansi;
 mod document;
@@ -98,7 +98,6 @@ enum ConfigCommands {
     Init,
 }
 
-
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -176,7 +175,7 @@ async fn main() -> Result<()> {
                 export::export_to_ansi_with_cli_options(
                     &document,
                     cli.terminal_width,
-                    &cli.color_depth
+                    &cli.color_depth,
                 )?;
             }
             _ => {
