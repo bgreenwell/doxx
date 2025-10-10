@@ -148,6 +148,9 @@ pub fn export_to_markdown(document: &Document) -> Result<()> {
                 };
                 markdown.push_str(&format!("![{alt}]({url}){dimensions}\n\n"));
             }
+            DocumentElement::Equation { latex, .. } => {
+                markdown.push_str(&format!("$${latex}$$\n\n"));
+            }
             DocumentElement::PageBreak => {
                 markdown.push_str("\n---\n\n");
             }
@@ -266,6 +269,9 @@ pub fn format_as_text(document: &Document) -> String {
                     text.push_str(&format!("[Image: {description}]\n\n"));
                 }
             }
+            DocumentElement::Equation { latex, .. } => {
+                text.push_str(&format!("Equation: {latex}\n\n"));
+            }
         }
     }
 
@@ -373,6 +379,9 @@ fn export_to_text_with_images(document: &Document) {
                 } else {
                     println!("[Image: {description}]\n");
                 }
+            }
+            DocumentElement::Equation { latex, .. } => {
+                println!("Equation: {latex}\n");
             }
             DocumentElement::PageBreak => {
                 println!("{}\n", "-".repeat(50));

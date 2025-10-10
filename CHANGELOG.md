@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Inline Equation Support**: Complete inline equation rendering within paragraph text
+  - Inline equations now appear at correct positions within text (e.g., "text $A=\pi r^{2}$ more text")
+  - Display equations remain as separate elements for proper mathematical presentation
+  - Automatic detection of inline vs display equations based on OMML structure
+  - LaTeX formatting with `$...$` delimiters for inline equations
+  - Preserves exact ordering of text and equations within paragraphs
 - **ANSI Export Format**: Rich terminal output with colors and formatting ([#45](https://github.com/bgreenwell/doxx/issues/45))
   - `--export ansi` option for ANSI-colored terminal output
   - `--terminal-width`/`-w` option for setting terminal width (default: $COLUMNS or 80)
