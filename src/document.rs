@@ -1871,19 +1871,24 @@ struct EquationInfo {
     latex: String,
     fallback: String,
     is_inline: bool,
-    paragraph_index: usize,
 }
 
 /// Represents content within a paragraph (text or inline equation)
 #[derive(Debug, Clone)]
 enum ParagraphContent {
     Text(String),
-    InlineEquation { latex: String, fallback: String },
+    #[allow(dead_code)] // fallback may be used for UI display in future
+    InlineEquation {
+        latex: String,
+        fallback: String,
+    },
 }
 
 /// Parse paragraphs with inline equations directly from XML
 /// Returns a map of paragraph index to ordered content (text and inline equations)
-fn extract_inline_equation_positions(file_path: &Path) -> Result<std::collections::HashMap<usize, Vec<ParagraphContent>>> {
+fn extract_inline_equation_positions(
+    file_path: &Path,
+) -> Result<std::collections::HashMap<usize, Vec<ParagraphContent>>> {
     use quick_xml::events::Event;
     use quick_xml::Reader;
     use std::fs::File;
@@ -1898,7 +1903,8 @@ fn extract_inline_equation_positions(file_path: &Path) -> Result<std::collection
     let mut xml_file = archive.by_name("word/document.xml")?;
     xml_file.read_to_string(&mut document_xml)?;
 
-    let mut paragraphs: std::collections::HashMap<usize, Vec<ParagraphContent>> = std::collections::HashMap::new();
+    let mut paragraphs: std::collections::HashMap<usize, Vec<ParagraphContent>> =
+        std::collections::HashMap::new();
     let mut reader = Reader::from_str(&document_xml);
     reader.config_mut().trim_text(false); // Don't trim to preserve spacing
 
@@ -1931,7 +1937,9 @@ fn extract_inline_equation_positions(file_path: &Path) -> Result<std::collection
             Ok(Event::End(ref e)) if e.name().as_ref() == b"m:oMathPara" => {
                 in_math_para = false;
             }
-            Ok(Event::Start(ref e)) if e.name().as_ref() == b"m:oMath" && in_paragraph && !in_math_para => {
+            Ok(Event::Start(ref e))
+                if e.name().as_ref() == b"m:oMath" && in_paragraph && !in_math_para =>
+            {
                 // Inline equation (not wrapped in oMathPara)
                 in_math = true;
                 current_omml.clear();
@@ -1939,7 +1947,8 @@ fn extract_inline_equation_positions(file_path: &Path) -> Result<std::collection
             Ok(Event::End(ref e)) if e.name().as_ref() == b"m:oMath" && in_math => {
                 in_math = false;
                 let (latex, fallback) = parse_simple_omml(&current_omml);
-                current_paragraph_content.push(ParagraphContent::InlineEquation { latex, fallback });
+                current_paragraph_content
+                    .push(ParagraphContent::InlineEquation { latex, fallback });
                 current_omml.clear();
             }
             Ok(Event::Start(ref e)) if e.name().as_ref() == b"w:t" && in_paragraph && !in_math => {
@@ -1961,16 +1970,14 @@ fn extract_inline_equation_positions(file_path: &Path) -> Result<std::collection
                 let tag_name = std::str::from_utf8(name_ref.as_ref()).unwrap_or("");
                 current_omml.push('<');
                 current_omml.push_str(tag_name);
-                for attr in e.attributes() {
-                    if let Ok(a) = attr {
-                        let key = std::str::from_utf8(a.key.as_ref()).unwrap_or("");
-                        let value = String::from_utf8_lossy(&a.value);
-                        current_omml.push(' ');
-                        current_omml.push_str(key);
-                        current_omml.push_str("=\"");
-                        current_omml.push_str(&value);
-                        current_omml.push('"');
-                    }
+                for a in e.attributes().flatten() {
+                    let key = std::str::from_utf8(a.key.as_ref()).unwrap_or("");
+                    let value = String::from_utf8_lossy(&a.value);
+                    current_omml.push(' ');
+                    current_omml.push_str(key);
+                    current_omml.push_str("=\"");
+                    current_omml.push_str(&value);
+                    current_omml.push('"');
                 }
                 current_omml.push('>');
             }
@@ -1986,16 +1993,14 @@ fn extract_inline_equation_positions(file_path: &Path) -> Result<std::collection
                 let tag_name = std::str::from_utf8(name_ref.as_ref()).unwrap_or("");
                 current_omml.push('<');
                 current_omml.push_str(tag_name);
-                for attr in e.attributes() {
-                    if let Ok(a) = attr {
-                        let key = std::str::from_utf8(a.key.as_ref()).unwrap_or("");
-                        let value = String::from_utf8_lossy(&a.value);
-                        current_omml.push(' ');
-                        current_omml.push_str(key);
-                        current_omml.push_str("=\"");
-                        current_omml.push_str(&value);
-                        current_omml.push('"');
-                    }
+                for a in e.attributes().flatten() {
+                    let key = std::str::from_utf8(a.key.as_ref()).unwrap_or("");
+                    let value = String::from_utf8_lossy(&a.value);
+                    current_omml.push(' ');
+                    current_omml.push_str(key);
+                    current_omml.push_str("=\"");
+                    current_omml.push_str(&value);
+                    current_omml.push('"');
                 }
                 current_omml.push_str("/>");
             }
@@ -2004,7 +2009,7 @@ fn extract_inline_equation_positions(file_path: &Path) -> Result<std::collection
             }
             Ok(Event::Eof) => break,
             Err(e) => {
-                eprintln!("Error reading XML for inline equations: {}", e);
+                eprintln!("Error reading XML for inline equations: {e}");
                 break;
             }
             _ => {}
@@ -2040,13 +2045,9 @@ fn extract_equations_from_docx(file_path: &Path) -> Result<Vec<EquationInfo>> {
     let mut in_math = false;
     let mut in_math_para = false;
     let mut current_omml = String::new();
-    let mut paragraph_count = 0;
 
     loop {
         match reader.read_event_into(&mut buf) {
-            Ok(Event::Start(ref e)) if e.name().as_ref() == b"w:p" => {
-                paragraph_count += 1;
-            }
             Ok(Event::Start(ref e)) if e.name().as_ref() == b"m:oMathPara" => {
                 in_math_para = true;
             }
@@ -2070,7 +2071,6 @@ fn extract_equations_from_docx(file_path: &Path) -> Result<Vec<EquationInfo>> {
                     latex,
                     fallback,
                     is_inline,
-                    paragraph_index: paragraph_count,
                 });
                 current_omml.clear();
             }
@@ -2081,16 +2081,14 @@ fn extract_equations_from_docx(file_path: &Path) -> Result<Vec<EquationInfo>> {
                 current_omml.push_str(tag_name);
 
                 // Capture attributes (e.g., m:chr m:val="∑")
-                for attr in e.attributes() {
-                    if let Ok(a) = attr {
-                        let key = std::str::from_utf8(a.key.as_ref()).unwrap_or("");
-                        let value = String::from_utf8_lossy(&a.value);
-                        current_omml.push(' ');
-                        current_omml.push_str(key);
-                        current_omml.push_str("=\"");
-                        current_omml.push_str(&value);
-                        current_omml.push('"');
-                    }
+                for a in e.attributes().flatten() {
+                    let key = std::str::from_utf8(a.key.as_ref()).unwrap_or("");
+                    let value = String::from_utf8_lossy(&a.value);
+                    current_omml.push(' ');
+                    current_omml.push_str(key);
+                    current_omml.push_str("=\"");
+                    current_omml.push_str(&value);
+                    current_omml.push('"');
                 }
                 current_omml.push('>');
             }
@@ -2109,16 +2107,14 @@ fn extract_equations_from_docx(file_path: &Path) -> Result<Vec<EquationInfo>> {
                 current_omml.push_str(tag_name);
 
                 // Capture attributes
-                for attr in e.attributes() {
-                    if let Ok(a) = attr {
-                        let key = std::str::from_utf8(a.key.as_ref()).unwrap_or("");
-                        let value = String::from_utf8_lossy(&a.value);
-                        current_omml.push(' ');
-                        current_omml.push_str(key);
-                        current_omml.push_str("=\"");
-                        current_omml.push_str(&value);
-                        current_omml.push('"');
-                    }
+                for a in e.attributes().flatten() {
+                    let key = std::str::from_utf8(a.key.as_ref()).unwrap_or("");
+                    let value = String::from_utf8_lossy(&a.value);
+                    current_omml.push(' ');
+                    current_omml.push_str(key);
+                    current_omml.push_str("=\"");
+                    current_omml.push_str(&value);
+                    current_omml.push('"');
                 }
                 current_omml.push_str("/>");
             }
@@ -2127,7 +2123,7 @@ fn extract_equations_from_docx(file_path: &Path) -> Result<Vec<EquationInfo>> {
             }
             Ok(Event::Eof) => break,
             Err(e) => {
-                eprintln!("Error reading OMML: {}", e);
+                eprintln!("Error reading OMML: {e}");
                 break;
             }
             _ => {}
@@ -2169,7 +2165,10 @@ fn omml_to_latex(omml: &str) -> String {
             let end = omml[i..].find("</m:sSup>").unwrap_or(omml.len() - i);
             let content = &omml[i..i + end];
 
-            if let (Some(base), Some(sup)) = (extract_latex_text(content, "m:e"), extract_latex_text(content, "m:sup")) {
+            if let (Some(base), Some(sup)) = (
+                extract_latex_text(content, "m:e"),
+                extract_latex_text(content, "m:sup"),
+            ) {
                 result.push_str(&base);
                 result.push_str("^{");
                 result.push_str(&sup);
@@ -2181,7 +2180,10 @@ fn omml_to_latex(omml: &str) -> String {
             let end = omml[i..].find("</m:sSub>").unwrap_or(omml.len() - i);
             let content = &omml[i..i + end];
 
-            if let (Some(base), Some(sub)) = (extract_latex_text(content, "m:e"), extract_latex_text(content, "m:sub")) {
+            if let (Some(base), Some(sub)) = (
+                extract_latex_text(content, "m:e"),
+                extract_latex_text(content, "m:sub"),
+            ) {
                 result.push_str(&base);
                 result.push_str("_{");
                 result.push_str(&sub);
@@ -2196,7 +2198,7 @@ fn omml_to_latex(omml: &str) -> String {
             if let (Some(base), Some(sub), Some(sup)) = (
                 extract_latex_text(content, "m:e"),
                 extract_latex_text(content, "m:sub"),
-                extract_latex_text(content, "m:sup")
+                extract_latex_text(content, "m:sup"),
             ) {
                 result.push_str(&base);
                 result.push_str("_{");
@@ -2225,7 +2227,10 @@ fn omml_to_latex(omml: &str) -> String {
             // Check if it's a binomial coefficient (noBar type)
             let is_binom = content.contains("m:val=\"noBar\"");
 
-            if let (Some(num), Some(den)) = (extract_latex_text(content, "m:num"), extract_latex_text(content, "m:den")) {
+            if let (Some(num), Some(den)) = (
+                extract_latex_text(content, "m:num"),
+                extract_latex_text(content, "m:den"),
+            ) {
                 if is_binom {
                     result.push_str("\\binom{");
                     result.push_str(&num);
@@ -2391,8 +2396,8 @@ fn omml_to_latex(omml: &str) -> String {
 
 /// Extract text from an OMML tag and recursively convert nested OMML to LaTeX
 fn extract_latex_text(omml: &str, tag: &str) -> Option<String> {
-    let start_tag = format!("<{}>", tag);
-    let end_tag = format!("</{}>", tag);
+    let start_tag = format!("<{tag}>");
+    let end_tag = format!("</{tag}>");
 
     if let Some(start_pos) = omml.find(&start_tag) {
         let content = &omml[start_pos + start_tag.len()..];
@@ -2451,8 +2456,8 @@ fn extract_latex_text(omml: &str, tag: &str) -> Option<String> {
 
 /// Extract text from an OMML tag
 fn extract_text(omml: &str, tag: &str) -> Option<String> {
-    let start_tag = format!("<{}>", tag);
-    let end_tag = format!("</{}>", tag);
+    let start_tag = format!("<{tag}>");
+    let end_tag = format!("</{tag}>");
 
     if let Some(start_pos) = omml.find(&start_tag) {
         let content = &omml[start_pos + start_tag.len()..];
@@ -2467,4 +2472,3 @@ fn extract_text(omml: &str, tag: &str) -> Option<String> {
     }
     None
 }
-

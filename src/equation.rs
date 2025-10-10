@@ -17,11 +17,20 @@ pub struct Equation {
 #[derive(Debug, Clone)]
 enum OmmlElement {
     /// Superscript: base^exponent
-    Superscript { base: Box<OmmlElement>, sup: Box<OmmlElement> },
+    Superscript {
+        base: Box<OmmlElement>,
+        sup: Box<OmmlElement>,
+    },
     /// Subscript: base_sub
-    Subscript { base: Box<OmmlElement>, sub: Box<OmmlElement> },
+    Subscript {
+        base: Box<OmmlElement>,
+        sub: Box<OmmlElement>,
+    },
     /// Fraction: numerator/denominator
-    Fraction { num: Box<OmmlElement>, den: Box<OmmlElement> },
+    Fraction {
+        num: Box<OmmlElement>,
+        den: Box<OmmlElement>,
+    },
     /// N-ary operator (sum, integral, etc.)
     Nary {
         operator: String,
@@ -69,7 +78,7 @@ fn extract_text_from_omml(omml: &str) -> String {
             }
             Ok(Event::Eof) => break,
             Err(e) => {
-                eprintln!("Error parsing OMML: {}", e);
+                eprintln!("Error parsing OMML: {e}");
                 break;
             }
             _ => {}
@@ -268,12 +277,12 @@ fn parse_nary(reader: &mut Reader<&[u8]>) -> Result<OmmlElement> {
                 match tag {
                     "m:chr" => {
                         // Extract operator character from attribute
-                        if let Some(attr) = e.attributes().find(|a| {
-                            a.as_ref().map(|at| at.key.as_ref() == b"m:val").unwrap_or(false)
-                        }) {
-                            if let Ok(a) = attr {
-                                operator = String::from_utf8_lossy(&a.value).to_string();
-                            }
+                        if let Some(a) = e
+                            .attributes()
+                            .flatten()
+                            .find(|a| a.key.as_ref() == b"m:val")
+                        {
+                            operator = String::from_utf8_lossy(&a.value).to_string();
                         }
                     }
                     "m:sub" => {
@@ -370,14 +379,12 @@ fn read_element_content(reader: &mut Reader<&[u8]>, end_tag: &str) -> Result<Str
             Ok(Event::Start(ref e)) => {
                 content.push('<');
                 content.push_str(std::str::from_utf8(e.name().as_ref()).unwrap_or(""));
-                for attr in e.attributes() {
-                    if let Ok(a) = attr {
-                        content.push(' ');
-                        content.push_str(std::str::from_utf8(a.key.as_ref()).unwrap_or(""));
-                        content.push_str("=\"");
-                        content.push_str(&String::from_utf8_lossy(&a.value));
-                        content.push('"');
-                    }
+                for a in e.attributes().flatten() {
+                    content.push(' ');
+                    content.push_str(std::str::from_utf8(a.key.as_ref()).unwrap_or(""));
+                    content.push_str("=\"");
+                    content.push_str(&String::from_utf8_lossy(&a.value));
+                    content.push('"');
                 }
                 content.push('>');
                 depth += 1;
@@ -408,9 +415,7 @@ fn read_element_content(reader: &mut Reader<&[u8]>, end_tag: &str) -> Result<Str
 fn render_to_unicode(element: &OmmlElement) -> String {
     match element {
         OmmlElement::Text(s) => s.clone(),
-        OmmlElement::Sequence(elements) => {
-            elements.iter().map(render_to_unicode).collect()
-        }
+        OmmlElement::Sequence(elements) => elements.iter().map(render_to_unicode).collect(),
         OmmlElement::Superscript { base, sup } => {
             let base_str = render_to_unicode(base);
             let sup_str = render_to_unicode(sup);
@@ -433,10 +438,15 @@ fn render_to_unicode(element: &OmmlElement) -> String {
                 ("2", "3") => "⅔".to_string(),
                 ("1", "5") => "⅕".to_string(),
                 ("1", "8") => "⅛".to_string(),
-                _ => format!("({}⁄{})", num_str, den_str),
+                _ => format!("({num_str}⁄{den_str})"),
             }
         }
-        OmmlElement::Nary { operator, sub, sup, base } => {
+        OmmlElement::Nary {
+            operator,
+            sub,
+            sup,
+            base,
+        } => {
             let mut result = operator.clone();
             if let Some(s) = sub {
                 result.push_str(&to_subscript(&render_to_unicode(s)));
@@ -455,27 +465,69 @@ fn render_to_unicode(element: &OmmlElement) -> String {
 
 /// Convert ASCII text to Unicode superscript
 fn to_superscript(text: &str) -> String {
-    text.chars().map(|c| match c {
-        '0' => '⁰', '1' => '¹', '2' => '²', '3' => '³', '4' => '⁴',
-        '5' => '⁵', '6' => '⁶', '7' => '⁷', '8' => '⁸', '9' => '⁹',
-        '+' => '⁺', '-' => '⁻', '=' => '⁼', '(' => '⁽', ')' => '⁾',
-        'n' => 'ⁿ', 'i' => 'ⁱ',
-        _ => c, // Keep other characters as-is
-    }).collect()
+    text.chars()
+        .map(|c| match c {
+            '0' => '⁰',
+            '1' => '¹',
+            '2' => '²',
+            '3' => '³',
+            '4' => '⁴',
+            '5' => '⁵',
+            '6' => '⁶',
+            '7' => '⁷',
+            '8' => '⁸',
+            '9' => '⁹',
+            '+' => '⁺',
+            '-' => '⁻',
+            '=' => '⁼',
+            '(' => '⁽',
+            ')' => '⁾',
+            'n' => 'ⁿ',
+            'i' => 'ⁱ',
+            _ => c, // Keep other characters as-is
+        })
+        .collect()
 }
 
 /// Convert ASCII text to Unicode subscript
 fn to_subscript(text: &str) -> String {
-    text.chars().map(|c| match c {
-        '0' => '₀', '1' => '₁', '2' => '₂', '3' => '₃', '4' => '₄',
-        '5' => '₅', '6' => '₆', '7' => '₇', '8' => '₈', '9' => '₉',
-        '+' => '₊', '-' => '₋', '=' => '₌', '(' => '₍', ')' => '₎',
-        'a' => 'ₐ', 'e' => 'ₑ', 'h' => 'ₕ', 'i' => 'ᵢ', 'j' => 'ⱼ',
-        'k' => 'ₖ', 'l' => 'ₗ', 'm' => 'ₘ', 'n' => 'ₙ', 'o' => 'ₒ',
-        'p' => 'ₚ', 'r' => 'ᵣ', 's' => 'ₛ', 't' => 'ₜ', 'u' => 'ᵤ',
-        'v' => 'ᵥ', 'x' => 'ₓ',
-        _ => c, // Keep other characters as-is
-    }).collect()
+    text.chars()
+        .map(|c| match c {
+            '0' => '₀',
+            '1' => '₁',
+            '2' => '₂',
+            '3' => '₃',
+            '4' => '₄',
+            '5' => '₅',
+            '6' => '₆',
+            '7' => '₇',
+            '8' => '₈',
+            '9' => '₉',
+            '+' => '₊',
+            '-' => '₋',
+            '=' => '₌',
+            '(' => '₍',
+            ')' => '₎',
+            'a' => 'ₐ',
+            'e' => 'ₑ',
+            'h' => 'ₕ',
+            'i' => 'ᵢ',
+            'j' => 'ⱼ',
+            'k' => 'ₖ',
+            'l' => 'ₗ',
+            'm' => 'ₘ',
+            'n' => 'ₙ',
+            'o' => 'ₒ',
+            'p' => 'ₚ',
+            'r' => 'ᵣ',
+            's' => 'ₛ',
+            't' => 'ₜ',
+            'u' => 'ᵤ',
+            'v' => 'ᵥ',
+            'x' => 'ₓ',
+            _ => c, // Keep other characters as-is
+        })
+        .collect()
 }
 
 #[cfg(test)]

@@ -802,7 +802,12 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
             DocumentElement::Equation { latex, .. } => {
                 let line = Line::from(vec![
                     Span::styled("📐 ", Style::default().fg(Color::Cyan)),
-                    Span::styled(latex, Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+                    Span::styled(
+                        latex,
+                        Style::default()
+                            .fg(Color::White)
+                            .add_modifier(Modifier::BOLD),
+                    ),
                 ]);
                 text.lines.push(line);
                 text.lines.push(Line::from(""));

@@ -149,7 +149,7 @@ pub fn export_to_markdown(document: &Document) -> Result<()> {
                 markdown.push_str(&format!("![{alt}]({url}){dimensions}\n\n"));
             }
             DocumentElement::Equation { latex, .. } => {
-                markdown.push_str(&format!("$${}$$\n\n", latex));
+                markdown.push_str(&format!("$${latex}$$\n\n"));
             }
             DocumentElement::PageBreak => {
                 markdown.push_str("\n---\n\n");
