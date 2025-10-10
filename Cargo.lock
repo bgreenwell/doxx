@@ -702,6 +702,7 @@ dependencies = [
  "docx-rs",
  "image 0.25.6",
  "once_cell",
+ "quick-xml",
  "ratatui",
  "ratatui-image",
  "regex",
@@ -1578,6 +1579,15 @@ name = "quick-error"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a993555f31e5a609f617c12db6250dedcac1b0a85076912c436e6fc9b2c8e6a3"
+
+[[package]]
+name = "quick-xml"
+version = "0.36.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f7649a7b4df05aed9ea7ec6f628c67c9953a43869b8bc50929569b2999d443fe"
+dependencies = [
+ "memchr",
+]
 
 [[package]]
 name = "quote"

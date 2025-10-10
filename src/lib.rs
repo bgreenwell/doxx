@@ -5,6 +5,7 @@
 
 pub mod ansi;
 pub mod document;
+pub mod equation;
 pub mod export;
 pub mod image_extractor;
 pub mod terminal_image;
@@ -40,5 +41,6 @@ pub enum ColorDepth {
 
 // Re-export commonly used types
 pub use document::{Document, DocumentElement};
+pub use equation::Equation;
 pub use image_extractor::ImageExtractor;
 pub use terminal_image::{TerminalImageRenderer, TerminalImageSupport};

@@ -346,6 +346,10 @@ async fn run_non_interactive(document: Document, cli: &Cli) -> Result<()> {
                             println!();
                         }
                     }
+                    DocumentElement::Equation { latex, .. } => {
+                        println!("📐 Equation: {latex}");
+                        println!();
+                    }
                     DocumentElement::PageBreak => {
                         println!("---");
                         println!();
@@ -791,6 +795,14 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
                     Span::styled(description, Style::default().fg(Color::Gray)),
                     Span::styled(dimensions, Style::default().fg(Color::DarkGray)),
                     Span::styled(status, Style::default().fg(Color::Green)),
+                ]);
+                text.lines.push(line);
+                text.lines.push(Line::from(""));
+            }
+            DocumentElement::Equation { latex, .. } => {
+                let line = Line::from(vec![
+                    Span::styled("📐 ", Style::default().fg(Color::Cyan)),
+                    Span::styled(latex, Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
                 ]);
                 text.lines.push(line);
                 text.lines.push(Line::from(""));

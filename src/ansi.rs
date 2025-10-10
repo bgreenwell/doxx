@@ -91,6 +91,16 @@ pub fn export_to_ansi_with_options(document: &Document, options: &AnsiOptions) -
                 )?;
                 output.push('\n');
             }
+            DocumentElement::Equation { latex, .. } => {
+                writeln!(
+                    output,
+                    "{}📐 {}{}",
+                    format_ansi_color(Some("#00AAFF"), options), // Cyan
+                    latex,
+                    format_ansi_reset()
+                )?;
+                output.push('\n');
+            }
             DocumentElement::PageBreak => {
                 let separator = "─".repeat(std::cmp::min(60, options.terminal_width));
                 writeln!(
