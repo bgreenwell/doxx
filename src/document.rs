@@ -405,42 +405,52 @@ pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Res
 
                 // Check if this paragraph has inline equations
                 if let Some(content_items) = inline_paragraphs.get(&para_index) {
-                    // Reconstruct paragraph with inline equations in correct positions
-                    let mut new_runs = Vec::new();
-                    let mut accumulated_text = String::new();
+                    // Check if there are actually any inline equations in this paragraph
+                    let has_actual_equations = content_items
+                        .iter()
+                        .any(|item| matches!(item, ParagraphContent::InlineEquation { .. }));
 
-                    for content in content_items {
-                        match content {
-                            ParagraphContent::Text(text) => {
-                                accumulated_text.push_str(text);
-                            }
-                            ParagraphContent::InlineEquation { latex, fallback: _ } => {
-                                // Flush accumulated text before equation
-                                if !accumulated_text.is_empty() {
+                    if has_actual_equations {
+                        // Reconstruct paragraph with inline equations in correct positions
+                        let mut new_runs = Vec::new();
+                        let mut accumulated_text = String::new();
+
+                        for content in content_items {
+                            match content {
+                                ParagraphContent::Text(text) => {
+                                    accumulated_text.push_str(text);
+                                }
+                                ParagraphContent::InlineEquation { latex, fallback: _ } => {
+                                    // Flush accumulated text before equation
+                                    if !accumulated_text.is_empty() {
+                                        new_runs.push(FormattedRun {
+                                            text: accumulated_text.clone(),
+                                            formatting: TextFormatting::default(),
+                                        });
+                                        accumulated_text.clear();
+                                    }
+                                    // Add inline equation with $ delimiters
                                     new_runs.push(FormattedRun {
-                                        text: accumulated_text.clone(),
+                                        text: format!("${latex}$"),
                                         formatting: TextFormatting::default(),
                                     });
-                                    accumulated_text.clear();
                                 }
-                                // Add inline equation with $ delimiters
-                                new_runs.push(FormattedRun {
-                                    text: format!("${latex}$"),
-                                    formatting: TextFormatting::default(),
-                                });
                             }
                         }
-                    }
 
-                    // Flush any remaining text
-                    if !accumulated_text.is_empty() {
-                        new_runs.push(FormattedRun {
-                            text: accumulated_text,
-                            formatting: TextFormatting::default(),
-                        });
-                    }
+                        // Flush any remaining text
+                        if !accumulated_text.is_empty() {
+                            new_runs.push(FormattedRun {
+                                text: accumulated_text,
+                                formatting: TextFormatting::default(),
+                            });
+                        }
 
-                    elements_with_equations.push(DocumentElement::Paragraph { runs: new_runs });
+                        elements_with_equations.push(DocumentElement::Paragraph { runs: new_runs });
+                    } else {
+                        // No actual equations, preserve original runs with formatting
+                        elements_with_equations.push(DocumentElement::Paragraph { runs });
+                    }
                 } else {
                     elements_with_equations.push(DocumentElement::Paragraph { runs });
                 }
