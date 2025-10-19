@@ -24,7 +24,7 @@ use std::io;
 use crate::{document::*, Cli};
 use ratatui_image::{picker::Picker, protocol::StatefulProtocol};
 
-type ImageProtocols = Vec<Box<dyn StatefulProtocol>>;
+type ImageProtocols = Vec<StatefulProtocol>;
 
 pub struct App {
     pub document: Document,
@@ -97,19 +97,17 @@ impl App {
     }
 
     fn init_image_support(&mut self) {
-        // Try to initialize picker from termios on Unix, use default on Windows
+        // Try to initialize picker from terminal query on Unix, use font size on Windows
         #[cfg(unix)]
-        let mut picker = if let Ok(p) = Picker::from_termios() {
+        let picker = if let Ok(p) = Picker::from_query_stdio() {
             p
         } else {
             // Fallback to manual font size
-            Picker::new((8, 16))
+            Picker::from_fontsize((8, 16))
         };
 
         #[cfg(not(unix))]
-        let mut picker = Picker::new((8, 16));
-
-        picker.guess_protocol();
+        let picker = Picker::from_fontsize((8, 16));
 
         // Process all images in the document
         for element in &self.document.elements {
