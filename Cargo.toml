@@ -41,7 +41,7 @@ arboard = "3.3"
 viuer = "0.7"
 image = "0.25"
 zip = "2.0"
-ratatui-image = "1.0"
+ratatui-image = "8.0"
 
 tokio = { version = "1.0", features = ["rt-multi-thread", "macros", "fs"] }
 
