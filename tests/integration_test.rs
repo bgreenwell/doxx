@@ -22,11 +22,7 @@ fn test_minimal_document_parsing() {
 #[test]
 fn test_tables_csv_export() {
     let output = Command::new(env!("CARGO_BIN_EXE_doxx"))
-        .args([
-            "tests/fixtures/tables-heavy.docx",
-            "--export",
-            "csv",
-        ])
+        .args(["tests/fixtures/tables-heavy.docx", "--export", "csv"])
         .output()
         .expect("Failed to execute doxx");
 
@@ -44,10 +40,7 @@ fn test_tables_csv_export() {
 #[test]
 fn test_headings_outline() {
     let output = Command::new(env!("CARGO_BIN_EXE_doxx"))
-        .args([
-            "tests/fixtures/headings-hierarchy.docx",
-            "--outline",
-        ])
+        .args(["tests/fixtures/headings-hierarchy.docx", "--outline"])
         .output()
         .expect("Failed to execute doxx");
 
@@ -84,9 +77,7 @@ fn test_formatting_markdown_export() {
 #[test]
 fn test_unicode_document() {
     let output = Command::new(env!("CARGO_BIN_EXE_doxx"))
-        .args([
-            "tests/fixtures/unicode-special.docx",
-        ])
+        .args(["tests/fixtures/unicode-special.docx"])
         .output()
         .expect("Failed to execute doxx");
 
@@ -101,9 +92,7 @@ fn test_unicode_document() {
 #[test]
 fn test_business_report_parsing() {
     let output = Command::new(env!("CARGO_BIN_EXE_doxx"))
-        .args([
-            "tests/fixtures/business-report.docx",
-        ])
+        .args(["tests/fixtures/business-report.docx"])
         .output()
         .expect("Failed to execute doxx");
 
@@ -121,11 +110,7 @@ fn test_business_report_parsing() {
 #[test]
 fn test_export_test_json() {
     let output = Command::new(env!("CARGO_BIN_EXE_doxx"))
-        .args([
-            "tests/fixtures/export-test.docx",
-            "--export",
-            "json",
-        ])
+        .args(["tests/fixtures/export-test.docx", "--export", "json"])
         .output()
         .expect("Failed to execute doxx");
 
@@ -140,11 +125,7 @@ fn test_export_test_json() {
 #[test]
 fn test_search_functionality() {
     let output = Command::new(env!("CARGO_BIN_EXE_doxx"))
-        .args([
-            "tests/fixtures/business-report.docx",
-            "--search",
-            "revenue",
-        ])
+        .args(["tests/fixtures/business-report.docx", "--search", "revenue"])
         .output()
         .expect("Failed to execute doxx");
 
@@ -162,11 +143,7 @@ fn test_search_functionality() {
 #[test]
 fn test_empty_search_functionality() {
     let output = Command::new(env!("CARGO_BIN_EXE_doxx"))
-        .args([
-            "tests/fixtures/business-report.docx",
-            "--search",
-            "",
-        ])
+        .args(["tests/fixtures/business-report.docx", "--search", ""])
         .output()
         .expect("Failed to execute doxx");
 
