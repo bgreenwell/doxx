@@ -1,8 +1,10 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::fs::File;
 use std::path::Path;
+use zip::ZipArchive;
 
 type TableRows = Vec<Vec<TableCell>>;
 type NumberingInfo = (i32, u8);
@@ -173,7 +175,48 @@ pub struct SearchResult {
     pub end_pos: usize,
 }
 
+/// Validates that the file is a legitimate .docx file
+fn validate_docx_file(file_path: &Path) -> Result<()> {
+    // Check file extension
+    let extension = file_path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or("");
+
+    if extension != "docx" {
+        bail!(
+            "Invalid file format. Expected .docx file, got .{}\n\
+            Note: doxx only supports Word .docx files (not .doc, .xlsx, .zip, etc.)",
+            extension
+        );
+    }
+
+    // Check ZIP structure contains word/document.xml
+    let file = File::open(file_path)?;
+    let mut archive = ZipArchive::new(file)?;
+
+    if archive.by_name("word/document.xml").is_err() {
+        // Check if it might be an Excel file
+        if archive.by_name("xl/workbook.xml").is_ok() {
+            bail!(
+                "This appears to be an Excel file (.xlsx).\n\
+                doxx only supports Word documents (.docx)."
+            );
+        }
+
+        bail!(
+            "Invalid .docx file: missing word/document.xml\n\
+            This file may be corrupted or is not a valid Word document."
+        );
+    }
+
+    Ok(())
+}
+
 pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Result<Document> {
+    // Validate file type before attempting to parse
+    validate_docx_file(file_path)?;
+
     let file_size = std::fs::metadata(file_path)?.len();
 
     // For now, create a simple implementation that reads the docx file
