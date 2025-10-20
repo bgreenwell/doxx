@@ -28,10 +28,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Total Coverage**: Now supports 5 package managers across all major platforms (Homebrew, Cargo, AUR, Nix, Scoop)
 
 ### Fixed
+- **Text Formatting Preservation**: Fixed critical bug where text formatting (bold, italic, colors) was lost during inline equation processing
 - **Word Automatic List Formatting**: Fixed formatting being lost in Word automatic numbered lists (affects strikethrough, bold, italic, colors)
 - Empty search queries no longer match entire document, preventing performance issues ([#50](https://github.com/bgreenwell/doxx/pull/50)) by [@Jianchi-Chen](https://github.com/Jianchi-Chen)
 
 ### Changed
+- **Dependency Upgrade**: Updated `ratatui-image` from v1.0 to v8.0 for improved Debian packaging compatibility ([#59](https://github.com/bgreenwell/doxx/issues/59))
+  - Addresses Debian package compilation issues
+  - Updated API calls to match v8.0 interface (Picker initialization methods)
+  - All image display functionality remains unchanged
 - Help text updated to document new search state toggle functionality
 - **Documentation Enhancement**: Added inspiration acknowledgment to Glow by Charm Bracelet for setting the standard of elegant terminal document viewing
 - **Terminal Document Viewer**: Beautiful .docx viewing in your terminal
