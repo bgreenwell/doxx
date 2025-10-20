@@ -3,8 +3,8 @@ use std::process::Command;
 
 #[test]
 fn test_minimal_document_parsing() {
-    let output = Command::new("cargo")
-        .args(["run", "--bin", "doxx", "tests/fixtures/minimal.docx"])
+    let output = Command::new(env!("CARGO_BIN_EXE_doxx"))
+        .args(["tests/fixtures/minimal.docx"])
         .output()
         .expect("Failed to execute doxx");
 
@@ -21,11 +21,8 @@ fn test_minimal_document_parsing() {
 
 #[test]
 fn test_tables_csv_export() {
-    let output = Command::new("cargo")
+    let output = Command::new(env!("CARGO_BIN_EXE_doxx"))
         .args([
-            "run",
-            "--bin",
-            "doxx",
             "tests/fixtures/tables-heavy.docx",
             "--export",
             "csv",
@@ -46,11 +43,8 @@ fn test_tables_csv_export() {
 
 #[test]
 fn test_headings_outline() {
-    let output = Command::new("cargo")
+    let output = Command::new(env!("CARGO_BIN_EXE_doxx"))
         .args([
-            "run",
-            "--bin",
-            "doxx",
             "tests/fixtures/headings-hierarchy.docx",
             "--outline",
         ])
@@ -67,11 +61,8 @@ fn test_headings_outline() {
 
 #[test]
 fn test_formatting_markdown_export() {
-    let output = Command::new("cargo")
+    let output = Command::new(env!("CARGO_BIN_EXE_doxx"))
         .args([
-            "run",
-            "--bin",
-            "doxx",
             "tests/fixtures/formatting-showcase.docx",
             "--export",
             "markdown",
@@ -92,11 +83,8 @@ fn test_formatting_markdown_export() {
 
 #[test]
 fn test_unicode_document() {
-    let output = Command::new("cargo")
+    let output = Command::new(env!("CARGO_BIN_EXE_doxx"))
         .args([
-            "run",
-            "--bin",
-            "doxx",
             "tests/fixtures/unicode-special.docx",
         ])
         .output()
@@ -112,11 +100,8 @@ fn test_unicode_document() {
 
 #[test]
 fn test_business_report_parsing() {
-    let output = Command::new("cargo")
+    let output = Command::new(env!("CARGO_BIN_EXE_doxx"))
         .args([
-            "run",
-            "--bin",
-            "doxx",
             "tests/fixtures/business-report.docx",
         ])
         .output()
@@ -135,11 +120,8 @@ fn test_business_report_parsing() {
 
 #[test]
 fn test_export_test_json() {
-    let output = Command::new("cargo")
+    let output = Command::new(env!("CARGO_BIN_EXE_doxx"))
         .args([
-            "run",
-            "--bin",
-            "doxx",
             "tests/fixtures/export-test.docx",
             "--export",
             "json",
@@ -157,11 +139,8 @@ fn test_export_test_json() {
 
 #[test]
 fn test_search_functionality() {
-    let output = Command::new("cargo")
+    let output = Command::new(env!("CARGO_BIN_EXE_doxx"))
         .args([
-            "run",
-            "--bin",
-            "doxx",
             "tests/fixtures/business-report.docx",
             "--search",
             "revenue",
@@ -182,11 +161,8 @@ fn test_search_functionality() {
 
 #[test]
 fn test_empty_search_functionality() {
-    let output = Command::new("cargo")
+    let output = Command::new(env!("CARGO_BIN_EXE_doxx"))
         .args([
-            "run",
-            "--bin",
-            "doxx",
             "tests/fixtures/business-report.docx",
             "--search",
             "",
@@ -207,8 +183,8 @@ fn test_empty_search_functionality() {
 
 #[test]
 fn test_help_command() {
-    let output = Command::new("cargo")
-        .args(["run", "--bin", "doxx", "--", "--help"])
+    let output = Command::new(env!("CARGO_BIN_EXE_doxx"))
+        .args(["--help"])
         .output()
         .expect("Failed to execute doxx");
 
