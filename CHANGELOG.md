@@ -28,6 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Total Coverage**: Now supports 5 package managers across all major platforms (Homebrew, Cargo, AUR, Nix, Scoop)
 
 ### Fixed
+- **Integration Tests for Packaging**: Fixed integration tests to use `CARGO_BIN_EXE` instead of hardcoded `cargo run` ([#60](https://github.com/bgreenwell/doxx/issues/60))
+  - Tests now work in Debian packaging environments
+  - Tests work with system-wide installed binaries
+  - Faster test execution without recompilation
+  - Follows Rust integration testing best practices
 - **Text Formatting Preservation**: Fixed critical bug where text formatting (bold, italic, colors) was lost during inline equation processing
 - **Word Automatic List Formatting**: Fixed formatting being lost in Word automatic numbered lists (affects strikethrough, bold, italic, colors)
 - Empty search queries no longer match entire document, preventing performance issues ([#50](https://github.com/bgreenwell/doxx/pull/50)) by [@Jianchi-Chen](https://github.com/Jianchi-Chen)
