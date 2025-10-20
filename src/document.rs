@@ -493,7 +493,7 @@ pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Res
         if !eq.is_inline {
             display_equations_by_para
                 .entry(eq.paragraph_index)
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(DocumentElement::Equation {
                     latex: eq.latex.clone(),
                     fallback: eq.fallback.clone(),
