@@ -213,6 +213,62 @@ fn validate_docx_file(file_path: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Merge display equations into the element list at their correct paragraph positions
+///
+/// This function handles the fact that docx-rs doesn't parse paragraphs containing only equations.
+/// We need to track paragraph indices from the XML and insert equations at the right positions.
+fn merge_display_equations(
+    elements: Vec<DocumentElement>,
+    display_equations_by_para: std::collections::HashMap<usize, Vec<DocumentElement>>,
+) -> Vec<DocumentElement> {
+    if display_equations_by_para.is_empty() {
+        return elements;
+    }
+
+    // Get all paragraph indices with equations, sorted
+    let mut eq_para_indices: Vec<usize> = display_equations_by_para.keys().copied().collect();
+    eq_para_indices.sort_unstable();
+
+    // Build a new element list with equations inserted at correct positions
+    let mut result = Vec::new();
+    let mut element_para_index = 0;
+
+    for element in elements {
+        // Increment paragraph counter for elements that correspond to paragraphs
+        match &element {
+            DocumentElement::Paragraph { .. }
+            | DocumentElement::Heading { .. }
+            | DocumentElement::List { .. } => {
+                element_para_index += 1;
+
+                // Insert any display equations that come before this element
+                while let Some(&eq_idx) = eq_para_indices.first() {
+                    if eq_idx < element_para_index {
+                        if let Some(eqs) = display_equations_by_para.get(&eq_idx) {
+                            result.extend(eqs.clone());
+                        }
+                        eq_para_indices.remove(0);
+                    } else {
+                        break;
+                    }
+                }
+            }
+            _ => {}
+        }
+
+        result.push(element);
+    }
+
+    // Add any remaining equations at the end
+    for eq_idx in eq_para_indices {
+        if let Some(eqs) = display_equations_by_para.get(&eq_idx) {
+            result.extend(eqs.clone());
+        }
+    }
+
+    result
+}
+
 pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Result<Document> {
     // Validate file type before attempting to parse
     validate_docx_file(file_path)?;
@@ -426,18 +482,26 @@ pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Res
     // Extract inline equations with their positions
     let inline_paragraphs = extract_inline_equation_positions(file_path).unwrap_or_default();
 
-    // Extract display equations
+    // Extract all equations (both inline and display)
     let equation_infos = extract_equations_from_docx(file_path).unwrap_or_default();
-    let display_equations: Vec<DocumentElement> = equation_infos
-        .into_iter()
-        .filter(|eq| !eq.is_inline)
-        .map(|eq| DocumentElement::Equation {
-            latex: eq.latex,
-            fallback: eq.fallback,
-        })
-        .collect();
 
-    // Integrate inline equations into paragraphs
+    // Create a map of paragraph index -> display equations
+    let mut display_equations_by_para: std::collections::HashMap<usize, Vec<DocumentElement>> =
+        std::collections::HashMap::new();
+
+    for eq in equation_infos.iter() {
+        if !eq.is_inline {
+            display_equations_by_para
+                .entry(eq.paragraph_index)
+                .or_insert_with(Vec::new)
+                .push(DocumentElement::Equation {
+                    latex: eq.latex.clone(),
+                    fallback: eq.fallback.clone(),
+                });
+        }
+    }
+
+    // Integrate inline equations into paragraphs and insert display equations at correct positions
     let mut elements_with_equations = Vec::new();
     let mut para_index = 0;
 
@@ -495,7 +559,16 @@ pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Res
                         elements_with_equations.push(DocumentElement::Paragraph { runs });
                     }
                 } else {
-                    elements_with_equations.push(DocumentElement::Paragraph { runs });
+                    // Check if this paragraph is actually a display equation
+                    if let Some(display_eqs) = display_equations_by_para.get(&para_index) {
+                        // This paragraph contains display equation(s)
+                        for eq in display_eqs {
+                            elements_with_equations.push(eq.clone());
+                        }
+                    } else {
+                        // Regular paragraph without equations
+                        elements_with_equations.push(DocumentElement::Paragraph { runs });
+                    }
                 }
             }
             _ => {
@@ -504,15 +577,15 @@ pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Res
         }
     }
 
-    // Add display equations at the end
-    elements_with_equations.extend(display_equations);
-
     // Post-process to group consecutive list items (only for text-based lists)
     // Word numbering-based lists are already properly formatted
     let elements = group_list_items(elements_with_equations);
 
     // Clean up Word list markers
     let elements = clean_word_list_markers(elements);
+
+    // Merge display equations into the final element list at correct positions
+    let elements = merge_display_equations(elements, display_equations_by_para);
 
     let metadata = DocumentMetadata {
         file_path: file_path.to_string_lossy().to_string(),
@@ -1924,6 +1997,7 @@ struct EquationInfo {
     latex: String,
     fallback: String,
     is_inline: bool,
+    paragraph_index: usize,
 }
 
 /// Represents content within a paragraph (text or inline equation)
@@ -2098,9 +2172,13 @@ fn extract_equations_from_docx(file_path: &Path) -> Result<Vec<EquationInfo>> {
     let mut in_math = false;
     let mut in_math_para = false;
     let mut current_omml = String::new();
+    let mut current_paragraph_index = 0;
 
     loop {
         match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(ref e)) if e.name().as_ref() == b"w:p" => {
+                current_paragraph_index += 1;
+            }
             Ok(Event::Start(ref e)) if e.name().as_ref() == b"m:oMathPara" => {
                 in_math_para = true;
             }
@@ -2124,6 +2202,7 @@ fn extract_equations_from_docx(file_path: &Path) -> Result<Vec<EquationInfo>> {
                     latex,
                     fallback,
                     is_inline,
+                    paragraph_index: current_paragraph_index,
                 });
                 current_omml.clear();
             }

@@ -16,13 +16,14 @@ Fix critical bugs and polish existing features for a stable release suitable for
 - **Impact**: HIGH - Causes confusion and system resource consumption
 - **Effort**: LOW
 - **Solution**: Validate file extension and ZIP structure before parsing
-- **Status**: ⏳ IN PROGRESS
+- **Status**: ✅ COMPLETED
 
-#### ✅ #45 - Fix `-w` terminal width flag
+#### ❌ #45 - Fix `-w` terminal width flag
 - **Problem**: `-w` flag doesn't change output width in ANSI export
 - **Impact**: MEDIUM - Feature is incomplete
-- **Effort**: LOW
-- **Status**: 🔍 TODO
+- **Effort**: HIGH - Requires text wrapping implementation
+- **Findings**: Flag only affects separators, not paragraph text. Needs full text wrapping feature.
+- **Status**: 🔄 DEFER TO v0.2.0
 
 #### ✅ #46 - VirusTotal false positives
 - **Problem**: 3/69 vendors flag Windows binary
@@ -38,12 +39,20 @@ Fix critical bugs and polish existing features for a stable release suitable for
 
 ### NICE TO HAVE (If Time Permits):
 
-#### ⚠️ #58 - Equations appearing at bottom
+#### ✅ #58 - Equations appearing at bottom (PARTIAL FIX)
 - **Problem**: Display equations render at end of document instead of inline
 - **Impact**: MEDIUM-HIGH
-- **Effort**: MEDIUM (needs debugging)
-- **Status**: 🔍 INVESTIGATE (user provided test doc)
-- **Decision**: Include if quick fix, otherwise defer
+- **Effort**: MEDIUM (architectural limitation discovered)
+- **Status**: ✅ PARTIAL FIX IMPLEMENTED
+- **What was fixed**:
+  - Added paragraph index tracking to equation extraction
+  - Created merge function to insert equations at approximate positions
+  - Equations now appear inline rather than all at end
+- **Known limitation**:
+  - docx-rs library doesn't parse equation-only paragraphs
+  - Positioning not pixel-perfect for all documents
+  - Works well for most cases, some edge cases remain
+- **Next steps**: Full XML-based parsing for perfect positioning (v0.2.0)
 
 #### ⚠️ #26 - Configurable keyboard shortcuts
 - **Problem**: Users want vim/less-style keybindings
@@ -54,6 +63,8 @@ Fix critical bugs and polish existing features for a stable release suitable for
 
 ### DEFER TO v0.2.0:
 
+❌ **#45** - Terminal width text wrapping (HIGH effort, requires new wrapping system)
+❌ **#58** - Perfect equation positioning (MEDIUM effort, needs full XML parsing)
 ❌ **#24** - Advanced numbering improvements (HIGH effort, complex)
 ❌ **#35** - Kitty graphics in TUI (works in export, TUI is complex)
 ❌ **#13** - Text selection/copy (HIGH effort)
@@ -63,27 +74,34 @@ Fix critical bugs and polish existing features for a stable release suitable for
 
 ## Implementation Checklist
 
-### Phase 1: Critical Fixes
-- [ ] Implement file type validation (#40)
-  - [ ] Add `validate_docx_file()` function
-  - [ ] Check extension is `.docx`
-  - [ ] Check ZIP contains `word/document.xml`
-  - [ ] Add helpful error messages
-  - [ ] Test with .xlsx, .zip, .doc files
-- [ ] Fix `-w` terminal width flag (#45)
-  - [ ] Debug why width parameter isn't being used
-  - [ ] Test with various width values
-  - [ ] Verify markdown wrapping works
+### Phase 1: Critical Fixes ✅ COMPLETED
+- [x] Implement file type validation (#40)
+  - [x] Add `validate_docx_file()` function
+  - [x] Check extension is `.docx`
+  - [x] Check ZIP contains `word/document.xml`
+  - [x] Add helpful error messages
+  - [x] Test with .xlsx, .zip, .doc files
+- [x] Investigate `-w` terminal width flag (#45)
+  - [x] Debug why width parameter isn't being used
+  - [x] Determined requires full text wrapping implementation
+  - [x] Decision: Defer to v0.2.0
 
-### Phase 2: Issue Management
+### Phase 2: Equation Positioning ✅ COMPLETED (PARTIAL)
+- [x] Investigate #58 equation positioning
+  - [x] Add paragraph index tracking
+  - [x] Implement merge function
+  - [x] Test with user-provided document
+  - [x] Document known limitations
+  - [x] Plan full fix for v0.2.0
+
+### Phase 3: Issue Management
 - [ ] Post explanation on #46 (false positive)
 - [ ] Close #56 as duplicate of #40
 
-### Phase 3: Optional (Time Permitting)
-- [ ] Investigate #58 equation positioning
+### Phase 4: Optional (Time Permitting)
 - [ ] Implement #26 keyboard shortcuts (if feasible)
 
-### Phase 4: Release Prep
+### Phase 5: Release Prep
 - [ ] Update CHANGELOG.md
 - [ ] Run full test suite
 - [ ] Test with problematic documents from issues
@@ -102,11 +120,11 @@ Fix critical bugs and polish existing features for a stable release suitable for
 - [ ] Equation support works
 
 ### New Feature Testing
-- [ ] File validation rejects .xlsx files with helpful error
-- [ ] File validation rejects .zip files with helpful error
-- [ ] File validation rejects .doc files with helpful error
-- [ ] File validation accepts valid .docx files
-- [ ] Terminal width flag works correctly
+- [x] File validation rejects .xlsx files with helpful error
+- [x] File validation rejects .zip files with helpful error
+- [x] File validation rejects .doc files with helpful error (via extension check)
+- [x] File validation accepts valid .docx files
+- [x] Equation positioning improved (inline vs all at end)
 
 ### Document Testing
 - [ ] business-report.docx
@@ -122,16 +140,26 @@ Fix critical bugs and polish existing features for a stable release suitable for
 
 #### Fixed
 - **File Type Validation**: Added proper validation to reject non-.docx files (Excel, ZIP, old Word .doc) with helpful error messages (#40, #56)
-- **Terminal Width Flag**: Fixed `-w`/`--terminal-width` flag in ANSI export mode (#45)
+  - Checks file extension is `.docx`
+  - Validates ZIP structure contains `word/document.xml`
+  - Detects Excel files specifically with clear error messages
+  - Prevents hangs and crashes from invalid file types
+- **Equation Positioning (Partial)**: Improved display equation positioning (#58)
+  - Equations now appear inline in document flow instead of all at end
+  - Added paragraph index tracking for better positioning
+  - Known limitation: Some edge cases may not have pixel-perfect positioning
+  - Full fix planned for v0.2.0 with complete XML parsing
 - **Security**: Addressed VirusTotal false positive detections with documentation (#46)
 
 #### Changed
 - Improved error messages for invalid file formats
+- Enhanced equation extraction to track paragraph positions
 
 #### Notes
 - This release focuses on stability and bug fixes
 - All integration tests now work with Debian packaging (#60)
 - Text formatting preservation from v0.1.1 continues to work
+- Terminal width text wrapping deferred to v0.2.0 (#45 - requires larger feature implementation)
 
 ## Post-Release
 
@@ -141,9 +169,13 @@ Fix critical bugs and polish existing features for a stable release suitable for
 - [ ] Monitor for new issue reports
 
 ### v0.2.0 Planning
-Consider for next major release:
+High priority for next release:
+- **Perfect equation positioning** (#58) - Full XML-based parsing for accurate placement
+- **Terminal width text wrapping** (#45) - Implement paragraph wrapping system
+- **Configurable keyboard shortcuts** (#26) - vim/less-style keybindings
+
+Consider for v0.2.0 or later:
 - Advanced numbering improvements (#24)
 - Kitty graphics in TUI (#35)
 - Text selection and copy (#13)
-- Keyboard shortcuts if not in v0.1.2 (#26)
 - Font-size based heading detection (#3)
