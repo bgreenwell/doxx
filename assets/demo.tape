@@ -10,7 +10,7 @@ Set Theme "Dracula"
 Set TypingSpeed 50ms
 
 # Show the command we're about to run
-Type "/Users/bgreenwell/.cargo/bin/doxx tests/fixtures/color-showcase.docx --color"
+Type "doxx tests/fixtures/color-showcase.docx --color"
 Sleep 1s
 Enter
 
