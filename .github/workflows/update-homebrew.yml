@@ -9,12 +9,29 @@ jobs:
   update-tap:
     runs-on: ubuntu-latest
     steps:
+      - name: Get latest release tag
+        id: get_tag
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            # Manual trigger: get latest release tag
+            TAG=$(gh api repos/bgreenwell/doxx/releases/latest --jq '.tag_name')
+            echo "Using latest release: $TAG"
+          else
+            # Release trigger: use the tag from the event
+            TAG=${GITHUB_REF#refs/tags/}
+            echo "Using release tag: $TAG"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Extract version
         id: version
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
+          TAG=${{ steps.get_tag.outputs.tag }}
+          VERSION=${TAG#v}
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
 
       - name: Calculate SHA256
         id: sha
