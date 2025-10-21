@@ -8,6 +8,7 @@
 *.swp
 *.swo
 *~
+.ipynb_checkpoints/
 
 # Coverage reports
 lcov.info
