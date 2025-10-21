@@ -1,0 +1,65 @@
+name: Update Homebrew Tap
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  update-tap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract version
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Calculate SHA256
+        id: sha
+        run: |
+          URL="https://github.com/bgreenwell/doxx/archive/refs/tags/${{ steps.version.outputs.tag }}.tar.gz"
+          SHA=$(curl -sL "$URL" | shasum -a 256 | awk '{print $1}')
+          echo "sha256=$SHA" >> $GITHUB_OUTPUT
+          echo "Calculated SHA256: $SHA"
+
+      - name: Checkout tap repository
+        uses: actions/checkout@v4
+        with:
+          repository: bgreenwell/homebrew-doxx
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-doxx
+
+      - name: Update formula
+        working-directory: homebrew-doxx
+        run: |
+          cat > Formula/doxx.rb <<'EOF'
+          class Doxx < Formula
+            desc "Terminal document viewer for .docx files"
+            homepage "https://github.com/bgreenwell/doxx"
+            url "https://github.com/bgreenwell/doxx/archive/refs/tags/${{ steps.version.outputs.tag }}.tar.gz"
+            sha256 "${{ steps.sha.outputs.sha256 }}"
+            license "MIT"
+            head "https://github.com/bgreenwell/doxx.git", branch: "main"
+
+            depends_on "rust" => :build
+
+            def install
+              system "cargo", "install", *std_cargo_args
+            end
+
+            test do
+              assert_match "doxx", shell_output("#{bin}/doxx --version")
+            end
+          end
+          EOF
+
+      - name: Commit and push
+        working-directory: homebrew-doxx
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/doxx.rb
+          git commit -m "Update doxx to ${{ steps.version.outputs.version }}" || echo "No changes to commit"
+          git push
