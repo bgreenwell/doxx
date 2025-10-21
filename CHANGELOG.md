@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2025-10-21
+
 ### Added
 - **Inline Equation Support**: Complete inline equation rendering within paragraph text
   - Inline equations now appear at correct positions within text (e.g., "text $A=\pi r^{2}$ more text")
@@ -32,17 +34,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Text Formatting Preservation**: Fixed critical bug where text formatting (bold, italic, colors) was lost during inline equation processing
 - **Word Automatic List Formatting**: Fixed formatting being lost in Word automatic numbered lists (affects strikethrough, bold, italic, colors)
 - Empty search queries no longer match entire document, preventing performance issues ([#50](https://github.com/bgreenwell/doxx/pull/50)) by [@Jianchi-Chen](https://github.com/Jianchi-Chen)
-
-### Changed
-- **Dependency Upgrade**: Updated `ratatui-image` from v1.0 to v8.0 for improved Debian packaging compatibility ([#59](https://github.com/bgreenwell/doxx/issues/59))
-  - Addresses Debian package compilation issues
-  - Updated API calls to match v8.0 interface (Picker initialization methods)
-  - All image display functionality remains unchanged
-- Help text updated to document new search state toggle functionality
-
-## [0.1.2] - 2025-01-20
-
-### Fixed
 - **File Type Validation**: Added proper validation to reject non-.docx files with helpful error messages ([#40](https://github.com/bgreenwell/doxx/issues/40), [#56](https://github.com/bgreenwell/doxx/issues/56))
   - Checks file extension is `.docx` before attempting to parse
   - Validates ZIP structure contains `word/document.xml`
@@ -58,6 +49,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Full fix with complete XML parsing planned for v0.2.0
 
 ### Changed
+- **Dependency Upgrade**: Updated `ratatui-image` from v1.0 to v8.0 for improved Debian packaging compatibility ([#59](https://github.com/bgreenwell/doxx/issues/59))
+  - Addresses Debian package compilation issues
+  - Updated API calls to match v8.0 interface (Picker initialization methods)
+  - All image display functionality remains unchanged
+- Help text updated to document new search state toggle functionality
 - Improved error messages for invalid file formats with specific guidance
 - Enhanced equation extraction to track paragraph positions for better document structure
 
@@ -69,7 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Terminal width text wrapping deferred to v0.2.0 ([#45](https://github.com/bgreenwell/doxx/issues/45) - requires full text wrapping feature implementation)
 - All 47 tests passing across unit, integration, and specialized test suites
 
-## [0.1.1] - 2024-XX-XX
+## [0.1.1] - 2025-08-22
 
 ### Added
 - **Comprehensive release pipeline** with automated package manager support
