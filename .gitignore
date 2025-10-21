@@ -28,6 +28,7 @@ coverage/
 
 # Project management and development notes
 CLAUDE.md
+.planning/
 
 # macOS
 .DS_Store
