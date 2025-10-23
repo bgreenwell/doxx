@@ -1,0 +1,11 @@
+[package]
+name = "ratatui_image_test"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ratatui = "0.29"
+crossterm = "0.27"
+ratatui-image = "8.0"
+image = "0.25"
+anyhow = "1.0"
