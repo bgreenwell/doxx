@@ -291,6 +291,220 @@ impl<'a> DocumentWidget<'a> {
 
         *current_y += 1; // Blank line after list
     }
+
+    /// Render a table element at the current position
+    fn render_table(
+        table: &TableData,
+        area: Rect,
+        buf: &mut Buffer,
+        current_y: &mut u16,
+        color_enabled: bool,
+    ) {
+        if *current_y >= area.y + area.height {
+            return; // Off screen
+        }
+
+        let available_width = area.width as usize;
+
+        // Calculate column widths based on metadata
+        let col_widths = &table.metadata.column_widths;
+        let total_width: usize = col_widths.iter().sum();
+
+        // Scale widths to fit available space
+        let scaled_widths: Vec<usize> = if total_width > available_width {
+            col_widths
+                .iter()
+                .map(|w| (w * available_width) / total_width.max(1))
+                .collect()
+        } else {
+            col_widths.clone()
+        };
+
+        // Render title if present
+        if let Some(title) = &table.metadata.title {
+            let title_style = if color_enabled {
+                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().add_modifier(Modifier::BOLD)
+            };
+            buf.set_string(area.x, *current_y, title, title_style);
+            *current_y += 1;
+        }
+
+        // Render headers if present
+        if table.metadata.has_headers && !table.headers.is_empty() {
+            Self::render_table_row(
+                &table.headers,
+                &scaled_widths,
+                area,
+                buf,
+                current_y,
+                color_enabled,
+                true,
+            );
+
+            // Header separator line
+            if *current_y < area.y + area.height {
+                let separator = "─".repeat(available_width.min(scaled_widths.iter().sum()));
+                buf.set_string(area.x, *current_y, &separator, Style::default());
+                *current_y += 1;
+            }
+        }
+
+        // Render rows
+        for row in &table.rows {
+            if *current_y >= area.y + area.height {
+                break;
+            }
+            Self::render_table_row(
+                row,
+                &scaled_widths,
+                area,
+                buf,
+                current_y,
+                color_enabled,
+                false,
+            );
+        }
+
+        *current_y += 1; // Blank line after table
+    }
+
+    /// Render a single table row
+    fn render_table_row(
+        cells: &[TableCell],
+        col_widths: &[usize],
+        area: Rect,
+        buf: &mut Buffer,
+        current_y: &mut u16,
+        color_enabled: bool,
+        is_header: bool,
+    ) {
+        if *current_y >= area.y + area.height {
+            return;
+        }
+
+        let mut x_offset = 0;
+
+        for (i, cell) in cells.iter().enumerate() {
+            let width = col_widths.get(i).copied().unwrap_or(10);
+
+            // Apply cell styling
+            let mut style = Style::default();
+            if is_header {
+                style = style.add_modifier(Modifier::BOLD);
+                if color_enabled {
+                    style = style.fg(Color::Yellow);
+                }
+            } else if color_enabled {
+                if let Some(color_hex) = &cell.formatting.color {
+                    if let Some(color) = hex_to_color(color_hex) {
+                        style = style.fg(color);
+                    }
+                }
+            }
+
+            // Apply cell formatting
+            if cell.formatting.bold {
+                style = style.add_modifier(Modifier::BOLD);
+            }
+            if cell.formatting.italic {
+                style = style.add_modifier(Modifier::ITALIC);
+            }
+
+            // Truncate content to fit width
+            let content = if cell.content.len() > width {
+                format!("{}…", &cell.content[..width.saturating_sub(1)])
+            } else {
+                cell.content.clone()
+            };
+
+            // Apply alignment
+            let aligned_content = match cell.alignment {
+                TextAlignment::Left => format!("{:<width$}", content, width = width),
+                TextAlignment::Right => format!("{:>width$}", content, width = width),
+                TextAlignment::Center => {
+                    let padding = width.saturating_sub(content.len());
+                    let left_pad = padding / 2;
+                    let right_pad = padding - left_pad;
+                    format!(
+                        "{}{}{}",
+                        " ".repeat(left_pad),
+                        content,
+                        " ".repeat(right_pad)
+                    )
+                }
+                TextAlignment::Justify => format!("{:<width$}", content, width = width),
+            };
+
+            buf.set_string(
+                area.x + x_offset as u16,
+                *current_y,
+                &aligned_content,
+                style,
+            );
+
+            x_offset += width + 1; // +1 for column separator
+
+            // Render column separator
+            if i < cells.len() - 1 && x_offset < area.width as usize {
+                buf.set_string(area.x + x_offset as u16 - 1, *current_y, "│", Style::default());
+            }
+        }
+
+        *current_y += 1;
+    }
+
+    /// Render an image placeholder (actual image rendering happens in main render loop)
+    fn render_image_placeholder(
+        description: &str,
+        area: Rect,
+        buf: &mut Buffer,
+        current_y: &mut u16,
+        color_enabled: bool,
+        image_height: u16,
+    ) {
+        if *current_y >= area.y + area.height {
+            return;
+        }
+
+        // Reserve space for the image
+        *current_y += image_height;
+
+        // Render description below the image space
+        if *current_y < area.y + area.height {
+            let desc_style = if color_enabled {
+                Style::default().fg(Color::Magenta)
+            } else {
+                Style::default()
+            };
+            let desc_text = format!("🖼️  {}", description);
+            buf.set_string(area.x, *current_y, &desc_text, desc_style);
+            *current_y += 2; // Description + blank line
+        }
+    }
+
+    /// Render a page break element
+    fn render_page_break(
+        area: Rect,
+        buf: &mut Buffer,
+        current_y: &mut u16,
+        color_enabled: bool,
+    ) {
+        if *current_y >= area.y + area.height {
+            return;
+        }
+
+        let style = if color_enabled {
+            Style::default().fg(Color::DarkGray)
+        } else {
+            Style::default()
+        };
+
+        let separator = "─".repeat(area.width as usize);
+        buf.set_string(area.x, *current_y, &separator, style);
+        *current_y += 2; // Page break + blank line
+    }
 }
 
 /// Convert hex color code to ratatui Color
