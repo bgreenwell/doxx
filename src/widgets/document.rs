@@ -523,13 +523,98 @@ fn hex_to_color(hex: &str) -> Option<Color> {
 
 impl<'a> Widget for DocumentWidget<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        // TODO: Implement rendering logic
-        // For now, just render a placeholder
-        buf.set_string(
-            area.x,
-            area.y,
-            "DocumentWidget rendering (in progress...)",
-            Style::default(),
-        );
+        // Start rendering from the top of the area
+        let mut current_y = area.y;
+
+        // Skip elements based on scroll offset
+        let visible_elements = self.elements.iter().skip(self.scroll_offset);
+
+        // Track image rendering positions for later overlay
+        let mut image_positions: Vec<(u16, usize)> = Vec::new();
+
+        // Render each visible element
+        for (element_idx, element) in visible_elements.enumerate() {
+            let actual_idx = element_idx + self.scroll_offset;
+
+            // Stop if we've reached the bottom of the area
+            if current_y >= area.y + area.height {
+                break;
+            }
+
+            match element {
+                DocumentElement::Heading { level, text, number } => {
+                    Self::render_heading(
+                        text,
+                        *level,
+                        number.as_deref(),
+                        area,
+                        buf,
+                        &mut current_y,
+                        self.color_enabled,
+                    );
+                }
+
+                DocumentElement::Paragraph { runs } => {
+                    Self::render_paragraph(
+                        runs,
+                        area,
+                        buf,
+                        &mut current_y,
+                        self.color_enabled,
+                    );
+                }
+
+                DocumentElement::List { items, ordered } => {
+                    Self::render_list(
+                        items,
+                        *ordered,
+                        area,
+                        buf,
+                        &mut current_y,
+                        self.color_enabled,
+                    );
+                }
+
+                DocumentElement::Table { table } => {
+                    Self::render_table(
+                        table,
+                        area,
+                        buf,
+                        &mut current_y,
+                        self.color_enabled,
+                    );
+                }
+
+                DocumentElement::Image { description, .. } => {
+                    // Store image position for later rendering
+                    // (actual image rendering must happen via Frame in ui.rs)
+                    let image_y = current_y;
+                    image_positions.push((image_y, actual_idx));
+
+                    // Render placeholder and reserve space
+                    Self::render_image_placeholder(
+                        description,
+                        area,
+                        buf,
+                        &mut current_y,
+                        self.color_enabled,
+                        15, // Standard image height
+                    );
+                }
+
+                DocumentElement::PageBreak => {
+                    Self::render_page_break(
+                        area,
+                        buf,
+                        &mut current_y,
+                        self.color_enabled,
+                    );
+                }
+            }
+        }
+
+        // Note: Image protocols rendering must be handled externally with Frame
+        // The image_positions vector would need to be stored and accessed
+        // by the caller for proper StatefulImage rendering
     }
 }
