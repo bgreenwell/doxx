@@ -129,8 +129,7 @@ fn test_mixed_formatting_document_structure() {
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(
             !stdout.is_empty(),
-            "Output should not be empty for {}",
-            file_path
+            "Output should not be empty for {file_path}"
         );
     }
 }

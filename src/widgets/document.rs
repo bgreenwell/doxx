@@ -3,9 +3,9 @@ use ratatui::{
     layout::Rect,
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::Widget,
+    Frame,
 };
-use ratatui_image::protocol::StatefulProtocol;
+use ratatui_image::{protocol::StatefulProtocol, StatefulImage};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
@@ -27,16 +27,7 @@ pub struct DocumentWidget<'a> {
     scroll_offset: usize,
     color_enabled: bool,
     search_results: &'a [SearchResult],
-    image_protocols: Option<&'a mut Vec<Box<dyn StatefulProtocol>>>,
     current_search_index: usize,
-}
-
-/// Information about where an image should be rendered
-#[derive(Debug, Clone)]
-pub struct ImageRenderInfo {
-    pub y_position: u16,
-    pub element_index: usize,
-    pub protocol_index: usize,
 }
 
 impl<'a> DocumentWidget<'a> {
@@ -47,7 +38,6 @@ impl<'a> DocumentWidget<'a> {
             scroll_offset: 0,
             color_enabled: false,
             search_results: &[],
-            image_protocols: None,
             current_search_index: 0,
         }
     }
@@ -73,12 +63,6 @@ impl<'a> DocumentWidget<'a> {
     /// Set the current search result index for highlighting
     pub fn current_search_index(mut self, index: usize) -> Self {
         self.current_search_index = index;
-        self
-    }
-
-    /// Set image protocols for rendering images
-    pub fn image_protocols(mut self, protocols: Option<&'a mut Vec<Box<dyn StatefulProtocol>>>) -> Self {
-        self.image_protocols = protocols;
         self
     }
 
@@ -197,9 +181,9 @@ impl<'a> DocumentWidget<'a> {
 
         // Build heading text with optional numbering
         let text = if let Some(num) = number {
-            format!("{}{} {}", prefix, num, heading)
+            format!("{prefix}{num} {heading}")
         } else {
-            format!("{}{}", prefix, heading)
+            format!("{prefix}{heading}")
         };
 
         buf.set_string(area.x, *current_y, &text, style);
@@ -429,8 +413,8 @@ impl<'a> DocumentWidget<'a> {
 
             // Apply alignment
             let aligned_content = match cell.alignment {
-                TextAlignment::Left => format!("{:<width$}", content, width = width),
-                TextAlignment::Right => format!("{:>width$}", content, width = width),
+                TextAlignment::Left => format!("{content:<width$}"),
+                TextAlignment::Right => format!("{content:>width$}"),
                 TextAlignment::Center => {
                     let padding = width.saturating_sub(content.len());
                     let left_pad = padding / 2;
@@ -442,7 +426,7 @@ impl<'a> DocumentWidget<'a> {
                         " ".repeat(right_pad)
                     )
                 }
-                TextAlignment::Justify => format!("{:<width$}", content, width = width),
+                TextAlignment::Justify => format!("{content:<width$}"),
             };
 
             buf.set_string(
@@ -486,7 +470,7 @@ impl<'a> DocumentWidget<'a> {
             } else {
                 Style::default()
             };
-            let desc_text = format!("🖼️  {}", description);
+            let desc_text = format!("🖼️  {description}");
             buf.set_string(area.x, *current_y, &desc_text, desc_style);
             *current_y += 2; // Description + blank line
         }
@@ -513,37 +497,31 @@ impl<'a> DocumentWidget<'a> {
         buf.set_string(area.x, *current_y, &separator, style);
         *current_y += 2; // Page break + blank line
     }
-}
 
-/// Convert hex color code to ratatui Color
-fn hex_to_color(hex: &str) -> Option<Color> {
-    let hex = hex.trim_start_matches('#');
-    if hex.len() != 6 {
-        return None;
-    }
-
-    let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
-    let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
-    let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
-
-    Some(Color::Rgb(r, g, b))
-}
-
-impl<'a> Widget for DocumentWidget<'a> {
-    fn render(self, area: Rect, buf: &mut Buffer) {
+    /// Custom render method that has access to both Buffer and Frame for complete rendering.
+    ///
+    /// This method renders all document elements including text (with wrapping) and images.
+    /// Unlike the Widget trait's render method, this has access to Frame which is required
+    /// for rendering StatefulImage widgets.
+    pub fn render(
+        &mut self,
+        area: Rect,
+        buf: &mut Buffer,
+        frame: &mut Frame,
+        image_protocols: &mut [Box<dyn StatefulProtocol>],
+    ) {
         // Start rendering from the top of the area
         let mut current_y = area.y;
 
         // Skip elements based on scroll offset
         let visible_elements = self.elements.iter().skip(self.scroll_offset);
 
-        // Track image rendering positions for later overlay
-        let mut image_positions: Vec<(u16, usize)> = Vec::new();
+        // Track image positions and protocol indices for rendering
+        let mut images_to_render: Vec<(u16, usize)> = Vec::new(); // (y_position, protocol_index)
+        let mut protocol_idx = 0;
 
         // Render each visible element
-        for (element_idx, element) in visible_elements.enumerate() {
-            let actual_idx = element_idx + self.scroll_offset;
-
+        for element in visible_elements {
             // Stop if we've reached the bottom of the area
             if current_y >= area.y + area.height {
                 break;
@@ -593,21 +571,39 @@ impl<'a> Widget for DocumentWidget<'a> {
                     );
                 }
 
-                DocumentElement::Image { description, .. } => {
-                    // Store image position for later rendering
-                    // (actual image rendering must happen via Frame in ui.rs)
-                    let image_y = current_y;
-                    image_positions.push((image_y, actual_idx));
+                DocumentElement::Image {
+                    description,
+                    image_path,
+                    ..
+                } => {
+                    // Check if we can render this image
+                    if image_path.is_some() && protocol_idx < image_protocols.len() {
+                        // Store image position for rendering after text
+                        let image_y = current_y;
+                        images_to_render.push((image_y, protocol_idx));
 
-                    // Render placeholder and reserve space
-                    Self::render_image_placeholder(
-                        description,
-                        area,
-                        buf,
-                        &mut current_y,
-                        self.color_enabled,
-                        15, // Standard image height
-                    );
+                        // Reserve space for the image
+                        Self::render_image_placeholder(
+                            description,
+                            area,
+                            buf,
+                            &mut current_y,
+                            self.color_enabled,
+                            15, // Standard image height
+                        );
+
+                        protocol_idx += 1;
+                    } else {
+                        // Render text-only placeholder
+                        let status = if image_path.is_some() {
+                            " [Image available - use --images flag]"
+                        } else {
+                            " [Image not extracted]"
+                        };
+                        let desc_text = format!("🖼️  {description}{status}");
+                        buf.set_string(area.x, current_y, &desc_text, Style::default());
+                        current_y += 2;
+                    }
                 }
 
                 DocumentElement::PageBreak => {
@@ -621,8 +617,36 @@ impl<'a> Widget for DocumentWidget<'a> {
             }
         }
 
-        // Note: Image protocols rendering must be handled externally with Frame
-        // The image_positions vector would need to be stored and accessed
-        // by the caller for proper StatefulImage rendering
+        // Now render all images using Frame (after text has been rendered to buffer)
+        for (y_pos, proto_idx) in images_to_render {
+            if let Some(protocol) = image_protocols.get_mut(proto_idx) {
+                // Ensure image is within visible area
+                if y_pos < area.y + area.height {
+                    let img_rect = Rect {
+                        x: area.x,
+                        y: y_pos,
+                        width: area.width.min(80),
+                        height: 15.min(area.y + area.height - y_pos),
+                    };
+
+                    let image_widget = StatefulImage::new(None);
+                    frame.render_stateful_widget(image_widget, img_rect, protocol);
+                }
+            }
+        }
     }
+}
+
+/// Convert hex color code to ratatui Color
+fn hex_to_color(hex: &str) -> Option<Color> {
+    let hex = hex.trim_start_matches('#');
+    if hex.len() != 6 {
+        return None;
+    }
+
+    let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
+    let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
+    let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+
+    Some(Color::Rgb(r, g, b))
 }
