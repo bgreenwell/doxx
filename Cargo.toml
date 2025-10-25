@@ -1,6 +1,6 @@
 [package]
 name = "doxx"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "Terminal document viewer for .docx files"
 license = "MIT"
@@ -41,7 +41,7 @@ arboard = "3.3"
 viuer = "0.7"
 image = "0.25"
 zip = "2.0"
-ratatui-image = "1.0"
+ratatui-image = "8.0"
 
 tokio = { version = "1.0", features = ["rt-multi-thread", "macros", "fs"] }
 
@@ -49,6 +49,7 @@ tokio = { version = "1.0", features = ["rt-multi-thread", "macros", "fs"] }
 unicode-segmentation = "1.10"
 regex = "1.10"
 once_cell = "1.19"
+quick-xml = "0.36"
 
 # CLI and utilities
 clap = { version = "4.4", features = ["derive"] }

@@ -1,6 +1,10 @@
 use anyhow::Result;
 
-use crate::{document::*, ExportFormat};
+use crate::{
+    ansi::{export_to_ansi_with_options, AnsiOptions},
+    document::*,
+    ColorDepth, ExportFormat,
+};
 
 pub fn export_document(document: &Document, format: &ExportFormat) -> Result<()> {
     match format {
@@ -8,6 +12,7 @@ pub fn export_document(document: &Document, format: &ExportFormat) -> Result<()>
         ExportFormat::Text => export_to_text(document),
         ExportFormat::Csv => export_to_csv(document),
         ExportFormat::Json => export_to_json(document),
+        ExportFormat::Ansi => export_to_ansi(document),
     }
 }
 
@@ -55,6 +60,9 @@ pub fn export_to_markdown(document: &Document) -> Result<()> {
                     if run.formatting.italic {
                         formatted_text = format!("*{formatted_text}*");
                     }
+                    if run.formatting.strikethrough {
+                        formatted_text = format!("~~{formatted_text}~~");
+                    }
 
                     paragraph_text.push_str(&formatted_text);
                 }
@@ -78,6 +86,9 @@ pub fn export_to_markdown(document: &Document) -> Result<()> {
                         }
                         if run.formatting.italic {
                             formatted_text = format!("*{formatted_text}*");
+                        }
+                        if run.formatting.strikethrough {
+                            formatted_text = format!("~~{formatted_text}~~");
                         }
                         item_text.push_str(&formatted_text);
                     }
@@ -136,6 +147,9 @@ pub fn export_to_markdown(document: &Document) -> Result<()> {
                     _ => String::new(),
                 };
                 markdown.push_str(&format!("![{alt}]({url}){dimensions}\n\n"));
+            }
+            DocumentElement::Equation { latex, .. } => {
+                markdown.push_str(&format!("$${latex}$$\n\n"));
             }
             DocumentElement::PageBreak => {
                 markdown.push_str("\n---\n\n");
@@ -255,6 +269,9 @@ pub fn format_as_text(document: &Document) -> String {
                     text.push_str(&format!("[Image: {description}]\n\n"));
                 }
             }
+            DocumentElement::Equation { latex, .. } => {
+                text.push_str(&format!("Equation: {latex}\n\n"));
+            }
         }
     }
 
@@ -311,6 +328,9 @@ fn export_to_text_with_images(document: &Document) {
                     if run.formatting.underline {
                         formatted_text = format!("_{formatted_text}_");
                     }
+                    if run.formatting.strikethrough {
+                        formatted_text = format!("~~{formatted_text}~~");
+                    }
 
                     paragraph_text.push_str(&formatted_text);
                 }
@@ -359,6 +379,9 @@ fn export_to_text_with_images(document: &Document) {
                 } else {
                     println!("[Image: {description}]\n");
                 }
+            }
+            DocumentElement::Equation { latex, .. } => {
+                println!("Equation: {latex}\n");
             }
             DocumentElement::PageBreak => {
                 println!("{}\n", "-".repeat(50));
@@ -589,4 +612,30 @@ fn align_text_cell_content(content: &str, alignment: TextAlignment, width: usize
             format!("{trimmed:<width$}")
         }
     }
+}
+
+pub fn export_to_ansi(document: &Document) -> Result<()> {
+    let options = AnsiOptions::default();
+    let ansi_output = export_to_ansi_with_options(document, &options)?;
+    print!("{ansi_output}");
+    Ok(())
+}
+
+pub fn export_to_ansi_with_cli_options(
+    document: &Document,
+    terminal_width: Option<usize>,
+    color_depth: &ColorDepth,
+) -> Result<()> {
+    let options = AnsiOptions {
+        terminal_width: terminal_width.unwrap_or_else(|| {
+            std::env::var("COLUMNS")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(80)
+        }),
+        color_depth: color_depth.clone(),
+    };
+    let ansi_output = export_to_ansi_with_options(document, &options)?;
+    print!("{ansi_output}");
+    Ok(())
 }

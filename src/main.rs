@@ -2,8 +2,9 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
-use doxx::ExportFormat;
+use doxx::{ColorDepth, ExportFormat};
 
+mod ansi;
 mod document;
 mod export;
 pub mod image_extractor;
@@ -38,6 +39,14 @@ struct Cli {
     /// Export format
     #[arg(long, value_enum)]
     export: Option<ExportFormat>,
+
+    /// Terminal width for ANSI export (default: $COLUMNS or 80)
+    #[arg(short = 'w', long, value_name = "COLS")]
+    terminal_width: Option<usize>,
+
+    /// Color depth for ANSI export
+    #[arg(long, value_enum, default_value = "auto")]
+    color_depth: ColorDepth,
 
     /// Force interactive UI mode (bypass TTY detection)
     #[arg(long)]
@@ -162,7 +171,18 @@ async fn main() -> Result<()> {
     }
 
     if let Some(export_format) = &cli.export {
-        export::export_document(&document, export_format)?;
+        match export_format {
+            ExportFormat::Ansi => {
+                export::export_to_ansi_with_cli_options(
+                    &document,
+                    cli.terminal_width,
+                    &cli.color_depth,
+                )?;
+            }
+            _ => {
+                export::export_document(&document, export_format)?;
+            }
+        }
         return Ok(());
     }
 

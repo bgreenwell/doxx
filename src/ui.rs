@@ -31,6 +31,7 @@ pub struct App {
     pub scroll_offset: usize,
     pub search_query: String,
     pub search_results: Vec<SearchResult>,
+    pub backup_search_results: Vec<SearchResult>,
     pub current_search_index: usize,
     pub outline_state: ListState,
     pub show_help: bool,
@@ -58,6 +59,7 @@ impl App {
             scroll_offset: 0,
             search_query: String::new(),
             search_results: Vec::new(),
+            backup_search_results: Vec::new(),
             current_search_index: 0,
             outline_state: ListState::default(),
             show_help: false,
@@ -94,19 +96,17 @@ impl App {
     }
 
     fn init_image_support(&mut self) {
-        // Try to initialize picker from termios on Unix, use default on Windows
+        // Try to initialize picker from terminal query on Unix, use font size on Windows
         #[cfg(unix)]
-        let mut picker = if let Ok(p) = Picker::from_termios() {
+        let picker = if let Ok(p) = Picker::from_query_stdio() {
             p
         } else {
             // Fallback to manual font size
-            Picker::new((8, 16))
+            Picker::from_fontsize((8, 16))
         };
 
         #[cfg(not(unix))]
-        let mut picker = Picker::new((8, 16));
-
-        picker.guess_protocol();
+        let picker = Picker::from_fontsize((8, 16));
 
         // Process all images in the document
         for element in &self.document.elements {
@@ -217,6 +217,20 @@ impl App {
 
     pub fn clear_status_message(&mut self) {
         self.status_message = None;
+    }
+
+    pub fn toggle_search_state(&mut self) {
+        if self.search_query.is_empty() {
+            return;
+        }
+        // Toggles search state: clears results if active, restores backup if inactive.
+        if !self.search_results.is_empty() {
+            self.backup_search_results = self.search_results.clone();
+            self.search_results.clear();
+        } else if !self.backup_search_results.is_empty() {
+            self.search_results = self.backup_search_results.clone();
+            self.backup_search_results.clear();
+        }
     }
 }
 
@@ -329,6 +343,10 @@ async fn run_non_interactive(document: Document, cli: &Cli) -> Result<()> {
                             println!();
                         }
                     }
+                    DocumentElement::Equation { latex, .. } => {
+                        println!("📐 Equation: {latex}");
+                        println!();
+                    }
                     DocumentElement::PageBreak => {
                         println!("---");
                         println!();
@@ -408,8 +426,9 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                             KeyCode::Char('q') => break,
                             KeyCode::Char('o') => app.current_view = ViewMode::Outline,
                             KeyCode::Char('s') => app.current_view = ViewMode::Search,
-                            KeyCode::Char('h') | KeyCode::F(1) => app.show_help = !app.show_help,
+                            KeyCode::Char('S') => app.toggle_search_state(),
                             KeyCode::Char('c') => app.copy_content(),
+                            KeyCode::Char('h') | KeyCode::F(1) => app.show_help = !app.show_help,
                             KeyCode::Up | KeyCode::Char('k') => app.scroll_up(),
                             KeyCode::Down | KeyCode::Char('j') => app.scroll_down(),
                             KeyCode::PageUp => app.page_up(10),
@@ -459,9 +478,7 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                             _ => {}
                         },
                         ViewMode::Search => match key.code {
-                            KeyCode::Char('q') | KeyCode::Esc => {
-                                app.current_view = ViewMode::Document
-                            }
+                            KeyCode::Esc => app.current_view = ViewMode::Document,
                             KeyCode::F(2) => app.copy_content(), // Use F2 for copy in search mode to avoid conflicts
                             KeyCode::Char(c) => {
                                 app.search_query.push(c);
@@ -588,6 +605,229 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
 
     // Render the document content (text + images in single pass)
     doc_widget.render(inner, f, &mut app.image_protocols);
+    let mut text = Text::default();
+
+    for (index, element) in app.document.elements[app.scroll_offset..end_index]
+        .iter()
+        .enumerate()
+    {
+        let actual_index = app.scroll_offset + index;
+        let is_search_match = app
+            .search_results
+            .iter()
+            .any(|r| r.element_index == actual_index);
+
+        match element {
+            DocumentElement::Heading {
+                level,
+                text: heading_text,
+                number,
+            } => {
+                let style = match level {
+                    1 => Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD),
+                    2 => Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                    _ => Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                };
+
+                let prefix = match level {
+                    1 => "■ ".to_string(),
+                    2 => "  ▶ ".to_string(),
+                    3 => "    ◦ ".to_string(),
+                    _ => "      • ".to_string(),
+                };
+
+                let display_text = if let Some(number) = number {
+                    format!("{number} {heading_text}")
+                } else {
+                    heading_text.clone()
+                };
+
+                let line = if is_search_match {
+                    Line::from(vec![
+                        Span::styled(prefix.clone(), style),
+                        Span::styled(display_text, style.bg(Color::Yellow).fg(Color::Black)),
+                    ])
+                } else {
+                    Line::from(vec![
+                        Span::styled(prefix, style),
+                        Span::styled(display_text, style),
+                    ])
+                };
+                text.lines.push(line);
+                text.lines.push(Line::from(""));
+            }
+            DocumentElement::Paragraph { runs } => {
+                // Skip empty paragraphs
+                if runs.is_empty() || runs.iter().all(|run| run.text.trim().is_empty()) {
+                    continue;
+                }
+
+                // Build spans from individual runs with their formatting
+                let mut spans = Vec::new();
+                let total_text: String = runs.iter().map(|run| run.text.as_str()).collect();
+
+                for run in runs {
+                    let mut style = Style::default();
+
+                    // Apply text formatting
+                    if run.formatting.bold {
+                        style = style.add_modifier(Modifier::BOLD);
+                    }
+                    if run.formatting.italic {
+                        style = style.add_modifier(Modifier::ITALIC);
+                    }
+                    if run.formatting.underline {
+                        style = style.add_modifier(Modifier::UNDERLINED);
+                    }
+                    if run.formatting.strikethrough {
+                        style = style.add_modifier(Modifier::CROSSED_OUT);
+                    }
+
+                    // Apply text color from document formatting (only if color is enabled)
+                    if app.color_enabled {
+                        if let Some(color_hex) = &run.formatting.color {
+                            if let Some(color) = hex_to_color(color_hex) {
+                                style = style.fg(color);
+                            }
+                        }
+                    }
+
+                    // Add visual indication for different types of content
+                    let display_text = if total_text.len() > 100 {
+                        // Long paragraphs get some indentation for the first run only
+                        if spans.is_empty() {
+                            format!("  {}", run.text)
+                        } else {
+                            run.text.clone()
+                        }
+                    } else {
+                        run.text.clone()
+                    };
+
+                    if is_search_match {
+                        style = style.bg(Color::Yellow).fg(Color::Black);
+                    }
+
+                    spans.push(Span::styled(display_text, style));
+                }
+
+                let line = Line::from(spans);
+                text.lines.push(line);
+                text.lines.push(Line::from(""));
+            }
+            DocumentElement::List { items, ordered } => {
+                for (i, item) in items.iter().enumerate() {
+                    let bullet = if *ordered {
+                        format!("{}. ", i + 1)
+                    } else {
+                        "• ".to_string()
+                    };
+
+                    let indent = "  ".repeat(item.level as usize);
+
+                    // Combine indent and bullet to ensure proper spacing
+                    let prefixed_bullet = format!("{indent}{bullet}");
+
+                    // Create spans for the formatted runs
+                    let mut spans = vec![Span::styled(
+                        prefixed_bullet,
+                        Style::default().fg(Color::Blue),
+                    )];
+
+                    for run in &item.runs {
+                        let mut style = Style::default();
+                        if run.formatting.bold {
+                            style = style.add_modifier(Modifier::BOLD);
+                        }
+                        if run.formatting.italic {
+                            style = style.add_modifier(Modifier::ITALIC);
+                        }
+                        if run.formatting.underline {
+                            style = style.add_modifier(Modifier::UNDERLINED);
+                        }
+                        if run.formatting.strikethrough {
+                            style = style.add_modifier(Modifier::CROSSED_OUT);
+                        }
+                        if let Some(color_hex) = &run.formatting.color {
+                            if let Some(color) = hex_to_color(color_hex) {
+                                style = style.fg(color);
+                            }
+                        }
+                        spans.push(Span::styled(run.text.clone(), style));
+                    }
+
+                    let line = Line::from(spans);
+                    text.lines.push(line);
+                }
+                text.lines.push(Line::from(""));
+            }
+            DocumentElement::Table { table } => {
+                render_table_enhanced(table, &mut text);
+            }
+            DocumentElement::Image {
+                description,
+                width,
+                height,
+                image_path,
+                ..
+            } => {
+                let dimensions = match (width, height) {
+                    (Some(w), Some(h)) => format!(" ({w}x{h})"),
+                    _ => String::new(),
+                };
+
+                let status = if image_path.is_some() && !app.image_protocols.is_empty() {
+                    " [TUI placeholder - use --export text to view images]"
+                } else if image_path.is_some() {
+                    " [Image available - use --export text to view]"
+                } else {
+                    " [Image not extracted]"
+                };
+
+                let line = Line::from(vec![
+                    Span::styled("🖼️  ", Style::default().fg(Color::Magenta)),
+                    Span::styled(description, Style::default().fg(Color::Gray)),
+                    Span::styled(dimensions, Style::default().fg(Color::DarkGray)),
+                    Span::styled(status, Style::default().fg(Color::Green)),
+                ]);
+                text.lines.push(line);
+                text.lines.push(Line::from(""));
+            }
+            DocumentElement::Equation { latex, .. } => {
+                let line = Line::from(vec![
+                    Span::styled("📐 ", Style::default().fg(Color::Cyan)),
+                    Span::styled(
+                        latex,
+                        Style::default()
+                            .fg(Color::White)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                ]);
+                text.lines.push(line);
+                text.lines.push(Line::from(""));
+            }
+            DocumentElement::PageBreak => {
+                text.lines.push(Line::from(Span::styled(
+                    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+                    Style::default().fg(Color::DarkGray),
+                )));
+                text.lines.push(Line::from(""));
+            }
+        }
+    }
+
+    let paragraph = Paragraph::new(text)
+        .wrap(Wrap { trim: false }) // Don't trim whitespace to preserve list indentation
+        .scroll((0, 0));
+
+    f.render_widget(paragraph, inner);
+>>>>>>> main
 
     // Render scrollbar
     let scrollbar = Scrollbar::default()
@@ -721,6 +961,7 @@ fn render_help(f: &mut Frame, area: Rect) {
         "  s          Open search",
         "  n          Next result",
         "  p          Previous result",
+        "  S          Deselect/Reselect current selection",
         "",
         "📋 Other Features:",
         "  o          Show outline",

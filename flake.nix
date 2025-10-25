@@ -26,14 +26,9 @@
         # Define the package
         doxx = pkgs.rustPlatform.buildRustPackage rec {
           pname = "doxx";
-          version = "0.1.1";
+          version = "0.1.2";
 
-          src = pkgs.fetchFromGitHub {
-            owner = "bgreenwell";
-            repo = "doxx";
-            rev = "v0.1.1";
-            sha256 = "sha256-EFza7BSO0vBeUWWKNRnINSq/IUl8jLFUHKMfntdksdA=";
-          };
+          src = ./.;
 
           cargoLock = {
             lockFile = ./Cargo.lock;
