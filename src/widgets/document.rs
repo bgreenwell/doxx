@@ -144,6 +144,153 @@ impl<'a> DocumentWidget<'a> {
 
         lines
     }
+
+    /// Render a heading element at the current position
+    fn render_heading(
+        heading: &str,
+        level: u8,
+        number: Option<&str>,
+        area: Rect,
+        buf: &mut Buffer,
+        current_y: &mut u16,
+        color_enabled: bool,
+    ) {
+        if *current_y >= area.y + area.height {
+            return; // Off screen
+        }
+
+        // Determine styling based on heading level
+        let (style, prefix) = match level {
+            1 => (
+                if color_enabled {
+                    Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default().add_modifier(Modifier::BOLD)
+                },
+                "■ ",
+            ),
+            2 => (
+                if color_enabled {
+                    Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default().add_modifier(Modifier::BOLD)
+                },
+                "  ▶ ",
+            ),
+            _ => (
+                if color_enabled {
+                    Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default().add_modifier(Modifier::BOLD)
+                },
+                "    ◦ ",
+            ),
+        };
+
+        // Build heading text with optional numbering
+        let text = if let Some(num) = number {
+            format!("{}{} {}", prefix, num, heading)
+        } else {
+            format!("{}{}", prefix, heading)
+        };
+
+        buf.set_string(area.x, *current_y, &text, style);
+        *current_y += 2; // Heading + blank line
+    }
+
+    /// Render a paragraph element at the current position
+    fn render_paragraph(
+        runs: &[FormattedRun],
+        area: Rect,
+        buf: &mut Buffer,
+        current_y: &mut u16,
+        color_enabled: bool,
+    ) {
+        if *current_y >= area.y + area.height {
+            return; // Off screen
+        }
+
+        // Wrap the formatted runs into lines
+        let wrapped_lines = Self::wrap_formatted_runs(runs, area.width as usize, color_enabled);
+
+        // Render each line
+        for line in wrapped_lines {
+            if *current_y >= area.y + area.height {
+                break; // Stop if we reach bottom of area
+            }
+
+            buf.set_line(area.x, *current_y, &line, area.width);
+            *current_y += 1;
+        }
+
+        *current_y += 1; // Blank line after paragraph
+    }
+
+    /// Render a list element at the current position
+    fn render_list(
+        items: &[ListItem],
+        ordered: bool,
+        area: Rect,
+        buf: &mut Buffer,
+        current_y: &mut u16,
+        color_enabled: bool,
+    ) {
+        for (idx, item) in items.iter().enumerate() {
+            if *current_y >= area.y + area.height {
+                break; // Off screen
+            }
+
+            // Determine bullet/number prefix
+            let bullet_str = if ordered {
+                format!("{}. ", idx + 1)
+            } else {
+                "• ".to_string()
+            };
+
+            let bullet_width = bullet_str.len();
+            let indent = " ".repeat(bullet_width);
+
+            // Render bullet/number
+            let bullet_style = if color_enabled {
+                Style::default().fg(Color::Cyan)
+            } else {
+                Style::default()
+            };
+            buf.set_string(area.x, *current_y, &bullet_str, bullet_style);
+
+            // Wrap the item text to fit after the bullet
+            let text_width = (area.width as usize).saturating_sub(bullet_width);
+            let wrapped_lines = Self::wrap_formatted_runs(&item.runs, text_width, color_enabled);
+
+            // Render first line (on same line as bullet)
+            if let Some(first_line) = wrapped_lines.first() {
+                buf.set_line(
+                    area.x + bullet_width as u16,
+                    *current_y,
+                    first_line,
+                    (area.width as usize - bullet_width) as u16,
+                );
+                *current_y += 1;
+            }
+
+            // Render remaining lines with indent
+            for line in wrapped_lines.iter().skip(1) {
+                if *current_y >= area.y + area.height {
+                    break;
+                }
+                buf.set_string(area.x, *current_y, &indent, Style::default());
+                buf.set_line(
+                    area.x + bullet_width as u16,
+                    *current_y,
+                    line,
+                    (area.width as usize - bullet_width) as u16,
+                );
+                *current_y += 1;
+            }
+        }
+
+        *current_y += 1; // Blank line after list
+    }
 }
 
 /// Convert hex color code to ratatui Color
