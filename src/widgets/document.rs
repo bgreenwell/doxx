@@ -31,6 +31,14 @@ pub struct DocumentWidget<'a> {
     current_search_index: usize,
 }
 
+/// Information about where an image should be rendered
+#[derive(Debug, Clone)]
+pub struct ImageRenderInfo {
+    pub y_position: u16,
+    pub element_index: usize,
+    pub protocol_index: usize,
+}
+
 impl<'a> DocumentWidget<'a> {
     /// Create a new DocumentWidget with the given document elements
     pub fn new(elements: &'a [DocumentElement]) -> Self {
