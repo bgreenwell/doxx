@@ -4,9 +4,10 @@ use ratatui::{
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::Widget,
-    Frame,
 };
-use ratatui_image::{protocol::StatefulProtocol, StatefulImage};
+use ratatui_image::protocol::StatefulProtocol;
+use unicode_segmentation::UnicodeSegmentation;
+use unicode_width::UnicodeWidthStr;
 
 use crate::document::*;
 
@@ -72,6 +73,91 @@ impl<'a> DocumentWidget<'a> {
         self.image_protocols = protocols;
         self
     }
+
+    /// Wrap formatted text runs into lines that fit within the given width.
+    ///
+    /// This function properly handles:
+    /// - Unicode grapheme clusters (emoji, combining characters)
+    /// - Preserving text formatting (bold, italic, colors) across wrapped lines
+    /// - Calculating visual width correctly for all unicode characters
+    fn wrap_formatted_runs(runs: &[FormattedRun], max_width: usize, color_enabled: bool) -> Vec<Line> {
+        if max_width == 0 {
+            return vec![];
+        }
+
+        let mut lines = Vec::new();
+        let mut current_line: Vec<Span> = Vec::new();
+        let mut current_width = 0;
+
+        for run in runs {
+            let mut style = Style::default();
+
+            // Apply formatting
+            if run.formatting.bold {
+                style = style.add_modifier(Modifier::BOLD);
+            }
+            if run.formatting.italic {
+                style = style.add_modifier(Modifier::ITALIC);
+            }
+            if run.formatting.underline {
+                style = style.add_modifier(Modifier::UNDERLINED);
+            }
+
+            // Apply color if enabled
+            if color_enabled {
+                if let Some(color_hex) = &run.formatting.color {
+                    if let Some(color) = hex_to_color(color_hex) {
+                        style = style.fg(color);
+                    }
+                }
+            }
+
+            // Split text into graphemes for proper unicode handling
+            for grapheme in run.text.graphemes(true) {
+                let g_width = grapheme.width();
+
+                // Check if adding this grapheme would exceed max width
+                if current_width + g_width > max_width && current_width > 0 {
+                    // Finish current line and start a new one
+                    if !current_line.is_empty() {
+                        lines.push(Line::from(current_line.clone()));
+                        current_line.clear();
+                        current_width = 0;
+                    }
+                }
+
+                // Add grapheme to current line
+                current_line.push(Span::styled(grapheme.to_string(), style));
+                current_width += g_width;
+            }
+        }
+
+        // Add remaining content
+        if !current_line.is_empty() {
+            lines.push(Line::from(current_line));
+        }
+
+        // Return at least one empty line if no content
+        if lines.is_empty() {
+            lines.push(Line::from(""));
+        }
+
+        lines
+    }
+}
+
+/// Convert hex color code to ratatui Color
+fn hex_to_color(hex: &str) -> Option<Color> {
+    let hex = hex.trim_start_matches('#');
+    if hex.len() != 6 {
+        return None;
+    }
+
+    let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
+    let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
+    let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+
+    Some(Color::Rgb(r, g, b))
 }
 
 impl<'a> Widget for DocumentWidget<'a> {

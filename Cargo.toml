@@ -60,6 +60,7 @@ thiserror = "1.0"
 # Configuration
 dirs = "5.0"
 toml = "0.8"
+unicode-width = "0.2.0"
 
 # Release optimizations
 [profile.release]

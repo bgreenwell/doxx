@@ -22,7 +22,7 @@ use ratatui::{
 use std::io;
 
 use crate::{document::*, Cli};
-use ratatui_image::{picker::Picker, protocol::StatefulProtocol};
+use ratatui_image::{picker::Picker, protocol::StatefulProtocol, StatefulImage};
 
 type ImageProtocols = Vec<Box<dyn StatefulProtocol>>;
 
@@ -588,6 +588,11 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
 
     let mut text = Text::default();
 
+    // Track images for rendering after text paragraph
+    // Images need direct frame rendering since Paragraph widget can't handle them
+    let mut image_index = 0;
+    let mut images_to_render: Vec<(usize, usize, String)> = Vec::new(); // (protocol_index, text_line_index, description)
+
     for (index, element) in app.document.elements[app.scroll_offset..end_index]
         .iter()
         .enumerate()
@@ -747,32 +752,53 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
             }
             DocumentElement::Image {
                 description,
-                width,
-                height,
                 image_path,
                 ..
             } => {
-                let dimensions = match (width, height) {
-                    (Some(w), Some(h)) => format!(" ({w}x{h})"),
-                    _ => String::new(),
-                };
+                // Check if we can render this image inline
+                if image_path.is_some() && app.image_picker.is_some() && image_index < app.image_protocols.len() {
+                    // Store image for rendering after paragraph
+                    // Reserve space: 15 lines for image + 2 for description
+                    const IMAGE_HEIGHT: usize = 15;
 
-                let status = if image_path.is_some() && !app.image_protocols.is_empty() {
-                    " [TUI placeholder - use --export text to view images]"
-                } else if image_path.is_some() {
-                    " [Image available - use --export text to view]"
+                    // Store the current text line index where image should appear
+                    let image_line_idx = text.lines.len();
+                    images_to_render.push((image_index, image_line_idx, description.clone()));
+
+                    // Add placeholder lines to reserve space
+                    for _ in 0..IMAGE_HEIGHT {
+                        text.lines.push(Line::from(""));
+                    }
+
+                    // Add description line
+                    let desc_line = Line::from(vec![
+                        Span::styled("🖼️ ", Style::default().fg(Color::Magenta)),
+                        Span::styled(description, Style::default().fg(Color::Gray)),
+                    ]);
+                    text.lines.push(desc_line);
+                    text.lines.push(Line::from(""));
+
+                    image_index += 1;
                 } else {
-                    " [Image not extracted]"
-                };
+                    // Fallback to placeholder text
+                    let status = if image_path.is_some() {
+                        " [Image available - use --export text or enable --images]"
+                    } else {
+                        " [Image not extracted]"
+                    };
 
-                let line = Line::from(vec![
-                    Span::styled("🖼️  ", Style::default().fg(Color::Magenta)),
-                    Span::styled(description, Style::default().fg(Color::Gray)),
-                    Span::styled(dimensions, Style::default().fg(Color::DarkGray)),
-                    Span::styled(status, Style::default().fg(Color::Green)),
-                ]);
-                text.lines.push(line);
-                text.lines.push(Line::from(""));
+                    let line = Line::from(vec![
+                        Span::styled("🖼️  ", Style::default().fg(Color::Magenta)),
+                        Span::styled(description, Style::default().fg(Color::Gray)),
+                        Span::styled(status, Style::default().fg(Color::DarkGray)),
+                    ]);
+                    text.lines.push(line);
+                    text.lines.push(Line::from(""));
+
+                    if image_path.is_some() {
+                        image_index += 1;
+                    }
+                }
             }
             DocumentElement::PageBreak => {
                 text.lines.push(Line::from(Span::styled(
@@ -784,11 +810,45 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
         }
     }
 
-    let paragraph = Paragraph::new(text)
-        .wrap(Wrap { trim: false }) // Don't trim whitespace to preserve list indentation
-        .scroll((0, 0));
+    // Note: Wrapping is disabled when images are present to ensure correct positioning
+    // Each logical text line = one screen line, making image Y positioning accurate
+    // TODO(v0.3.0): Implement smart wrapping that accounts for wrapped line heights
+    let paragraph = if !images_to_render.is_empty() {
+        // No wrapping when images are present - ensures accurate positioning
+        Paragraph::new(text).scroll((0, 0))
+    } else {
+        // Enable wrapping for text-only documents
+        Paragraph::new(text)
+            .wrap(Wrap { trim: false })
+            .scroll((0, 0))
+    };
 
     f.render_widget(paragraph, inner);
+
+    // Render images after paragraph (overlay on reserved space)
+    // Note: We position images based on their line index in the text.
+    // The Paragraph widget renders text starting at inner.y, so image Y = inner.y + line_index
+    for (protocol_idx, text_line_idx, _description) in images_to_render {
+        if let Some(protocol) = app.image_protocols.get_mut(protocol_idx) {
+            // Calculate Y position for this image (text line to screen position)
+            let y_pos = inner.y + text_line_idx as u16;
+
+            // Ensure we don't render outside the visible area
+            if y_pos < inner.y + inner.height {
+                // Create rect for image (constrain to available space)
+                let img_rect = Rect {
+                    x: inner.x,
+                    y: y_pos,
+                    width: inner.width.min(80),
+                    height: 15.min(inner.y + inner.height - y_pos),
+                };
+
+                // Render the image
+                let image_widget = StatefulImage::new(None);
+                f.render_stateful_widget(image_widget, img_rect, protocol);
+            }
+        }
+    }
 
     // Render scrollbar
     let scrollbar = Scrollbar::default()
@@ -1028,8 +1088,9 @@ fn render_status_bar(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(help, help_area);
 }
 
-fn render_table_enhanced(table: &TableData, text: &mut Text) {
+fn render_table_enhanced(table: &TableData, text: &mut Text) -> usize {
     let metadata = &table.metadata;
+    let mut line_count = 0;
 
     // Add table title if present
     if let Some(title) = &metadata.title {
@@ -1040,6 +1101,7 @@ fn render_table_enhanced(table: &TableData, text: &mut Text) {
                 .add_modifier(Modifier::BOLD),
         )));
         text.lines.push(Line::from(""));
+        line_count += 2;
     }
 
     // Generate table with proper alignment and borders
@@ -1065,10 +1127,13 @@ fn render_table_enhanced(table: &TableData, text: &mut Text) {
             Style::default().fg(Color::Gray),
         )));
 
+        line_count += 3;
+
         // Data rows
         for row in &table.rows {
             let row_line = render_table_row(row, &metadata.column_widths, false);
             text.lines.push(Line::from(Span::raw(row_line)));
+            line_count += 1;
         }
 
         // Bottom border
@@ -1077,9 +1142,13 @@ fn render_table_enhanced(table: &TableData, text: &mut Text) {
             bottom_border,
             Style::default().fg(Color::Gray),
         )));
+        line_count += 1;
     }
 
     text.lines.push(Line::from(""));
+    line_count += 1;
+
+    line_count
 }
 
 #[derive(Clone, Copy)]
