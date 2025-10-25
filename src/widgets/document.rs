@@ -72,7 +72,11 @@ impl<'a> DocumentWidget<'a> {
     /// - Unicode grapheme clusters (emoji, combining characters)
     /// - Preserving text formatting (bold, italic, colors) across wrapped lines
     /// - Calculating visual width correctly for all unicode characters
-    fn wrap_formatted_runs(runs: &[FormattedRun], max_width: usize, color_enabled: bool) -> Vec<Line> {
+    fn wrap_formatted_runs(
+        runs: &[FormattedRun],
+        max_width: usize,
+        color_enabled: bool,
+    ) -> Vec<Line> {
         if max_width == 0 {
             return vec![];
         }
@@ -155,7 +159,9 @@ impl<'a> DocumentWidget<'a> {
         let (style, prefix) = match level {
             1 => (
                 if color_enabled {
-                    Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD)
                 } else {
                     Style::default().add_modifier(Modifier::BOLD)
                 },
@@ -163,7 +169,9 @@ impl<'a> DocumentWidget<'a> {
             ),
             2 => (
                 if color_enabled {
-                    Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD)
                 } else {
                     Style::default().add_modifier(Modifier::BOLD)
                 },
@@ -171,7 +179,9 @@ impl<'a> DocumentWidget<'a> {
             ),
             _ => (
                 if color_enabled {
-                    Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD)
                 } else {
                     Style::default().add_modifier(Modifier::BOLD)
                 },
@@ -315,7 +325,9 @@ impl<'a> DocumentWidget<'a> {
         // Render title if present
         if let Some(title) = &table.metadata.title {
             let title_style = if color_enabled {
-                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default().add_modifier(Modifier::BOLD)
             };
@@ -440,7 +452,12 @@ impl<'a> DocumentWidget<'a> {
 
             // Render column separator
             if i < cells.len() - 1 && x_offset < area.width as usize {
-                buf.set_string(area.x + x_offset as u16 - 1, *current_y, "│", Style::default());
+                buf.set_string(
+                    area.x + x_offset as u16 - 1,
+                    *current_y,
+                    "│",
+                    Style::default(),
+                );
             }
         }
 
@@ -477,12 +494,7 @@ impl<'a> DocumentWidget<'a> {
     }
 
     /// Render a page break element
-    fn render_page_break(
-        area: Rect,
-        buf: &mut Buffer,
-        current_y: &mut u16,
-        color_enabled: bool,
-    ) {
+    fn render_page_break(area: Rect, buf: &mut Buffer, current_y: &mut u16, color_enabled: bool) {
         if *current_y >= area.y + area.height {
             return;
         }
@@ -498,7 +510,7 @@ impl<'a> DocumentWidget<'a> {
         *current_y += 2; // Page break + blank line
     }
 
-    /// Custom render method that has access to both Buffer and Frame for complete rendering.
+    /// Custom render method that has access to Frame for complete rendering.
     ///
     /// This method renders all document elements including text (with wrapping) and images.
     /// Unlike the Widget trait's render method, this has access to Frame which is required
@@ -506,10 +518,10 @@ impl<'a> DocumentWidget<'a> {
     pub fn render(
         &mut self,
         area: Rect,
-        buf: &mut Buffer,
         frame: &mut Frame,
         image_protocols: &mut [Box<dyn StatefulProtocol>],
     ) {
+        let buf = frame.buffer_mut();
         // Start rendering from the top of the area
         let mut current_y = area.y;
 
@@ -528,7 +540,11 @@ impl<'a> DocumentWidget<'a> {
             }
 
             match element {
-                DocumentElement::Heading { level, text, number } => {
+                DocumentElement::Heading {
+                    level,
+                    text,
+                    number,
+                } => {
                     Self::render_heading(
                         text,
                         *level,
@@ -541,13 +557,7 @@ impl<'a> DocumentWidget<'a> {
                 }
 
                 DocumentElement::Paragraph { runs } => {
-                    Self::render_paragraph(
-                        runs,
-                        area,
-                        buf,
-                        &mut current_y,
-                        self.color_enabled,
-                    );
+                    Self::render_paragraph(runs, area, buf, &mut current_y, self.color_enabled);
                 }
 
                 DocumentElement::List { items, ordered } => {
@@ -562,13 +572,7 @@ impl<'a> DocumentWidget<'a> {
                 }
 
                 DocumentElement::Table { table } => {
-                    Self::render_table(
-                        table,
-                        area,
-                        buf,
-                        &mut current_y,
-                        self.color_enabled,
-                    );
+                    Self::render_table(table, area, buf, &mut current_y, self.color_enabled);
                 }
 
                 DocumentElement::Image {
@@ -607,12 +611,7 @@ impl<'a> DocumentWidget<'a> {
                 }
 
                 DocumentElement::PageBreak => {
-                    Self::render_page_break(
-                        area,
-                        buf,
-                        &mut current_y,
-                        self.color_enabled,
-                    );
+                    Self::render_page_break(area, buf, &mut current_y, self.color_enabled);
                 }
             }
         }
