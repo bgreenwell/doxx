@@ -9,6 +9,7 @@ mod export;
 pub mod image_extractor;
 pub mod terminal_image;
 mod ui;
+mod widgets;
 
 #[derive(Parser)]
 #[command(
