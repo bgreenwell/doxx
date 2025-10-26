@@ -298,6 +298,10 @@ fn format_ansi_text(
     }
 
     result.push_str(text);
+
+    // Reset formatting after this run to prevent bleeding into subsequent runs
+    result.push_str(&format_ansi_reset());
+
     result
 }
 
