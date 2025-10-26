@@ -397,14 +397,19 @@ pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Res
                             "* ".to_string() // Bullets for unordered
                         };
 
-                        // For list items, preserve individual run formatting by adding prefix to first run
-                        // This maintains formatting fidelity while supporting Word automatic numbering
+                        // For list items, preserve individual run formatting by creating separate prefix run
+                        // This maintains formatting fidelity while keeping bullets/numbers unformatted
                         if !formatted_runs.is_empty() {
-                            // Add the list prefix to the first run
+                            // Create a prefix run with default formatting (no color, bold, etc.)
                             let prefix_text = format!("__WORD_LIST__{indent}{prefix}");
-                            let mut updated_runs = formatted_runs;
-                            updated_runs[0].text =
-                                format!("{prefix_text}{}", updated_runs[0].text.trim());
+                            let prefix_run = FormattedRun {
+                                text: prefix_text,
+                                formatting: TextFormatting::default(),
+                            };
+
+                            // Insert prefix run at the beginning, preserving text formatting
+                            let mut updated_runs = vec![prefix_run];
+                            updated_runs.extend(formatted_runs);
 
                             elements.push(DocumentElement::Paragraph { runs: updated_runs });
                         } else {
