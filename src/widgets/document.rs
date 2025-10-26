@@ -98,6 +98,9 @@ impl<'a> DocumentWidget<'a> {
             if run.formatting.underline {
                 style = style.add_modifier(Modifier::UNDERLINED);
             }
+            if run.formatting.strikethrough {
+                style = style.add_modifier(Modifier::CROSSED_OUT);
+            }
 
             // Apply color if enabled
             if color_enabled {
@@ -414,6 +417,12 @@ impl<'a> DocumentWidget<'a> {
             }
             if cell.formatting.italic {
                 style = style.add_modifier(Modifier::ITALIC);
+            }
+            if cell.formatting.underline {
+                style = style.add_modifier(Modifier::UNDERLINED);
+            }
+            if cell.formatting.strikethrough {
+                style = style.add_modifier(Modifier::CROSSED_OUT);
             }
 
             // Truncate content to fit width
