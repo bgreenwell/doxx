@@ -76,7 +76,7 @@ impl<'a> DocumentWidget<'a> {
         runs: &[FormattedRun],
         max_width: usize,
         color_enabled: bool,
-    ) -> Vec<Line> {
+    ) -> Vec<Line<'_>> {
         if max_width == 0 {
             return vec![];
         }
