@@ -9,6 +9,7 @@ pub mod equation;
 pub mod export;
 pub mod image_extractor;
 pub mod terminal_image;
+pub mod widgets;
 
 /// Export format options
 #[derive(clap::ValueEnum, Clone)]

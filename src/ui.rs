@@ -12,7 +12,6 @@ use ratatui::{
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Direction, Layout, Margin, Rect},
     style::{Color, Modifier, Style},
-    text::{Line, Span, Text},
     widgets::{
         Block, Borders, Clear, List, ListItem, ListState, Paragraph, Scrollbar,
         ScrollbarOrientation, ScrollbarState, Wrap,
@@ -21,7 +20,7 @@ use ratatui::{
 };
 use std::io;
 
-use crate::{document::*, Cli};
+use crate::{document::*, widgets::DocumentWidget, Cli};
 use ratatui_image::{picker::Picker, protocol::StatefulProtocol};
 
 type ImageProtocols = Vec<StatefulProtocol>;
@@ -597,236 +596,15 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
     let inner = block.inner(area);
     f.render_widget(block, area);
 
-    let visible_height = inner.height as usize;
-    let end_index = std::cmp::min(
-        app.scroll_offset + visible_height,
-        app.document.elements.len(),
-    );
+    // Use DocumentWidget for unified rendering with proper text wrapping + images
+    let mut doc_widget = DocumentWidget::new(&app.document.elements[..])
+        .scroll_offset(app.scroll_offset)
+        .color_enabled(app.color_enabled)
+        .search_results(&app.search_results[..])
+        .current_search_index(app.current_search_index);
 
-    let mut text = Text::default();
-
-    for (index, element) in app.document.elements[app.scroll_offset..end_index]
-        .iter()
-        .enumerate()
-    {
-        let actual_index = app.scroll_offset + index;
-        let is_search_match = app
-            .search_results
-            .iter()
-            .any(|r| r.element_index == actual_index);
-
-        match element {
-            DocumentElement::Heading {
-                level,
-                text: heading_text,
-                number,
-            } => {
-                let style = match level {
-                    1 => Style::default()
-                        .fg(Color::Yellow)
-                        .add_modifier(Modifier::BOLD),
-                    2 => Style::default()
-                        .fg(Color::Green)
-                        .add_modifier(Modifier::BOLD),
-                    _ => Style::default()
-                        .fg(Color::Cyan)
-                        .add_modifier(Modifier::BOLD),
-                };
-
-                let prefix = match level {
-                    1 => "■ ".to_string(),
-                    2 => "  ▶ ".to_string(),
-                    3 => "    ◦ ".to_string(),
-                    _ => "      • ".to_string(),
-                };
-
-                let display_text = if let Some(number) = number {
-                    format!("{number} {heading_text}")
-                } else {
-                    heading_text.clone()
-                };
-
-                let line = if is_search_match {
-                    Line::from(vec![
-                        Span::styled(prefix.clone(), style),
-                        Span::styled(display_text, style.bg(Color::Yellow).fg(Color::Black)),
-                    ])
-                } else {
-                    Line::from(vec![
-                        Span::styled(prefix, style),
-                        Span::styled(display_text, style),
-                    ])
-                };
-                text.lines.push(line);
-                text.lines.push(Line::from(""));
-            }
-            DocumentElement::Paragraph { runs } => {
-                // Skip empty paragraphs
-                if runs.is_empty() || runs.iter().all(|run| run.text.trim().is_empty()) {
-                    continue;
-                }
-
-                // Build spans from individual runs with their formatting
-                let mut spans = Vec::new();
-                let total_text: String = runs.iter().map(|run| run.text.as_str()).collect();
-
-                for run in runs {
-                    let mut style = Style::default();
-
-                    // Apply text formatting
-                    if run.formatting.bold {
-                        style = style.add_modifier(Modifier::BOLD);
-                    }
-                    if run.formatting.italic {
-                        style = style.add_modifier(Modifier::ITALIC);
-                    }
-                    if run.formatting.underline {
-                        style = style.add_modifier(Modifier::UNDERLINED);
-                    }
-                    if run.formatting.strikethrough {
-                        style = style.add_modifier(Modifier::CROSSED_OUT);
-                    }
-
-                    // Apply text color from document formatting (only if color is enabled)
-                    if app.color_enabled {
-                        if let Some(color_hex) = &run.formatting.color {
-                            if let Some(color) = hex_to_color(color_hex) {
-                                style = style.fg(color);
-                            }
-                        }
-                    }
-
-                    // Add visual indication for different types of content
-                    let display_text = if total_text.len() > 100 {
-                        // Long paragraphs get some indentation for the first run only
-                        if spans.is_empty() {
-                            format!("  {}", run.text)
-                        } else {
-                            run.text.clone()
-                        }
-                    } else {
-                        run.text.clone()
-                    };
-
-                    if is_search_match {
-                        style = style.bg(Color::Yellow).fg(Color::Black);
-                    }
-
-                    spans.push(Span::styled(display_text, style));
-                }
-
-                let line = Line::from(spans);
-                text.lines.push(line);
-                text.lines.push(Line::from(""));
-            }
-            DocumentElement::List { items, ordered } => {
-                for (i, item) in items.iter().enumerate() {
-                    let bullet = if *ordered {
-                        format!("{}. ", i + 1)
-                    } else {
-                        "• ".to_string()
-                    };
-
-                    let indent = "  ".repeat(item.level as usize);
-
-                    // Combine indent and bullet to ensure proper spacing
-                    let prefixed_bullet = format!("{indent}{bullet}");
-
-                    // Create spans for the formatted runs
-                    let mut spans = vec![Span::styled(
-                        prefixed_bullet,
-                        Style::default().fg(Color::Blue),
-                    )];
-
-                    for run in &item.runs {
-                        let mut style = Style::default();
-                        if run.formatting.bold {
-                            style = style.add_modifier(Modifier::BOLD);
-                        }
-                        if run.formatting.italic {
-                            style = style.add_modifier(Modifier::ITALIC);
-                        }
-                        if run.formatting.underline {
-                            style = style.add_modifier(Modifier::UNDERLINED);
-                        }
-                        if run.formatting.strikethrough {
-                            style = style.add_modifier(Modifier::CROSSED_OUT);
-                        }
-                        if let Some(color_hex) = &run.formatting.color {
-                            if let Some(color) = hex_to_color(color_hex) {
-                                style = style.fg(color);
-                            }
-                        }
-                        spans.push(Span::styled(run.text.clone(), style));
-                    }
-
-                    let line = Line::from(spans);
-                    text.lines.push(line);
-                }
-                text.lines.push(Line::from(""));
-            }
-            DocumentElement::Table { table } => {
-                render_table_enhanced(table, &mut text);
-            }
-            DocumentElement::Image {
-                description,
-                width,
-                height,
-                image_path,
-                ..
-            } => {
-                let dimensions = match (width, height) {
-                    (Some(w), Some(h)) => format!(" ({w}x{h})"),
-                    _ => String::new(),
-                };
-
-                let status = if image_path.is_some() && !app.image_protocols.is_empty() {
-                    " [TUI placeholder - use --export text to view images]"
-                } else if image_path.is_some() {
-                    " [Image available - use --export text to view]"
-                } else {
-                    " [Image not extracted]"
-                };
-
-                let line = Line::from(vec![
-                    Span::styled("🖼️  ", Style::default().fg(Color::Magenta)),
-                    Span::styled(description, Style::default().fg(Color::Gray)),
-                    Span::styled(dimensions, Style::default().fg(Color::DarkGray)),
-                    Span::styled(status, Style::default().fg(Color::Green)),
-                ]);
-                text.lines.push(line);
-                text.lines.push(Line::from(""));
-            }
-            DocumentElement::Equation { latex, .. } => {
-                let line = Line::from(vec![
-                    Span::styled("📐 ", Style::default().fg(Color::Cyan)),
-                    Span::styled(
-                        latex,
-                        Style::default()
-                            .fg(Color::White)
-                            .add_modifier(Modifier::BOLD),
-                    ),
-                ]);
-                text.lines.push(line);
-                text.lines.push(Line::from(""));
-            }
-            DocumentElement::PageBreak => {
-                text.lines.push(Line::from(Span::styled(
-                    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
-                    Style::default().fg(Color::DarkGray),
-                )));
-                text.lines.push(Line::from(""));
-            }
-        }
-    }
-
-    let paragraph = Paragraph::new(text)
-        .wrap(Wrap { trim: false }) // Don't trim whitespace to preserve list indentation
-        .scroll((0, 0));
-
-    f.render_widget(paragraph, inner);
-
-    // Render scrollbar
+    // Render the document content (text + images in single pass)
+    doc_widget.render(inner, f, &mut app.image_protocols);
     let scrollbar = Scrollbar::default()
         .orientation(ScrollbarOrientation::VerticalRight)
         .begin_symbol(Some("↑"))
@@ -1065,140 +843,6 @@ fn render_status_bar(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(help, help_area);
 }
 
-fn render_table_enhanced(table: &TableData, text: &mut Text) {
-    let metadata = &table.metadata;
-
-    // Add table title if present
-    if let Some(title) = &metadata.title {
-        text.lines.push(Line::from(Span::styled(
-            format!("📊 {title}"),
-            Style::default()
-                .fg(Color::Blue)
-                .add_modifier(Modifier::BOLD),
-        )));
-        text.lines.push(Line::from(""));
-    }
-
-    // Generate table with proper alignment and borders
-    if !table.headers.is_empty() {
-        // Top border
-        let top_border = generate_table_border(&metadata.column_widths, BorderType::Top);
-        text.lines.push(Line::from(Span::styled(
-            top_border,
-            Style::default().fg(Color::Gray),
-        )));
-
-        // Header row
-        let header_line = render_table_row(&table.headers, &metadata.column_widths, true);
-        text.lines.push(Line::from(Span::styled(
-            header_line,
-            Style::default().add_modifier(Modifier::BOLD),
-        )));
-
-        // Header separator
-        let separator = generate_table_border(&metadata.column_widths, BorderType::Separator);
-        text.lines.push(Line::from(Span::styled(
-            separator,
-            Style::default().fg(Color::Gray),
-        )));
-
-        // Data rows
-        for row in &table.rows {
-            let row_line = render_table_row(row, &metadata.column_widths, false);
-            text.lines.push(Line::from(Span::raw(row_line)));
-        }
-
-        // Bottom border
-        let bottom_border = generate_table_border(&metadata.column_widths, BorderType::Bottom);
-        text.lines.push(Line::from(Span::styled(
-            bottom_border,
-            Style::default().fg(Color::Gray),
-        )));
-    }
-
-    text.lines.push(Line::from(""));
-}
-
-#[derive(Clone, Copy)]
-enum BorderType {
-    Top,
-    Separator,
-    Bottom,
-}
-
-fn generate_table_border(column_widths: &[usize], border_type: BorderType) -> String {
-    let (left, middle, right, fill) = match border_type {
-        BorderType::Top => ("┌", "┬", "┐", "─"),
-        BorderType::Separator => ("├", "┼", "┤", "─"),
-        BorderType::Bottom => ("└", "┴", "┘", "─"),
-    };
-
-    let mut border = String::new();
-    border.push_str(left);
-
-    for (i, &width) in column_widths.iter().enumerate() {
-        border.push_str(&fill.repeat(width + 2)); // +2 for padding
-        if i < column_widths.len() - 1 {
-            border.push_str(middle);
-        }
-    }
-
-    border.push_str(right);
-    border
-}
-
-fn render_table_row(cells: &[TableCell], column_widths: &[usize], is_header: bool) -> String {
-    let mut row = String::new();
-    row.push('│');
-
-    for (i, cell) in cells.iter().enumerate() {
-        let width = column_widths.get(i).copied().unwrap_or(10);
-        let aligned_content = align_cell_content(&cell.content, cell.alignment, width);
-        let formatted_content = if is_header {
-            aligned_content
-        } else {
-            apply_cell_formatting(&aligned_content, &cell.formatting)
-        };
-
-        row.push(' ');
-        row.push_str(&formatted_content);
-        row.push(' ');
-        row.push('│');
-    }
-
-    row
-}
-
-fn align_cell_content(content: &str, alignment: TextAlignment, width: usize) -> String {
-    let trimmed = content.trim();
-
-    match alignment {
-        TextAlignment::Left => format!("{trimmed:<width$}"),
-        TextAlignment::Right => format!("{trimmed:>width$}"),
-        TextAlignment::Center => {
-            let padding = width.saturating_sub(trimmed.len());
-            let left_pad = padding / 2;
-            let right_pad = padding - left_pad;
-            format!(
-                "{}{}{}",
-                " ".repeat(left_pad),
-                trimmed,
-                " ".repeat(right_pad)
-            )
-        }
-        TextAlignment::Justify => {
-            // For terminal output, treat justify as left-aligned
-            format!("{trimmed:<width$}")
-        }
-    }
-}
-
-fn apply_cell_formatting(content: &str, _formatting: &TextFormatting) -> String {
-    // For terminal output, we'll keep formatting simple
-    // Advanced formatting could use ANSI codes here
-    content.to_string()
-}
-
 fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
     let popup_layout = Layout::default()
         .direction(Direction::Vertical)
@@ -1217,20 +861,4 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
             Constraint::Percentage((100 - percent_x) / 2),
         ])
         .split(popup_layout[1])[1]
-}
-
-/// Convert hex color code to ratatui Color
-fn hex_to_color(hex: &str) -> Option<Color> {
-    // Remove # if present and ensure we have 6 characters
-    let hex = hex.trim_start_matches('#');
-    if hex.len() != 6 {
-        return None;
-    }
-
-    // Parse RGB components
-    let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
-    let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
-    let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
-
-    Some(Color::Rgb(r, g, b))
 }

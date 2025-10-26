@@ -1,0 +1,10 @@
+/Users/bgreenwell/Dropbox/devel/doxx/experiments/ratatui_image_test/target/release/deps/bitstream_io-c2f61ce30288cf59.d: /Users/bgreenwell/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bitstream-io-2.6.0/src/lib.rs /Users/bgreenwell/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bitstream-io-2.6.0/src/huffman.rs /Users/bgreenwell/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bitstream-io-2.6.0/src/read.rs /Users/bgreenwell/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bitstream-io-2.6.0/src/write.rs
+
+/Users/bgreenwell/Dropbox/devel/doxx/experiments/ratatui_image_test/target/release/deps/libbitstream_io-c2f61ce30288cf59.rlib: /Users/bgreenwell/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bitstream-io-2.6.0/src/lib.rs /Users/bgreenwell/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bitstream-io-2.6.0/src/huffman.rs /Users/bgreenwell/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bitstream-io-2.6.0/src/read.rs /Users/bgreenwell/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bitstream-io-2.6.0/src/write.rs
+
+/Users/bgreenwell/Dropbox/devel/doxx/experiments/ratatui_image_test/target/release/deps/libbitstream_io-c2f61ce30288cf59.rmeta: /Users/bgreenwell/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bitstream-io-2.6.0/src/lib.rs /Users/bgreenwell/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bitstream-io-2.6.0/src/huffman.rs /Users/bgreenwell/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bitstream-io-2.6.0/src/read.rs /Users/bgreenwell/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bitstream-io-2.6.0/src/write.rs
+
+/Users/bgreenwell/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bitstream-io-2.6.0/src/lib.rs:
+/Users/bgreenwell/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bitstream-io-2.6.0/src/huffman.rs:
+/Users/bgreenwell/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bitstream-io-2.6.0/src/read.rs:
+/Users/bgreenwell/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bitstream-io-2.6.0/src/write.rs:
