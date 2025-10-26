@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **List Bullet Formatting Bleed**: Fixed list bullets and numbers incorrectly inheriting text formatting from list items
+  - List bullets/numbers were inheriting bold, italic, color, and strikethrough from the first word
+  - Affected all export modes (ANSI, markdown, text) and TUI rendering
+  - Root cause: List prefix was prepended to first run's text, inheriting all formatting properties
+  - Solution: Created separate FormattedRun with default formatting for list prefixes
+- **ANSI Formatting Bleed**: Fixed ANSI formatting codes bleeding into adjacent unformatted runs
+  - Formatting from one text run was persisting into subsequent runs that should be unformatted
+  - Example: Formatted "text" followed by unformatted "!" would render both formatted
+  - Root cause: ANSI reset codes were only applied after all runs, not after each individual run
+  - Solution: Added reset code at end of each formatted run for proper isolation
+- **TUI Strikethrough Rendering**: Fixed strikethrough text not displaying in TUI mode
+  - Strikethrough worked in all export modes but was invisible in interactive viewer
+  - Added missing `Modifier::CROSSED_OUT` to paragraph and table cell rendering
+  - Also added missing underline support for table cells
+
 ### Added
 - **TUI Inline Image Display**: Complete terminal image rendering within the interactive viewer
   - Custom `DocumentWidget` with unified text and image rendering pipeline
