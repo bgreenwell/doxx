@@ -519,7 +519,7 @@ impl<'a> DocumentWidget<'a> {
         &mut self,
         area: Rect,
         frame: &mut Frame,
-        image_protocols: &mut [Box<dyn StatefulProtocol>],
+        image_protocols: &mut [StatefulProtocol],
     ) {
         let buf = frame.buffer_mut();
         // Start rendering from the top of the area
@@ -610,6 +610,36 @@ impl<'a> DocumentWidget<'a> {
                     }
                 }
 
+                DocumentElement::Equation { latex, .. } => {
+                    if current_y >= area.y + area.height {
+                        continue;
+                    }
+
+                    // Render equation as formatted text with icon
+                    let icon_style = if self.color_enabled {
+                        Style::default().fg(Color::Cyan)
+                    } else {
+                        Style::default()
+                    };
+
+                    let latex_style = if self.color_enabled {
+                        Style::default()
+                            .fg(Color::White)
+                            .add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::default().add_modifier(Modifier::BOLD)
+                    };
+
+                    // Build the equation line
+                    let line = Line::from(vec![
+                        Span::styled("📐 ", icon_style),
+                        Span::styled(latex, latex_style),
+                    ]);
+
+                    buf.set_line(area.x, current_y, &line, area.width);
+                    current_y += 2; // Equation + blank line
+                }
+
                 DocumentElement::PageBreak => {
                     Self::render_page_break(area, buf, &mut current_y, self.color_enabled);
                 }
@@ -628,7 +658,7 @@ impl<'a> DocumentWidget<'a> {
                         height: 15.min(area.y + area.height - y_pos),
                     };
 
-                    let image_widget = StatefulImage::new(None);
+                    let image_widget = StatefulImage::new();
                     frame.render_stateful_widget(image_widget, img_rect, protocol);
                 }
             }

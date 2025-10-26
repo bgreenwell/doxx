@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **TUI Inline Image Display**: Complete terminal image rendering within the interactive viewer
+  - Custom `DocumentWidget` with unified text and image rendering pipeline
+  - Unicode-aware text wrapping using `unicode-segmentation` and `unicode-width` crates
+  - Support for Kitty, iTerm2, and half-block fallback protocols via `ratatui-image`
+  - Images render inline at correct positions within document flow
+  - Proper handling of image dimensions and terminal constraints
+  - Works seamlessly with existing features (search, navigation, scrolling)
+  - Foundation for future enhancements (text selection, hyperlinks)
+
+### Changed
+- Refactored document rendering architecture with custom `DocumentWidget`
+  - Single-pass rendering for improved performance
+  - Better separation of concerns (rendering logic in widget module)
+  - Removed 430+ lines of duplicate manual rendering code from `ui.rs`
+  - Custom `render()` method with `Frame` access enables `StatefulImage` rendering
+
+### Technical
+- Integrated equation support from main branch into custom widget architecture
+- All rendering (text, tables, images, equations) now unified in `DocumentWidget`
+- Tests verified with `equations.docx`, `images.docx`, and other fixtures
+
 ## [0.1.2] - 2025-10-21
 
 ### Added
