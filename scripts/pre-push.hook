@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Git pre-push hook
+#
+# To install:
+#   cp scripts/pre-push.hook .git/hooks/pre-push
+#   chmod +x .git/hooks/pre-push
+#
+# To bypass (use sparingly):
+#   git push --no-verify
+
+set -e
+
+echo "🚀 Running pre-push validation..."
+echo ""
+
+# Run the full check script
+if ./scripts/check.sh; then
+    echo ""
+    echo "✅ Pre-push validation passed. Proceeding with push..."
+    exit 0
+else
+    echo ""
+    echo "❌ Pre-push validation failed!"
+    echo "Fix the issues above or use 'git push --no-verify' to bypass (not recommended)"
+    exit 1
+fi
