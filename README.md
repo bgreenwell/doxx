@@ -74,6 +74,16 @@ brew install doxx
 cargo install doxx
 ```
 
+#### Debian/Ubuntu
+
+`doxx` is officially packaged for Debian as
+[`rust-doxx`](https://tracker.debian.org/pkg/rust-doxx) and is available in testing
+(forky).
+
+```bash
+sudo apt install doxx
+```
+
 #### Arch Linux
 
 ```bash
