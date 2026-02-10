@@ -224,11 +224,13 @@ impl TerminalImageRenderer {
     fn get_terminal_size() -> (u32, u32) {
         // Try to get terminal size from crossterm
         if let Ok((width, height)) = crossterm::terminal::size() {
-            (width as u32, height as u32)
-        } else {
-            // Fallback to reasonable defaults
-            (80, 24)
+            // Ensure we got valid dimensions (CI environments may return 0,0)
+            if width > 0 && height > 0 {
+                return (width as u32, height as u32);
+            }
         }
+        // Fallback to reasonable defaults
+        (80, 24)
     }
 
     /// Print capabilities information for debugging
