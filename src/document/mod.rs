@@ -5,6 +5,7 @@
 //!
 //! During refactoring: Incrementally extracting modules
 
+pub(crate) mod io;
 pub mod models;
 
 // Re-export all models
