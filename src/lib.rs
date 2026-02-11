@@ -5,7 +5,7 @@
 
 pub mod ansi;
 pub mod document;
-pub mod document_legacy;  // Temporary during refactoring
+pub mod document_legacy; // Temporary during refactoring
 pub mod equation;
 pub mod export;
 pub mod image_extractor;
