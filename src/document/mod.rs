@@ -5,6 +5,7 @@
 //!
 //! During refactoring: Incrementally extracting modules
 
+pub(crate) mod cleanup;
 pub(crate) mod io;
 pub(crate) mod legacy; // Temporary legacy code during refactoring
 pub mod models;
