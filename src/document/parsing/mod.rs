@@ -3,4 +3,5 @@
 //! This module contains specialized parsing functions for different
 //! document elements and features.
 
+pub(crate) mod list;
 pub(crate) mod numbering;
