@@ -6,10 +6,13 @@
 //! During refactoring: Incrementally extracting modules
 
 pub(crate) mod io;
+pub(crate) mod legacy; // Temporary legacy code during refactoring
 pub mod models;
+pub mod query;
 
-// Re-export all models
+// Re-export all models and query functions
 pub use models::*;
+pub use query::*;
 
-// Temporary: re-export everything from legacy file
-pub use crate::document_legacy::*;
+// Temporary: re-export remaining public API from legacy file
+pub use legacy::load_document;
