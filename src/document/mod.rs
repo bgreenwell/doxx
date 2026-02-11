@@ -9,6 +9,7 @@ pub(crate) mod cleanup;
 pub(crate) mod io;
 pub(crate) mod legacy; // Temporary legacy code during refactoring
 pub mod models;
+pub(crate) mod parsing;
 pub mod query;
 
 // Re-export all models and query functions
