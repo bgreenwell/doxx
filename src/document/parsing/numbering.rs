@@ -232,7 +232,7 @@ pub(crate) fn analyze_heading_structure(document: &docx_rs::Document) -> bool {
             if let Some(heading_level) =
                 super::super::legacy::detect_heading_from_paragraph_style(para)
             {
-                let text = super::super::legacy::extract_paragraph_text(para);
+                let text = super::formatting::extract_paragraph_text(para);
 
                 // Check if this heading has explicit numbering in the text
                 if extract_heading_number_from_text(&text).is_some() {
