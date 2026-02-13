@@ -7,7 +7,7 @@
 
 pub(crate) mod cleanup;
 pub(crate) mod io;
-pub(crate) mod legacy; // Temporary legacy code during refactoring
+pub(crate) mod loader;
 pub mod models;
 pub(crate) mod parsing;
 pub mod query;
@@ -16,5 +16,5 @@ pub mod query;
 pub use models::*;
 pub use query::*;
 
-// Temporary: re-export remaining public API from legacy file
-pub use legacy::load_document;
+// Re-export main document loading function
+pub use loader::load_document;
