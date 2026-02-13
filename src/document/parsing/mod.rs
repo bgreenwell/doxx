@@ -3,6 +3,7 @@
 //! This module contains specialized parsing functions for different
 //! document elements and features.
 
+pub(crate) mod equation;
 pub(crate) mod formatting;
 pub(crate) mod heading;
 pub(crate) mod list;
