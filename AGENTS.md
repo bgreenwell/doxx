@@ -21,13 +21,25 @@ cargo run -- tests/fixtures/equations.docx --search "formula"
 
 ```
 src/
-├── main.rs           # CLI interface
-├── document.rs       # Document parsing and structures
-├── ui.rs            # Terminal UI (ratatui)
-├── export.rs        # Export formats (markdown, JSON, CSV, ANSI)
-├── equation.rs      # OMML to LaTeX conversion
-├── image_extractor.rs  # Image extraction from DOCX
-└── terminal_image.rs   # Terminal image rendering
+├── main.rs              # CLI interface
+├── document/            # Document parsing and structures (modular)
+│   ├── mod.rs           # Module root with re-exports
+│   ├── models.rs        # Core data structures (Document, DocumentElement, etc.)
+│   ├── loader.rs        # Main document loading orchestrator
+│   ├── io.rs            # File I/O operations
+│   ├── query.rs         # Search and outline generation
+│   ├── cleanup.rs       # Post-processing utilities
+│   └── parsing/         # Specialized parsing modules
+│       ├── numbering.rs # Numbering management (headings, lists)
+│       ├── formatting.rs# Text and formatting extraction
+│       ├── heading.rs   # Heading detection (style-based, heuristic)
+│       ├── list.rs      # List processing and grouping
+│       ├── table.rs     # Table extraction with alignment detection
+│       └── equation.rs  # OMML to LaTeX conversion
+├── ui.rs                # Terminal UI (ratatui)
+├── export.rs            # Export formats (markdown, JSON, CSV, ANSI)
+├── image_extractor.rs   # Image extraction from DOCX
+└── terminal_image.rs    # Terminal image rendering
 ```
 
 ## Core Architecture

@@ -44,6 +44,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Integrated equation support from main branch into custom widget architecture
 - All rendering (text, tables, images, equations) now unified in `DocumentWidget`
 - Tests verified with `equations.docx`, `images.docx`, and other fixtures
+- **Document Module Refactoring**: Completely restructured document parsing into focused modules
+  - Split monolithic 2,611-line `document.rs` into 12 specialized modules
+  - Created `document/parsing/` submodule with focused parsers (equations, tables, headings, lists, formatting, numbering)
+  - Improved code organization with clear separation of concerns
+  - Enhanced maintainability and extensibility for future development
+  - All 53 tests passing with no functional changes
 
 ## [0.1.2] - 2025-10-21
 

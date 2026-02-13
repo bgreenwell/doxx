@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 // Type aliases for convenience
 pub type TableRows = Vec<Vec<TableCell>>;
 pub type NumberingInfo = (i32, u8);
-pub type HeadingNumberInfo = (String, String);
 
 /// Image rendering options
 #[derive(Debug, Clone, Default)]
