@@ -229,9 +229,7 @@ pub(crate) fn analyze_heading_structure(document: &docx_rs::Document) -> bool {
             // Note: detect_heading_from_paragraph_style and extract_paragraph_text
             // will be in the heading/formatting modules, but we use them here
             // This creates a circular dependency that we'll resolve in later phases
-            if let Some(heading_level) =
-                super::super::legacy::detect_heading_from_paragraph_style(para)
-            {
+            if let Some(heading_level) = super::heading::detect_heading_from_paragraph_style(para) {
                 let text = super::formatting::extract_paragraph_text(para);
 
                 // Check if this heading has explicit numbering in the text
