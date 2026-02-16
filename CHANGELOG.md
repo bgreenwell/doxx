@@ -49,7 +49,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Created `document/parsing/` submodule with focused parsers (equations, tables, headings, lists, formatting, numbering)
   - Improved code organization with clear separation of concerns
   - Enhanced maintainability and extensibility for future development
-  - All 53 tests passing with no functional changes
+  - All 59 tests passing with no functional changes
+  - Removed compiler warnings and updated documentation
 
 ## [0.1.2] - 2025-10-21
 
