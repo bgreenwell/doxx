@@ -29,7 +29,9 @@ coverage/
 
 # Project management and development notes
 CLAUDE.md
+AGENTS.md
 .planning/
+.agents/
 
 # macOS
 .DS_Store
