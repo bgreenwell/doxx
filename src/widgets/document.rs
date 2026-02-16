@@ -72,11 +72,14 @@ impl<'a> DocumentWidget<'a> {
     /// - Unicode grapheme clusters (emoji, combining characters)
     /// - Preserving text formatting (bold, italic, colors) across wrapped lines
     /// - Calculating visual width correctly for all unicode characters
+    /// - Search result highlighting (current match and other matches)
     fn wrap_formatted_runs(
         runs: &[FormattedRun],
         max_width: usize,
         color_enabled: bool,
-    ) -> Vec<Line<'_>> {
+        search_matches: &[(usize, usize)], // List of (start_pos, end_pos) for matches in this element
+        is_current_match: bool,            // True if this element contains the current search match
+    ) -> Vec<Line<'static>> {
         if max_width == 0 {
             return vec![];
         }
@@ -84,29 +87,30 @@ impl<'a> DocumentWidget<'a> {
         let mut lines = Vec::new();
         let mut current_line: Vec<Span> = Vec::new();
         let mut current_width = 0;
+        let mut char_position = 0; // Track absolute character position across all runs
 
         for run in runs {
-            let mut style = Style::default();
+            let mut base_style = Style::default();
 
             // Apply formatting
             if run.formatting.bold {
-                style = style.add_modifier(Modifier::BOLD);
+                base_style = base_style.add_modifier(Modifier::BOLD);
             }
             if run.formatting.italic {
-                style = style.add_modifier(Modifier::ITALIC);
+                base_style = base_style.add_modifier(Modifier::ITALIC);
             }
             if run.formatting.underline {
-                style = style.add_modifier(Modifier::UNDERLINED);
+                base_style = base_style.add_modifier(Modifier::UNDERLINED);
             }
             if run.formatting.strikethrough {
-                style = style.add_modifier(Modifier::CROSSED_OUT);
+                base_style = base_style.add_modifier(Modifier::CROSSED_OUT);
             }
 
             // Apply color if enabled
             if color_enabled {
                 if let Some(color_hex) = &run.formatting.color {
                     if let Some(color) = hex_to_color(color_hex) {
-                        style = style.fg(color);
+                        base_style = base_style.fg(color);
                     }
                 }
             }
@@ -114,6 +118,22 @@ impl<'a> DocumentWidget<'a> {
             // Split text into graphemes for proper unicode handling
             for grapheme in run.text.graphemes(true) {
                 let g_width = grapheme.width();
+
+                // Determine if this character is within a search match
+                let mut style = base_style;
+                for &(start_pos, end_pos) in search_matches {
+                    if char_position >= start_pos && char_position < end_pos {
+                        // Apply search highlight
+                        if is_current_match {
+                            // Current match: bright yellow background
+                            style = style.bg(Color::Yellow).fg(Color::Black);
+                        } else {
+                            // Other matches: darker highlight
+                            style = style.bg(Color::Indexed(240)); // Dark gray
+                        }
+                        break;
+                    }
+                }
 
                 // Check if adding this grapheme would exceed max width
                 if current_width + g_width > max_width && current_width > 0 {
@@ -128,6 +148,7 @@ impl<'a> DocumentWidget<'a> {
                 // Add grapheme to current line
                 current_line.push(Span::styled(grapheme.to_string(), style));
                 current_width += g_width;
+                char_position += grapheme.chars().count(); // Advance character position
             }
         }
 
@@ -210,13 +231,21 @@ impl<'a> DocumentWidget<'a> {
         buf: &mut Buffer,
         current_y: &mut u16,
         color_enabled: bool,
+        search_matches: &[(usize, usize)],
+        is_current_match: bool,
     ) {
         if *current_y >= area.y + area.height {
             return; // Off screen
         }
 
         // Wrap the formatted runs into lines
-        let wrapped_lines = Self::wrap_formatted_runs(runs, area.width as usize, color_enabled);
+        let wrapped_lines = Self::wrap_formatted_runs(
+            runs,
+            area.width as usize,
+            color_enabled,
+            search_matches,
+            is_current_match,
+        );
 
         // Render each line
         for line in wrapped_lines {
@@ -239,6 +268,8 @@ impl<'a> DocumentWidget<'a> {
         buf: &mut Buffer,
         current_y: &mut u16,
         color_enabled: bool,
+        search_matches: &[(usize, usize)],
+        is_current_match: bool,
     ) {
         for (idx, item) in items.iter().enumerate() {
             if *current_y >= area.y + area.height {
@@ -265,7 +296,13 @@ impl<'a> DocumentWidget<'a> {
 
             // Wrap the item text to fit after the bullet
             let text_width = (area.width as usize).saturating_sub(bullet_width);
-            let wrapped_lines = Self::wrap_formatted_runs(&item.runs, text_width, color_enabled);
+            let wrapped_lines = Self::wrap_formatted_runs(
+                &item.runs,
+                text_width,
+                color_enabled,
+                search_matches,
+                is_current_match,
+            );
 
             // Render first line (on same line as bullet)
             if let Some(first_line) = wrapped_lines.first() {
@@ -535,18 +572,31 @@ impl<'a> DocumentWidget<'a> {
         let mut current_y = area.y;
 
         // Skip elements based on scroll offset
-        let visible_elements = self.elements.iter().skip(self.scroll_offset);
+        let visible_elements = self.elements.iter().enumerate().skip(self.scroll_offset);
 
         // Track image positions and protocol indices for rendering
         let mut images_to_render: Vec<(u16, usize)> = Vec::new(); // (y_position, protocol_index)
         let mut protocol_idx = 0;
 
         // Render each visible element
-        for element in visible_elements {
+        for (element_index, element) in visible_elements {
             // Stop if we've reached the bottom of the area
             if current_y >= area.y + area.height {
                 break;
             }
+
+            // Extract search matches for this element
+            let search_matches: Vec<(usize, usize)> = self
+                .search_results
+                .iter()
+                .filter(|result| result.element_index == element_index)
+                .map(|result| (result.start_pos, result.end_pos))
+                .collect();
+
+            // Check if this element contains the current search match
+            let is_current_match = !self.search_results.is_empty()
+                && self.current_search_index < self.search_results.len()
+                && self.search_results[self.current_search_index].element_index == element_index;
 
             match element {
                 DocumentElement::Heading {
@@ -566,7 +616,15 @@ impl<'a> DocumentWidget<'a> {
                 }
 
                 DocumentElement::Paragraph { runs } => {
-                    Self::render_paragraph(runs, area, buf, &mut current_y, self.color_enabled);
+                    Self::render_paragraph(
+                        runs,
+                        area,
+                        buf,
+                        &mut current_y,
+                        self.color_enabled,
+                        &search_matches,
+                        is_current_match,
+                    );
                 }
 
                 DocumentElement::List { items, ordered } => {
@@ -577,6 +635,8 @@ impl<'a> DocumentWidget<'a> {
                         buf,
                         &mut current_y,
                         self.color_enabled,
+                        &search_matches,
+                        is_current_match,
                     );
                 }
 
