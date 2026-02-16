@@ -9,6 +9,7 @@ use ratatui_image::{protocol::StatefulProtocol, StatefulImage};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
+use super::LayoutCache;
 use crate::document::*;
 
 /// Custom widget for rendering document content with proper text wrapping and inline images.
@@ -233,19 +234,39 @@ impl<'a> DocumentWidget<'a> {
         color_enabled: bool,
         search_matches: &[(usize, usize)],
         is_current_match: bool,
+        element_index: usize,
+        layout_cache: &mut LayoutCache,
     ) {
         if *current_y >= area.y + area.height {
             return; // Off screen
         }
 
-        // Wrap the formatted runs into lines
-        let wrapped_lines = Self::wrap_formatted_runs(
-            runs,
-            area.width as usize,
-            color_enabled,
-            search_matches,
-            is_current_match,
-        );
+        // Try to get cached lines, or wrap if not cached
+        let wrapped_lines = if search_matches.is_empty() {
+            // Only use cache if there are no search matches (search highlighting changes the output)
+            if let Some(cached) = layout_cache.get(element_index, area.width) {
+                cached.clone()
+            } else {
+                let lines = Self::wrap_formatted_runs(
+                    runs,
+                    area.width as usize,
+                    color_enabled,
+                    search_matches,
+                    is_current_match,
+                );
+                layout_cache.insert(element_index, area.width, lines.clone());
+                lines
+            }
+        } else {
+            // Don't cache when search highlighting is active
+            Self::wrap_formatted_runs(
+                runs,
+                area.width as usize,
+                color_enabled,
+                search_matches,
+                is_current_match,
+            )
+        };
 
         // Render each line
         for line in wrapped_lines {
@@ -270,6 +291,8 @@ impl<'a> DocumentWidget<'a> {
         color_enabled: bool,
         search_matches: &[(usize, usize)],
         is_current_match: bool,
+        _element_index: usize,
+        _layout_cache: &mut LayoutCache,
     ) {
         for (idx, item) in items.iter().enumerate() {
             if *current_y >= area.y + area.height {
@@ -566,8 +589,13 @@ impl<'a> DocumentWidget<'a> {
         area: Rect,
         frame: &mut Frame,
         image_protocols: &mut [StatefulProtocol],
+        layout_cache: &mut LayoutCache,
     ) {
         let buf = frame.buffer_mut();
+
+        // Check if terminal width changed and invalidate cache if needed
+        layout_cache.check_width(area.width);
+
         // Start rendering from the top of the area
         let mut current_y = area.y;
 
@@ -624,6 +652,8 @@ impl<'a> DocumentWidget<'a> {
                         self.color_enabled,
                         &search_matches,
                         is_current_match,
+                        element_index,
+                        layout_cache,
                     );
                 }
 
@@ -637,6 +667,8 @@ impl<'a> DocumentWidget<'a> {
                         self.color_enabled,
                         &search_matches,
                         is_current_match,
+                        element_index,
+                        layout_cache,
                     );
                 }
 

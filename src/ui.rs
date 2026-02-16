@@ -20,7 +20,11 @@ use ratatui::{
 };
 use std::io;
 
-use crate::{document::*, widgets::DocumentWidget, Cli};
+use crate::{
+    document::*,
+    widgets::{DocumentWidget, LayoutCache},
+    Cli,
+};
 use ratatui_image::{picker::Picker, protocol::StatefulProtocol};
 
 type ImageProtocols = Vec<StatefulProtocol>;
@@ -40,6 +44,7 @@ pub struct App {
     pub color_enabled: bool,
     pub image_picker: Option<Picker>,
     pub image_protocols: ImageProtocols,
+    pub layout_cache: LayoutCache,
 }
 
 #[derive(Debug, Clone)]
@@ -68,6 +73,7 @@ impl App {
             color_enabled: cli.color,
             image_picker: None,
             image_protocols: Vec::new(),
+            layout_cache: LayoutCache::new(),
         };
 
         // Apply CLI options
@@ -604,7 +610,7 @@ fn render_document(f: &mut Frame, area: Rect, app: &mut App) {
         .current_search_index(app.current_search_index);
 
     // Render the document content (text + images in single pass)
-    doc_widget.render(inner, f, &mut app.image_protocols);
+    doc_widget.render(inner, f, &mut app.image_protocols, &mut app.layout_cache);
     let scrollbar = Scrollbar::default()
         .orientation(ScrollbarOrientation::VerticalRight)
         .begin_symbol(Some("↑"))
