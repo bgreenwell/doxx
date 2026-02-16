@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Also added missing underline support for table cells
 
 ### Added
+- **Search Result Highlighting**: Search matches now highlighted in document view with current match in yellow, other matches in gray
 - **TUI Inline Image Display**: Complete terminal image rendering within the interactive viewer
   - Custom `DocumentWidget` with unified text and image rendering pipeline
   - Unicode-aware text wrapping using `unicode-segmentation` and `unicode-width` crates
