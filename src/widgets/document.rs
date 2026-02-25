@@ -259,7 +259,8 @@ impl<'a> DocumentWidget<'a> {
                     ctx.search_matches,
                     ctx.is_current_match,
                 );
-                ctx.layout_cache.insert(ctx.element_index, area.width, lines.clone());
+                ctx.layout_cache
+                    .insert(ctx.element_index, area.width, lines.clone());
                 lines
             }
         } else {
