@@ -31,6 +31,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Use `-r` flag to resume where you left off (like `vim`)
   - Position automatically saved on exit for future restoration
   - CLI options (--page, --search) override saved position
+- **Position Persistence (Opt-In)**: Save and restore scroll position with `--restore-position` / `-r` flag
+  - By default, documents start at the top (like `less`)
+  - Use `-r` flag to resume where you left off (like `vim`)
+  - Position automatically saved on exit for future restoration
+  - CLI options (--page, --search) override saved position
 - **TUI Inline Image Display**: Complete terminal image rendering within the interactive viewer
   - Custom `DocumentWidget` with unified text and image rendering pipeline
   - Unicode-aware text wrapping using `unicode-segmentation` and `unicode-width` crates
