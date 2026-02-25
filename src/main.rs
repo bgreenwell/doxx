@@ -8,6 +8,7 @@ mod ansi;
 mod document;
 mod export;
 pub mod image_extractor;
+mod state;
 pub mod terminal_image;
 mod ui;
 mod widgets;
@@ -55,6 +56,10 @@ struct Cli {
     /// Enable color support for text rendering
     #[arg(long)]
     color: bool,
+
+    /// Restore last saved scroll position for this document
+    #[arg(short = 'r', long)]
+    restore_position: bool,
 
     /// Display images inline in terminal (auto-detect capabilities)
     #[arg(long)]
