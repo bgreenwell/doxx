@@ -22,6 +22,7 @@ use std::io;
 
 use crate::{
     document::*,
+    state::StateManager,
     widgets::{DocumentWidget, LayoutCache},
     Cli,
 };
@@ -47,8 +48,9 @@ pub struct App {
     pub layout_cache: LayoutCache,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub enum ViewMode {
+    #[default]
     Document,
     Outline,
     Search,
@@ -58,11 +60,35 @@ pub enum ViewMode {
 
 impl App {
     pub fn new(document: Document, cli: &Cli) -> Self {
+        // Load saved state for this document (only if --restore-position flag is set)
+        let saved_state = if cli.restore_position {
+            if let Ok(manager) = StateManager::load() {
+                use std::path::PathBuf;
+                let doc_path = PathBuf::from(&document.metadata.file_path);
+                manager.get_state(&doc_path)
+            } else {
+                None
+            }
+        } else {
+            None // Default: start at top (like less)
+        };
+
+        // Initialize with default or saved state
+        let (initial_scroll, initial_search, initial_view) = if let Some(state) = &saved_state {
+            (
+                state.scroll_offset,
+                state.last_search.clone(),
+                state.view_mode.clone(),
+            )
+        } else {
+            (0, String::new(), ViewMode::Document)
+        };
+
         let mut app = Self {
             document,
-            current_view: ViewMode::Document,
-            scroll_offset: 0,
-            search_query: String::new(),
+            current_view: initial_view,
+            scroll_offset: initial_scroll,
+            search_query: initial_search.clone(),
             search_results: Vec::new(),
             backup_search_results: Vec::new(),
             current_search_index: 0,
@@ -76,7 +102,12 @@ impl App {
             layout_cache: LayoutCache::new(),
         };
 
-        // Apply CLI options
+        // Restore search results if we had a saved search
+        if !initial_search.is_empty() {
+            app.search_results = crate::document::search_document(&app.document, &initial_search);
+        }
+
+        // CLI options override saved state
         if cli.outline {
             app.current_view = ViewMode::Outline;
         }
@@ -377,6 +408,30 @@ async fn run_non_interactive(document: Document, cli: &Cli) -> Result<()> {
     Ok(())
 }
 
+/// Save the current app state to disk
+fn save_app_state(app: &App) {
+    use crate::state::DocumentState;
+    use std::path::PathBuf;
+
+    // Load existing state manager
+    let mut manager = StateManager::load().unwrap_or_default();
+
+    // Create state for this document
+    let doc_path = PathBuf::from(&app.document.metadata.file_path);
+    let state = DocumentState {
+        scroll_offset: app.scroll_offset,
+        last_search: app.search_query.clone(),
+        view_mode: app.current_view.clone(),
+        last_accessed: std::time::SystemTime::now(),
+    };
+
+    // Update and save
+    manager.set_state(&doc_path, state);
+
+    // Ignore errors when saving state (don't crash the app on exit)
+    let _ = manager.save();
+}
+
 pub async fn run_viewer(document: Document, cli: &Cli) -> Result<()> {
     // Check if we're in an interactive terminal or forced to use UI
     if !cli.force_ui && !IsTty::is_tty(&io::stdout()) {
@@ -396,6 +451,9 @@ pub async fn run_viewer(document: Document, cli: &Cli) -> Result<()> {
 
     // Run the app
     let res = run_app(&mut terminal, &mut app).await;
+
+    // Save state before exiting
+    save_app_state(&app);
 
     // Restore terminal
     disable_raw_mode()?;

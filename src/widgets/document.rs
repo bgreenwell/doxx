@@ -12,6 +12,15 @@ use unicode_width::UnicodeWidthStr;
 use super::LayoutCache;
 use crate::document::*;
 
+/// Context for rendering document elements
+struct RenderContext<'a> {
+    color_enabled: bool,
+    search_matches: &'a [(usize, usize)],
+    is_current_match: bool,
+    element_index: usize,
+    layout_cache: &'a mut LayoutCache,
+}
+
 /// Custom widget for rendering document content with proper text wrapping and inline images.
 ///
 /// This widget handles the complete layout of document elements including:
@@ -231,30 +240,27 @@ impl<'a> DocumentWidget<'a> {
         area: Rect,
         buf: &mut Buffer,
         current_y: &mut u16,
-        color_enabled: bool,
-        search_matches: &[(usize, usize)],
-        is_current_match: bool,
-        element_index: usize,
-        layout_cache: &mut LayoutCache,
+        ctx: &mut RenderContext,
     ) {
         if *current_y >= area.y + area.height {
             return; // Off screen
         }
 
         // Try to get cached lines, or wrap if not cached
-        let wrapped_lines = if search_matches.is_empty() {
+        let wrapped_lines = if ctx.search_matches.is_empty() {
             // Only use cache if there are no search matches (search highlighting changes the output)
-            if let Some(cached) = layout_cache.get(element_index, area.width) {
+            if let Some(cached) = ctx.layout_cache.get(ctx.element_index, area.width) {
                 cached.clone()
             } else {
                 let lines = Self::wrap_formatted_runs(
                     runs,
                     area.width as usize,
-                    color_enabled,
-                    search_matches,
-                    is_current_match,
+                    ctx.color_enabled,
+                    ctx.search_matches,
+                    ctx.is_current_match,
                 );
-                layout_cache.insert(element_index, area.width, lines.clone());
+                ctx.layout_cache
+                    .insert(ctx.element_index, area.width, lines.clone());
                 lines
             }
         } else {
@@ -262,9 +268,9 @@ impl<'a> DocumentWidget<'a> {
             Self::wrap_formatted_runs(
                 runs,
                 area.width as usize,
-                color_enabled,
-                search_matches,
-                is_current_match,
+                ctx.color_enabled,
+                ctx.search_matches,
+                ctx.is_current_match,
             )
         };
 
@@ -288,11 +294,7 @@ impl<'a> DocumentWidget<'a> {
         area: Rect,
         buf: &mut Buffer,
         current_y: &mut u16,
-        color_enabled: bool,
-        search_matches: &[(usize, usize)],
-        is_current_match: bool,
-        _element_index: usize,
-        _layout_cache: &mut LayoutCache,
+        ctx: &mut RenderContext,
     ) {
         for (idx, item) in items.iter().enumerate() {
             if *current_y >= area.y + area.height {
@@ -310,7 +312,7 @@ impl<'a> DocumentWidget<'a> {
             let indent = " ".repeat(bullet_width);
 
             // Render bullet/number
-            let bullet_style = if color_enabled {
+            let bullet_style = if ctx.color_enabled {
                 Style::default().fg(Color::Cyan)
             } else {
                 Style::default()
@@ -322,9 +324,9 @@ impl<'a> DocumentWidget<'a> {
             let wrapped_lines = Self::wrap_formatted_runs(
                 &item.runs,
                 text_width,
-                color_enabled,
-                search_matches,
-                is_current_match,
+                ctx.color_enabled,
+                ctx.search_matches,
+                ctx.is_current_match,
             );
 
             // Render first line (on same line as bullet)
@@ -644,32 +646,25 @@ impl<'a> DocumentWidget<'a> {
                 }
 
                 DocumentElement::Paragraph { runs } => {
-                    Self::render_paragraph(
-                        runs,
-                        area,
-                        buf,
-                        &mut current_y,
-                        self.color_enabled,
-                        &search_matches,
+                    let mut ctx = RenderContext {
+                        color_enabled: self.color_enabled,
+                        search_matches: &search_matches,
                         is_current_match,
                         element_index,
                         layout_cache,
-                    );
+                    };
+                    Self::render_paragraph(runs, area, buf, &mut current_y, &mut ctx);
                 }
 
                 DocumentElement::List { items, ordered } => {
-                    Self::render_list(
-                        items,
-                        *ordered,
-                        area,
-                        buf,
-                        &mut current_y,
-                        self.color_enabled,
-                        &search_matches,
+                    let mut ctx = RenderContext {
+                        color_enabled: self.color_enabled,
+                        search_matches: &search_matches,
                         is_current_match,
                         element_index,
                         layout_cache,
-                    );
+                    };
+                    Self::render_list(items, *ordered, area, buf, &mut current_y, &mut ctx);
                 }
 
                 DocumentElement::Table { table } => {
