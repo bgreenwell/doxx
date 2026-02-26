@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **ANSI Export Text Wrapping**: Fixed `--terminal-width` / `-w` option not wrapping text in ANSI export ([#45](https://github.com/bgreenwell/doxx/issues/45))
+  - Text now properly wraps to specified terminal width
+  - Applies to paragraphs and list items
+  - Formatting (bold, italic, colors) preserved across wrapped lines
+  - Reduced excessive ANSI reset codes for cleaner output
 - **List Bullet Formatting Bleed**: Fixed list bullets and numbers incorrectly inheriting text formatting from list items
   - List bullets/numbers were inheriting bold, italic, color, and strikethrough from the first word
   - Affected all export modes (ANSI, markdown, text) and TUI rendering
