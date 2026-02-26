@@ -334,21 +334,10 @@ fn write_ansi_list(
         for (line_idx, line) in wrapped_lines.iter().enumerate() {
             if line_idx == 0 {
                 // First line: include bullet
-                writeln!(
-                    output,
-                    "{}{}{}",
-                    prefix,
-                    format_ansi_reset(),
-                    line
-                )?;
+                writeln!(output, "{}{}{}", prefix, format_ansi_reset(), line)?;
             } else {
                 // Continuation lines: indent to align with first line
-                writeln!(
-                    output,
-                    "{}{}",
-                    " ".repeat(prefix_visual_width),
-                    line
-                )?;
+                writeln!(output, "{}{}", " ".repeat(prefix_visual_width), line)?;
             }
         }
     }
