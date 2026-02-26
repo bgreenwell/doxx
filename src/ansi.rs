@@ -3,6 +3,8 @@ use crossterm::style::{
     Attribute, Color as CrosstermColor, ResetColor, SetAttribute, SetForegroundColor,
 };
 use std::fmt::Write;
+use unicode_segmentation::UnicodeSegmentation;
+use unicode_width::UnicodeWidthStr;
 
 use crate::{document::*, ColorDepth};
 
@@ -156,9 +158,32 @@ fn write_ansi_paragraph(
     runs: &[FormattedRun],
     options: &AnsiOptions,
 ) -> Result<()> {
+    let wrapped_lines = wrap_formatted_runs(runs, options);
+    for line in wrapped_lines {
+        writeln!(output, "{}{}", line, format_ansi_reset())?;
+    }
+    Ok(())
+}
+
+/// Wrap formatted text runs to terminal width while preserving formatting
+fn wrap_formatted_runs(runs: &[FormattedRun], options: &AnsiOptions) -> Vec<String> {
+    if runs.is_empty() {
+        return vec![];
+    }
+
+    let max_width = options.terminal_width;
+    let mut lines = Vec::new();
+    let mut current_line = String::new();
+    let mut current_width = 0;
+    let mut line_needs_formatting = false;
+
     for run in runs {
-        let formatted_text = format_ansi_text(
-            &run.text,
+        let graphemes: Vec<&str> = run.text.graphemes(true).collect();
+        let mut word = String::new();
+        let mut word_width = 0;
+
+        // Apply formatting at start of run
+        let format_start = get_ansi_format_start(
             run.formatting.bold,
             run.formatting.italic,
             run.formatting.underline,
@@ -166,11 +191,122 @@ fn write_ansi_paragraph(
             run.formatting.color.as_deref(),
             options,
         );
-        write!(output, "{formatted_text}")?;
+
+        for grapheme in graphemes {
+            let grapheme_width = UnicodeWidthStr::width(grapheme);
+
+            if grapheme == " " || grapheme == "\n" {
+                // End of word - try to add it to the current line
+                if !word.is_empty() {
+                    if current_width + word_width > max_width && current_width > 0 {
+                        // Word doesn't fit on current line, start new line
+                        if line_needs_formatting {
+                            current_line.push_str(&format_ansi_reset());
+                        }
+                        lines.push(current_line.clone());
+                        current_line.clear();
+                        current_width = 0;
+                        line_needs_formatting = false;
+                    }
+
+                    // Apply formatting if not already applied on this line
+                    if !line_needs_formatting && !format_start.is_empty() {
+                        current_line.push_str(&format_start);
+                        line_needs_formatting = true;
+                    }
+
+                    current_line.push_str(&word);
+                    current_width += word_width;
+
+                    word.clear();
+                    word_width = 0;
+                }
+
+                // Handle space or newline
+                if grapheme == "\n" {
+                    if line_needs_formatting {
+                        current_line.push_str(&format_ansi_reset());
+                    }
+                    lines.push(current_line.clone());
+                    current_line.clear();
+                    current_width = 0;
+                    line_needs_formatting = false;
+                } else if current_width < max_width {
+                    current_line.push(' ');
+                    current_width += 1;
+                }
+            } else {
+                // Building a word
+                word.push_str(grapheme);
+                word_width += grapheme_width;
+            }
+        }
+
+        // Handle remaining word at end of run
+        if !word.is_empty() {
+            if current_width + word_width > max_width && current_width > 0 {
+                if line_needs_formatting {
+                    current_line.push_str(&format_ansi_reset());
+                }
+                lines.push(current_line.clone());
+                current_line.clear();
+                current_width = 0;
+                line_needs_formatting = false;
+            }
+
+            // Apply formatting if not already applied on this line
+            if !line_needs_formatting && !format_start.is_empty() {
+                current_line.push_str(&format_start);
+                line_needs_formatting = true;
+            }
+
+            current_line.push_str(&word);
+            current_width += word_width;
+        }
+
+        // Reset formatting at end of run if it was applied
+        if line_needs_formatting && !current_line.is_empty() {
+            current_line.push_str(&format_ansi_reset());
+            line_needs_formatting = false;
+        }
     }
-    write!(output, "{}", format_ansi_reset())?;
-    writeln!(output)?;
-    Ok(())
+
+    // Add final line if not empty
+    if !current_line.is_empty() {
+        lines.push(current_line);
+    }
+
+    lines
+}
+
+/// Get ANSI formatting codes for start of formatted text
+fn get_ansi_format_start(
+    bold: bool,
+    italic: bool,
+    underline: bool,
+    strikethrough: bool,
+    color: Option<&str>,
+    options: &AnsiOptions,
+) -> String {
+    let mut result = String::new();
+
+    if bold {
+        result.push_str(&format!("{}", SetAttribute(Attribute::Bold)));
+    }
+    if italic {
+        result.push_str(&format!("{}", SetAttribute(Attribute::Italic)));
+    }
+    if underline {
+        result.push_str(&format!("{}", SetAttribute(Attribute::Underlined)));
+    }
+    if strikethrough {
+        result.push_str(&format!("{}", SetAttribute(Attribute::CrossedOut)));
+    }
+    if let Some(color_hex) = color {
+        result.push_str(&format_ansi_color(Some(color_hex), options));
+    }
+
+    result
 }
 
 fn write_ansi_list(
@@ -188,32 +324,157 @@ fn write_ansi_list(
 
         let indent = "  ".repeat(item.level as usize);
         let bullet_color = format_ansi_color(Some("#0066FF"), options); // Blue
+        let prefix = format!("{}{}{}", bullet_color, indent, bullet);
+        let prefix_visual_width = indent.len() + bullet.len();
 
-        write!(
-            output,
-            "{}{}{}{}",
-            bullet_color,
-            indent,
-            bullet,
-            format_ansi_reset()
-        )?;
+        // Wrap item text with proper indentation
+        let available_width = options.terminal_width.saturating_sub(prefix_visual_width);
+        let wrapped_lines = wrap_formatted_runs_with_width(&item.runs, available_width, options);
 
-        for run in &item.runs {
-            let formatted_text = format_ansi_text(
-                &run.text,
-                run.formatting.bold,
-                run.formatting.italic,
-                run.formatting.underline,
-                run.formatting.strikethrough,
-                run.formatting.color.as_deref(),
-                options,
-            );
-            write!(output, "{formatted_text}")?;
+        for (line_idx, line) in wrapped_lines.iter().enumerate() {
+            if line_idx == 0 {
+                // First line: include bullet
+                writeln!(
+                    output,
+                    "{}{}{}",
+                    prefix,
+                    format_ansi_reset(),
+                    line
+                )?;
+            } else {
+                // Continuation lines: indent to align with first line
+                writeln!(
+                    output,
+                    "{}{}",
+                    " ".repeat(prefix_visual_width),
+                    line
+                )?;
+            }
         }
-        write!(output, "{}", format_ansi_reset())?;
-        writeln!(output)?;
     }
     Ok(())
+}
+
+/// Wrap formatted text runs to a specific width
+fn wrap_formatted_runs_with_width(
+    runs: &[FormattedRun],
+    max_width: usize,
+    options: &AnsiOptions,
+) -> Vec<String> {
+    if runs.is_empty() || max_width == 0 {
+        return vec![String::new()];
+    }
+
+    let mut lines = Vec::new();
+    let mut current_line = String::new();
+    let mut current_width = 0;
+    let mut line_needs_formatting = false;
+
+    for run in runs {
+        let graphemes: Vec<&str> = run.text.graphemes(true).collect();
+        let mut word = String::new();
+        let mut word_width = 0;
+
+        // Get formatting codes for this run
+        let format_start = get_ansi_format_start(
+            run.formatting.bold,
+            run.formatting.italic,
+            run.formatting.underline,
+            run.formatting.strikethrough,
+            run.formatting.color.as_deref(),
+            options,
+        );
+
+        for grapheme in graphemes {
+            let grapheme_width = UnicodeWidthStr::width(grapheme);
+
+            if grapheme == " " || grapheme == "\n" {
+                // End of word - try to add it to the current line
+                if !word.is_empty() {
+                    if current_width + word_width > max_width && current_width > 0 {
+                        // Word doesn't fit on current line, start new line
+                        if line_needs_formatting {
+                            current_line.push_str(&format_ansi_reset());
+                        }
+                        lines.push(current_line.clone());
+                        current_line.clear();
+                        current_width = 0;
+                        line_needs_formatting = false;
+                    }
+
+                    // Apply formatting if not already applied on this line
+                    if !line_needs_formatting && !format_start.is_empty() {
+                        current_line.push_str(&format_start);
+                        line_needs_formatting = true;
+                    }
+
+                    current_line.push_str(&word);
+                    current_width += word_width;
+
+                    word.clear();
+                    word_width = 0;
+                }
+
+                // Handle space or newline
+                if grapheme == "\n" {
+                    if line_needs_formatting {
+                        current_line.push_str(&format_ansi_reset());
+                    }
+                    lines.push(current_line.clone());
+                    current_line.clear();
+                    current_width = 0;
+                    line_needs_formatting = false;
+                } else if current_width < max_width {
+                    current_line.push(' ');
+                    current_width += 1;
+                }
+            } else {
+                // Building a word
+                word.push_str(grapheme);
+                word_width += grapheme_width;
+            }
+        }
+
+        // Handle remaining word at end of run
+        if !word.is_empty() {
+            if current_width + word_width > max_width && current_width > 0 {
+                if line_needs_formatting {
+                    current_line.push_str(&format_ansi_reset());
+                }
+                lines.push(current_line.clone());
+                current_line.clear();
+                current_width = 0;
+                line_needs_formatting = false;
+            }
+
+            // Apply formatting if not already applied on this line
+            if !line_needs_formatting && !format_start.is_empty() {
+                current_line.push_str(&format_start);
+                line_needs_formatting = true;
+            }
+
+            current_line.push_str(&word);
+            current_width += word_width;
+        }
+
+        // Reset formatting at end of run if it was applied
+        if line_needs_formatting && !current_line.is_empty() {
+            current_line.push_str(&format_ansi_reset());
+            line_needs_formatting = false;
+        }
+    }
+
+    // Add final line if not empty
+    if !current_line.is_empty() {
+        lines.push(current_line);
+    }
+
+    // Return at least one line even if empty
+    if lines.is_empty() {
+        lines.push(String::new());
+    }
+
+    lines
 }
 
 fn write_ansi_table(output: &mut String, table: &TableData, options: &AnsiOptions) -> Result<()> {
