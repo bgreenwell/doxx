@@ -150,7 +150,13 @@ async fn main() -> Result<()> {
         max_height: cli.image_height,
         scale: cli.image_scale,
     };
-    let document = document::load_document(&file_path, image_options).await?;
+
+    // Run CPU-intensive document loading on a blocking thread
+    let file_path_clone = file_path.clone();
+    let document = tokio::task::spawn_blocking(move || {
+        document::load_document(&file_path_clone, image_options)
+    })
+    .await??;
 
     // Handle image extraction flag
     if let Some(extract_dir) = &cli.extract_images {

@@ -2,9 +2,10 @@ use doxx::document::{load_document, search_document, ImageOptions};
 use std::path::Path;
 
 async fn load_test_document() -> doxx::document::Document {
-    let path = Path::new("tests/fixtures/business-report.docx");
-    load_document(path, ImageOptions::default())
+    let path = Path::new("tests/fixtures/business-report.docx").to_path_buf();
+    tokio::task::spawn_blocking(move || load_document(&path, ImageOptions::default()))
         .await
+        .expect("Failed to spawn blocking task")
         .expect("Failed to load test document")
 }
 

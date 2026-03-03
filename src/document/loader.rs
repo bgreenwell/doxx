@@ -40,7 +40,7 @@ use super::parsing::equation::{
 /// 5. Integrates equations (both inline and display)
 /// 6. Post-processes elements (grouping lists, cleaning markers)
 /// 7. Returns a fully parsed Document
-pub async fn load_document(file_path: &Path, image_options: ImageOptions) -> Result<Document> {
+pub fn load_document(file_path: &Path, image_options: ImageOptions) -> Result<Document> {
     // Validate file type before attempting to parse
     validate_docx_file(file_path)?;
 
