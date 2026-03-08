@@ -103,6 +103,11 @@ nix profile install github:bgreenwell/doxx
 ```
 *Thanks to [@bobberb](https://github.com/bobberb) for creating the Nix flake!*
 
+#### NetBSD
+```bash
+pkgin install doxx
+```
+
 #### Conda-Forge (cross-platform)
 ```bash
 conda install doxx
