@@ -1,159 +1,96 @@
 # doxx: AI Agent Development Guide
 
-## Project Context
-
-doxx is a terminal-based document viewer for .docx files built with Rust. It provides rich text rendering, equation support (LaTeX), tables, search, navigation, and multiple export formats (Markdown, CSV, JSON, ANSI, text). The codebase emphasizes performance, cross-platform support, and terminal-native workflows.
+doxx is a terminal-based .docx viewer built with Rust. It provides rich text rendering, equation support (LaTeX), tables, search, navigation, and multiple export formats (Markdown, CSV, JSON, ANSI, text).
 
 ## Quick Start
 
 ```bash
-# Build and test
 cargo build --release
 cargo test
-
-# Run with sample documents
 cargo run -- tests/fixtures/minimal.docx
 cargo run -- tests/fixtures/comprehensive.docx --export ansi
-cargo run -- tests/fixtures/equations.docx --search "formula"
 ```
 
 ## Project Structure
 
 ```
 src/
-├── main.rs              # CLI interface
-├── document/            # Document parsing and structures (modular)
-│   ├── mod.rs           # Module root with re-exports
-│   ├── models.rs        # Core data structures (Document, DocumentElement, etc.)
-│   ├── loader.rs        # Main document loading orchestrator
-│   ├── io.rs            # File I/O operations
-│   ├── query.rs         # Search and outline generation
-│   ├── cleanup.rs       # Post-processing utilities
-│   └── parsing/         # Specialized parsing modules
-│       ├── numbering.rs # Numbering management (headings, lists)
-│       ├── formatting.rs# Text and formatting extraction
-│       ├── heading.rs   # Heading detection (style-based, heuristic)
-│       ├── list.rs      # List processing and grouping
-│       ├── table.rs     # Table extraction with alignment detection
-│       └── equation.rs  # OMML to LaTeX conversion
-├── ui.rs                # Terminal UI (ratatui)
-├── export.rs            # Export formats (markdown, JSON, CSV, ANSI)
+├── main.rs              # CLI entry point (clap)
+├── lib.rs               # Library root
+├── config.rs            # Config file loading (~/.config/doxx/config.toml)
+├── state.rs             # App state
+├── ui.rs                # TUI (ratatui)
+├── export.rs            # Export formats: markdown, JSON, CSV, text
+├── ansi.rs              # ANSI color export
+├── equation.rs          # OMML to LaTeX conversion
 ├── image_extractor.rs   # Image extraction from DOCX
-└── terminal_image.rs    # Terminal image rendering
+├── terminal_image.rs    # Terminal image rendering
+├── keymap/              # Keymap presets (default, vim, less) and bindings
+├── widgets/             # Custom ratatui widgets
+└── document/            # Document parsing
+    ├── models.rs        # Core types (Document, DocumentElement)
+    ├── loader.rs        # Parsing orchestrator
+    ├── query.rs         # Search and outline
+    └── parsing/         # Specialized parsers (headings, lists, tables, equations, formatting, numbering)
 ```
 
-## Core Architecture
+## Key Dependencies
 
-Runtime & Error Handling:
-- Async Runtime: Tokio for file operations and extensibility
-- Error Handling: anyhow for ergonomic error management
+- docx-rs (0.4): .docx parsing — no built-in OMML support; we parse equation XML directly
+- ratatui (0.29) + crossterm (0.27): TUI
+- ratatui-image (8.0): Kitty/iTerm2/half-block image rendering
+- tokio (1.0): Async runtime
+- clap (4.4): CLI
 
-Key Dependencies:
-- docx-rs (0.4): .docx file parsing - LIMITATION: No OMML parsing (we work around with direct XML parsing)
-- ratatui (0.29): Terminal UI framework
-- ratatui-image (8.0): Terminal image rendering
-- crossterm (0.27): Cross-platform terminal control
-- unicode-segmentation (1.10): Unicode handling
-- clap (4.4): CLI argument parsing
+## Known Issues
 
-Design Principles:
-- Modular design: Separate concerns (parsing, UI, export, equations, images)
-- Document model: Structured representation supporting rich content
-- Terminal UI: Cross-platform terminal interfaces with ratatui
-
-## Development Constraints
-
-Known Issues: Equation positioning (#58), text wrapping (#45), advanced numbering (#24)
-
-See .agents/known-issues.md for detailed context, workarounds, and fix plans.
+- Equation positioning (#58): Display equations may not be pixel-perfect in all documents
+- Advanced numbering (#24): Complex Word numbering schemes not fully supported
 
 ## Testing
 
 ```bash
-cargo test --all-features                    # Run all tests
-cargo test --test integration_test           # Specific suite
-cargo test test_name -- --nocapture          # Single test with output
+cargo test --all-features
+cargo test --test integration_test
+cargo test test_name -- --nocapture
 ```
 
-See .agents/workflows.md for detailed commands and fixture usage.
+Fixtures live in `tests/fixtures/`. Run `./scripts/regenerate-fixtures.sh` to rebuild them.
 
 ## Performance Targets
 
-Startup: < 100ms | Memory: < 50MB | Rendering: < 500ms | Binary: ~3MB
+Startup < 100ms | Memory < 50MB | Rendering < 500ms | Binary ~3MB
 
-See .agents/performance.md for benchmarks and profiling tips.
+## Development Workflow
 
-## Development Workflow - CRITICAL
+Always run before pushing:
 
-IMPORTANT: Always run validation scripts before committing/pushing to ensure CI/CD passes.
-
-Quick Iteration (during development):
 ```bash
-./scripts/quick-check.sh  # Runs: fmt, clippy, tests
-```
-
-Full Validation (before pushing):
-```bash
-./scripts/check.sh  # Runs: fmt --check, clippy, tests, build --release
-```
-
-Optional: Git Pre-Push Hook
-```bash
-cp scripts/pre-push.hook .git/hooks/pre-push
-chmod +x .git/hooks/pre-push
-# Now validation runs automatically on every push
+./scripts/quick-check.sh  # fmt, clippy, tests
+./scripts/check.sh        # full: fmt --check, clippy, tests, release build
 ```
 
 ## Git Commit Guidelines
 
-- DO NOT include signature blocks in commit messages
-- Use conventional commit format: feat:, fix:, docs:, etc.
-- Write clear, concise commit messages describing the change
-- Test thoroughly before committing
+- Use conventional commit format: feat:, fix:, docs:, refactor:, etc.
+- No signature blocks in commit messages
 
 ## Changelog Guidelines
 
-CHANGELOG.md follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format. Keep it trim:
-- One line per entry; no sub-bullets
+CHANGELOG.md follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format:
+- One line per entry, no sub-bullets
 - Standard sections only: Added, Changed, Deprecated, Removed, Fixed, Security
-- User-facing changes only — internal refactors belong in commit messages, not the changelog
+- User-facing changes only — internal refactors belong in commit messages
 
-## CI/CD Pipeline
+## CI/CD
 
-Pipeline location: .github/workflows/ci.yml
+`.github/workflows/ci.yml` — Linux, macOS, Windows:
+1. `cargo fmt --all -- --check` (Unix)
+2. `cargo clippy --all-targets -- -D warnings` (zero warnings)
+3. `cargo test --all-features`
+4. `cargo build --release`
+5. `nix build` (Unix)
 
-Platforms tested: Linux (Ubuntu), macOS, Windows
+## Resources
 
-Checks performed:
-1. Format check (Unix only): cargo fmt --all -- --check
-2. Clippy lints: cargo clippy --all-targets -- -D warnings (ZERO warnings required)
-3. Test suite: cargo test --all-features
-4. Release build: cargo build --release
-5. Nix build (Unix only): nix build
-
-Best practice: Run ./scripts/check.sh before every push to catch issues locally.
-
-Common failures and fixes: See .agents/ci-troubleshooting.md
-
-## Release Process
-
-See .agents/release.md for detailed release steps, version bumping, and CI/CD automation.
-
-## Additional Resources
-
-See .agents/ directory for detailed documentation organized into three categories:
-
-**development/** - Enhancement planning and architecture decisions
-- project-audit.md - Current state analysis and priorities
-- roadmap.md - Feature timeline and prioritization
-- enhancements/ - Detailed proposals for planned features
-- architecture/ - Design patterns and structural decisions
-
-**operations/** - Daily workflows and procedures
-- known-issues.md - Active bugs and constraints
-- ci-troubleshooting.md - Common CI/CD failures and fixes
-- workflows.md - Detailed cargo commands
-- performance.md - Benchmarks and profiling
-- release.md - Release process steps
-
-Start with .agents/README.md for navigation and index of all resources.
+See `.agents/` for detailed docs: `known-issues.md`, `workflows.md`, `performance.md`, `release.md`, `ci-troubleshooting.md`, `development/`.
