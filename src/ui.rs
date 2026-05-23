@@ -21,7 +21,9 @@ use ratatui::{
 use std::io;
 
 use crate::{
+    config::Config,
     document::*,
+    keymap::{Action, KeyBinding, Keymap},
     state::StateManager,
     widgets::{DocumentWidget, LayoutCache},
     Cli,
@@ -46,6 +48,7 @@ pub struct App {
     pub image_picker: Option<Picker>,
     pub image_protocols: ImageProtocols,
     pub layout_cache: LayoutCache,
+    pub keymap: Keymap,
 }
 
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
@@ -59,7 +62,7 @@ pub enum ViewMode {
 }
 
 impl App {
-    pub fn new(document: Document, cli: &Cli) -> Self {
+    pub fn new(document: Document, cli: &Cli, config: &Config) -> Self {
         // Load saved state for this document (only if --restore-position flag is set)
         let saved_state = if cli.restore_position {
             if let Ok(manager) = StateManager::load() {
@@ -98,6 +101,7 @@ impl App {
             status_message: None,
             color_enabled: cli.color,
             image_picker: None,
+            keymap: config.build_keymap(),
             image_protocols: Vec::new(),
             layout_cache: LayoutCache::new(),
         };
@@ -272,7 +276,7 @@ impl App {
 }
 
 async fn run_non_interactive(document: Document, cli: &Cli) -> Result<()> {
-    let app = App::new(document, cli);
+    let app = App::new(document, cli, &Config::default());
 
     match app.current_view {
         ViewMode::Outline => {
@@ -432,7 +436,7 @@ fn save_app_state(app: &App) {
     let _ = manager.save();
 }
 
-pub async fn run_viewer(document: Document, cli: &Cli) -> Result<()> {
+pub async fn run_viewer(document: Document, cli: &Cli, config: &Config) -> Result<()> {
     // Check if we're in an interactive terminal or forced to use UI
     if !cli.force_ui && !IsTty::is_tty(&io::stdout()) {
         // Fallback for non-interactive environments
@@ -447,7 +451,7 @@ pub async fn run_viewer(document: Document, cli: &Cli) -> Result<()> {
     let mut terminal = Terminal::new(backend)?;
 
     // Create app
-    let mut app = App::new(document, cli);
+    let mut app = App::new(document, cli, config);
 
     // Run the app
     let res = run_app(&mut terminal, &mut app).await;
@@ -478,102 +482,29 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
         match event::read()? {
             Event::Key(key) => {
                 if key.kind == KeyEventKind::Press {
-                    // Clear status message on any key press (except the copy key)
-                    if app.status_message.is_some()
-                        && key.code != KeyCode::Char('c')
-                        && key.code != KeyCode::F(2)
-                    {
-                        app.clear_status_message();
+                    let binding = KeyBinding::new(key.code, key.modifiers);
+                    let action = app.keymap.get_action(&binding);
+
+                    // In search mode, unbound character keys append to the query
+                    if matches!(app.current_view, ViewMode::Search) && action.is_none() {
+                        if let KeyCode::Char(c) = key.code {
+                            app.search_query.push(c);
+                            app.search_results =
+                                crate::document::search_document(&app.document, &app.search_query);
+                            app.current_search_index = 0;
+                            continue;
+                        }
                     }
-                    match app.current_view {
-                        ViewMode::Document => match key.code {
-                            KeyCode::Char('q') => break,
-                            KeyCode::Char('o') => app.current_view = ViewMode::Outline,
-                            KeyCode::Char('s') => app.current_view = ViewMode::Search,
-                            KeyCode::Char('S') => app.toggle_search_state(),
-                            KeyCode::Char('c') => app.copy_content(),
-                            KeyCode::Char('h') | KeyCode::F(1) => app.show_help = !app.show_help,
-                            KeyCode::Up | KeyCode::Char('k') => app.scroll_up(),
-                            KeyCode::Down | KeyCode::Char('j') => app.scroll_down(),
-                            KeyCode::PageUp => app.page_up(10),
-                            KeyCode::PageDown => app.page_down(10),
-                            KeyCode::Home => app.scroll_offset = 0,
-                            KeyCode::End => {
-                                app.scroll_offset = app.document.elements.len().saturating_sub(1)
-                            }
-                            KeyCode::Char('n') if !app.search_results.is_empty() => {
-                                app.next_search_result()
-                            }
-                            KeyCode::Char('p') if !app.search_results.is_empty() => {
-                                app.prev_search_result()
-                            }
-                            _ => {}
-                        },
-                        ViewMode::Outline => match key.code {
-                            KeyCode::Char('q') | KeyCode::Esc => {
-                                app.current_view = ViewMode::Document
-                            }
-                            KeyCode::Char('c') => app.copy_content(),
-                            KeyCode::Up | KeyCode::Char('k') => {
-                                let selected = app.outline_state.selected().unwrap_or(0);
-                                if selected > 0 {
-                                    app.outline_state.select(Some(selected - 1));
-                                }
-                            }
-                            KeyCode::Down | KeyCode::Char('j') => {
-                                let selected = app.outline_state.selected().unwrap_or(0);
-                                if selected + 1
-                                    < crate::document::generate_outline(&app.document).len()
-                                {
-                                    app.outline_state.select(Some(selected + 1));
-                                }
-                            }
-                            KeyCode::Enter => {
-                                if let Some(selected) = app.outline_state.selected() {
-                                    if let Some(outline_item) =
-                                        crate::document::generate_outline(&app.document)
-                                            .get(selected)
-                                    {
-                                        app.scroll_offset = outline_item.element_index;
-                                        app.current_view = ViewMode::Document;
-                                    }
-                                }
-                            }
-                            _ => {}
-                        },
-                        ViewMode::Search => match key.code {
-                            KeyCode::Esc => app.current_view = ViewMode::Document,
-                            KeyCode::F(2) => app.copy_content(), // Use F2 for copy in search mode to avoid conflicts
-                            KeyCode::Char(c) => {
-                                app.search_query.push(c);
-                                app.search_results = crate::document::search_document(
-                                    &app.document,
-                                    &app.search_query,
-                                );
-                                app.current_search_index = 0;
-                            }
-                            KeyCode::Backspace => {
-                                app.search_query.pop();
-                                app.search_results = crate::document::search_document(
-                                    &app.document,
-                                    &app.search_query,
-                                );
-                                app.current_search_index = 0;
-                            }
-                            KeyCode::Enter | KeyCode::Down => app.next_search_result(),
-                            KeyCode::Up => app.prev_search_result(),
-                            _ => {}
-                        },
-                        ViewMode::Help => match key.code {
-                            KeyCode::Char('q')
-                            | KeyCode::Esc
-                            | KeyCode::Char('h')
-                            | KeyCode::F(1) => {
-                                app.show_help = false;
-                                app.current_view = ViewMode::Document;
-                            }
-                            _ => {}
-                        },
+
+                    if let Some(action) = action {
+                        // Clear status message on any action except copy
+                        if app.status_message.is_some() && action != Action::Copy {
+                            app.clear_status_message();
+                        }
+
+                        if handle_action(app, action) {
+                            break;
+                        }
                     }
                 }
             }
@@ -627,6 +558,65 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
     Ok(())
 }
 
+/// Returns true if the app should quit.
+fn handle_action(app: &mut App, action: Action) -> bool {
+    match action {
+        Action::Quit => return true,
+        Action::Escape => match app.current_view {
+            ViewMode::Search | ViewMode::Outline => app.current_view = ViewMode::Document,
+            ViewMode::Help => {
+                app.show_help = false;
+                app.current_view = ViewMode::Document;
+            }
+            ViewMode::Document => {}
+        },
+        Action::ScrollUp => app.scroll_up(),
+        Action::ScrollDown => app.scroll_down(),
+        Action::PageUp => app.page_up(10),
+        Action::PageDown => app.page_down(10),
+        Action::HalfPageUp => app.page_up(5),
+        Action::HalfPageDown => app.page_down(5),
+        Action::GotoStart => app.scroll_offset = 0,
+        Action::GotoEnd => {
+            app.scroll_offset = app.document.elements.len().saturating_sub(1);
+        }
+        Action::ToggleOutline => app.current_view = ViewMode::Outline,
+        Action::EnterSearch => app.current_view = ViewMode::Search,
+        Action::ToggleHelp => app.show_help = !app.show_help,
+        Action::ToggleSearchState => app.toggle_search_state(),
+        Action::SearchNext => {
+            if !app.search_results.is_empty() {
+                app.next_search_result();
+            }
+        }
+        Action::SearchPrevious => {
+            if !app.search_results.is_empty() {
+                app.prev_search_result();
+            }
+        }
+        Action::Copy => app.copy_content(),
+        Action::OutlineSelect => {
+            if let Some(selected) = app.outline_state.selected() {
+                if let Some(item) = crate::document::generate_outline(&app.document).get(selected) {
+                    app.scroll_offset = item.element_index;
+                    app.current_view = ViewMode::Document;
+                }
+            }
+        }
+        Action::SearchDeleteChar => {
+            app.search_query.pop();
+            app.search_results = crate::document::search_document(&app.document, &app.search_query);
+            app.current_search_index = 0;
+        }
+        Action::SearchSubmit => {
+            if !app.search_results.is_empty() {
+                app.next_search_result();
+            }
+        }
+    }
+    false
+}
+
 fn ui(f: &mut Frame, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -638,7 +628,7 @@ fn ui(f: &mut Frame, app: &mut App) {
         ViewMode::Document => render_document(f, chunks[0], app),
         ViewMode::Outline => render_outline(f, chunks[0], app),
         ViewMode::Search => render_search(f, chunks[0], app),
-        ViewMode::Help => render_help(f, chunks[0]),
+        ViewMode::Help => render_help(f, chunks[0], &app.keymap),
     }
 
     // Status bar
@@ -784,39 +774,69 @@ fn render_search(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(results_list, chunks[1]);
 }
 
-fn render_help(f: &mut Frame, area: Rect) {
-    let help_text = vec![
-        "🆘 doxx - Help",
-        "",
-        "📖 Document Navigation:",
-        "  ↑/k        Scroll up",
-        "  ↓/j        Scroll down",
-        "  Page Up    Page up",
-        "  Page Down  Page down",
-        "  Home       Go to start",
-        "  End        Go to end",
-        "",
-        "🔍 Search:",
-        "  s          Open search",
-        "  n          Next result",
-        "  p          Previous result",
-        "  S          Deselect/Reselect current selection",
-        "",
-        "📋 Other Features:",
-        "  o          Show outline",
-        "  c          Copy content to clipboard",
-        "  h/F1       Toggle help",
-        "  q          Quit",
-        "",
-        "📄 Copy Functionality:",
-        "  Document:  Copies full document as text",
-        "  Outline:   Copies document structure",
-        "  Search:    Copies search results (use F2)",
-        "",
-        "Press any key to close help...",
+fn render_help(f: &mut Frame, area: Rect, keymap: &Keymap) {
+    let mut lines: Vec<String> = vec![
+        "doxx - Help".to_string(),
+        "".to_string(),
+        "Navigation:".to_string(),
     ];
 
-    let help = Paragraph::new(help_text.join("\n"))
+    let nav_actions: &[(Action, &str)] = &[
+        (Action::ScrollUp, "Scroll up"),
+        (Action::ScrollDown, "Scroll down"),
+        (Action::PageUp, "Page up"),
+        (Action::PageDown, "Page down"),
+        (Action::HalfPageUp, "Half-page up"),
+        (Action::HalfPageDown, "Half-page down"),
+        (Action::GotoStart, "Go to start"),
+        (Action::GotoEnd, "Go to end"),
+    ];
+    for (action, desc) in nav_actions {
+        let keys = keymap.keys_for_action(*action);
+        if !keys.is_empty() {
+            lines.push(format!("  {:<16} {}", keys.join("/"), desc));
+        }
+    }
+
+    lines.push("".to_string());
+    lines.push("Search:".to_string());
+    let search_actions: &[(Action, &str)] = &[
+        (Action::EnterSearch, "Open search"),
+        (Action::SearchNext, "Next result"),
+        (Action::SearchPrevious, "Previous result"),
+        (Action::ToggleSearchState, "Deselect/Reselect selection"),
+    ];
+    for (action, desc) in search_actions {
+        let keys = keymap.keys_for_action(*action);
+        if !keys.is_empty() {
+            lines.push(format!("  {:<16} {}", keys.join("/"), desc));
+        }
+    }
+
+    lines.push("".to_string());
+    lines.push("Other:".to_string());
+    let other_actions: &[(Action, &str)] = &[
+        (Action::ToggleOutline, "Show outline"),
+        (Action::Copy, "Copy content to clipboard"),
+        (Action::ToggleHelp, "Toggle help"),
+        (Action::Quit, "Quit"),
+    ];
+    for (action, desc) in other_actions {
+        let keys = keymap.keys_for_action(*action);
+        if !keys.is_empty() {
+            lines.push(format!("  {:<16} {}", keys.join("/"), desc));
+        }
+    }
+
+    lines.push("".to_string());
+    lines.push("Copy modes:".to_string());
+    lines.push("  Document:  copies full document as text".to_string());
+    lines.push("  Outline:   copies document structure".to_string());
+    lines.push("  Search:    copies search results (F2)".to_string());
+    lines.push("".to_string());
+    lines.push("Press any key to close...".to_string());
+
+    let help = Paragraph::new(lines.join("\n"))
         .block(
             Block::default()
                 .title("Help")
@@ -828,10 +848,10 @@ fn render_help(f: &mut Frame, area: Rect) {
     f.render_widget(help, area);
 }
 
-fn render_help_overlay(f: &mut Frame, _app: &App) {
+fn render_help_overlay(f: &mut Frame, app: &App) {
     let area = centered_rect(60, 70, f.area());
     f.render_widget(Clear, area);
-    render_help(f, area);
+    render_help(f, area, &app.keymap);
 }
 
 fn render_status_bar(f: &mut Frame, area: Rect, app: &App) {
@@ -891,8 +911,16 @@ fn render_status_bar(f: &mut Frame, area: Rect, app: &App) {
 
     f.render_widget(status, area);
 
-    // Navigation help
-    let help_text = "[↕] Scroll [o] Outline [s] Search [c] Copy [h] Help [q] Quit";
+    // Navigation help (keys pulled from active keymap)
+    let km = &app.keymap;
+    let help_text = format!(
+        "[↕] Scroll [{}] Outline [{}] Search [{}] Copy [{}] Help [{}] Quit",
+        km.primary_key_for_action(Action::ToggleOutline),
+        km.primary_key_for_action(Action::EnterSearch),
+        km.primary_key_for_action(Action::Copy),
+        km.primary_key_for_action(Action::ToggleHelp),
+        km.primary_key_for_action(Action::Quit),
+    );
     let help_area = Rect {
         x: area.x,
         y: area.y + 1,

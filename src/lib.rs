@@ -4,10 +4,12 @@
 //! and displaying them in terminal environments with rich formatting support.
 
 pub mod ansi;
+pub mod config;
 pub mod document;
 pub mod equation;
 pub mod export;
 pub mod image_extractor;
+pub mod keymap;
 pub mod terminal_image;
 pub mod widgets;
 

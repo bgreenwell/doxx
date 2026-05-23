@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Configurable Keyboard Shortcuts**: Full keymap system with presets and per-user customization ([#26](https://github.com/bgreenwell/doxx/issues/26))
+  - Three built-in presets: `default` (existing behavior), `vim`, and `less`
+  - Vim preset adds: `/` for search, `Ctrl-D`/`d` and `Ctrl-U`/`u` for half-page navigation, `g`/`G` and `H`/`L` for start/end, `N` for previous search result
+  - Less preset adds: `/` for search, `g`/`G` start/end, `b` page up, `Space` page down, half-page navigation
+  - Custom key overrides via TOML config file (`~/.config/doxx/config.toml` on macOS/Linux)
+  - Config subcommands: `doxx config init`, `doxx config get <key>`, `doxx config set <key> <value>`
+  - Invalid config entries print a warning and fall back to the preset — app never crashes on bad config
+
 ### Fixed
 - **ANSI Export Text Wrapping**: Fixed `--terminal-width` / `-w` option not wrapping text in ANSI export ([#45](https://github.com/bgreenwell/doxx/issues/45))
   - Text now properly wraps to specified terminal width

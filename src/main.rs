@@ -5,9 +5,11 @@ use std::path::PathBuf;
 use doxx::{ColorDepth, ExportFormat};
 
 mod ansi;
+mod config;
 mod document;
 mod export;
 pub mod image_extractor;
+mod keymap;
 mod state;
 pub mod terminal_image;
 mod ui;
@@ -118,22 +120,34 @@ async fn main() -> Result<()> {
 
     match &cli.config {
         Some(ConfigCommands::Init) => {
-            println!("Initializing doxx configuration...");
-            // TODO: Initialize config file
+            let cfg = config::Config::default();
+            cfg.save()?;
+            println!(
+                "Configuration initialized at: {}",
+                config::Config::config_file_path()?.display()
+            );
+            println!("Edit that file to customize keybindings. Valid presets: default, vim, less");
             return Ok(());
         }
         Some(ConfigCommands::Set { key, value }) => {
-            println!("Setting {key} = {value}");
-            // TODO: Set config value
+            let mut cfg = config::Config::load()?;
+            cfg.set_value(key, value)?;
+            cfg.save()?;
+            println!("{key} = {value}");
             return Ok(());
         }
         Some(ConfigCommands::Get { key }) => {
-            println!("Getting {key}");
-            // TODO: Get config value
+            let cfg = config::Config::load()?;
+            match cfg.get_value(key) {
+                Some(v) => println!("{v}"),
+                None => anyhow::bail!("Unknown config key: {key}"),
+            }
             return Ok(());
         }
         None => {}
     }
+
+    let cfg = config::Config::load()?;
 
     let file_path = cli
         .file
@@ -198,7 +212,7 @@ async fn main() -> Result<()> {
     }
 
     // Start terminal UI
-    ui::run_viewer(document, &cli).await?;
+    ui::run_viewer(document, &cli, &cfg).await?;
 
     Ok(())
 }
