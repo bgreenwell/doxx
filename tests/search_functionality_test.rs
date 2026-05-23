@@ -2,7 +2,7 @@ use doxx::document::{load_document, search_document, ImageOptions};
 use std::path::Path;
 
 async fn load_test_document() -> doxx::document::Document {
-    let path = Path::new("tests/fixtures/business-report.docx").to_path_buf();
+    let path = Path::new("tests/fixtures/comprehensive.docx").to_path_buf();
     tokio::task::spawn_blocking(move || load_document(&path, ImageOptions::default()))
         .await
         .expect("Failed to spawn blocking task")
@@ -135,12 +135,11 @@ mod edge_case_tests {
     async fn test_search_in_table_content() {
         let document = load_test_document().await;
 
-        // Business report has table content
-        let results = search_document(&document, "Growth");
-        // Should find text in various document elements
+        // comprehensive.docx has a product table
+        let results = search_document(&document, "Widget");
         assert!(
             !results.is_empty(),
-            "Should find search terms across different element types"
+            "Should find search terms in table content"
         );
     }
 }

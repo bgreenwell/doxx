@@ -1,20 +1,19 @@
 use std::process::Command;
 
 #[test]
-fn test_color_showcase_document_parsing() {
+fn test_color_document_parsing() {
     let output = Command::new("cargo")
-        .args(["run", "--bin", "doxx", "tests/fixtures/color-showcase.docx"])
+        .args(["run", "--bin", "doxx", "tests/fixtures/colors.docx"])
         .output()
         .expect("Failed to execute doxx");
 
     assert!(
         output.status.success(),
-        "doxx should successfully parse color showcase document: {}",
+        "doxx should successfully parse colors document: {}",
         String::from_utf8_lossy(&output.stderr)
     );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    // Basic check - should contain some content
     assert!(!stdout.is_empty(), "Output should not be empty");
 }
 
@@ -25,7 +24,7 @@ fn test_mixed_formatting_export_text() {
             "run",
             "--bin",
             "doxx",
-            "tests/fixtures/formatting-showcase.docx",
+            "tests/fixtures/comprehensive.docx",
             "--export",
             "text",
         ])
@@ -34,11 +33,10 @@ fn test_mixed_formatting_export_text() {
 
     assert!(
         output.status.success(),
-        "doxx should successfully export formatting showcase to text"
+        "doxx should successfully export comprehensive doc to text"
     );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    // Should contain some text content
     assert!(
         stdout.len() > 10,
         "Exported text should have reasonable length"
@@ -52,7 +50,7 @@ fn test_mixed_formatting_export_markdown() {
             "run",
             "--bin",
             "doxx",
-            "tests/fixtures/formatting-showcase.docx",
+            "tests/fixtures/comprehensive.docx",
             "--export",
             "markdown",
         ])
@@ -61,11 +59,10 @@ fn test_mixed_formatting_export_markdown() {
 
     assert!(
         output.status.success(),
-        "doxx should successfully export formatting showcase to markdown"
+        "doxx should successfully export comprehensive doc to markdown"
     );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    // Should contain markdown formatting indicators
     assert!(
         stdout.contains("**") || stdout.contains("*") || stdout.contains("#"),
         "Markdown export should contain formatting indicators"
@@ -79,7 +76,7 @@ fn test_mixed_formatting_export_json() {
             "run",
             "--bin",
             "doxx",
-            "tests/fixtures/formatting-showcase.docx",
+            "tests/fixtures/comprehensive.docx",
             "--export",
             "json",
         ])
@@ -88,11 +85,10 @@ fn test_mixed_formatting_export_json() {
 
     assert!(
         output.status.success(),
-        "doxx should successfully export formatting showcase to JSON"
+        "doxx should successfully export comprehensive doc to JSON"
     );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    // Should be valid JSON
     assert!(
         stdout.contains("{"),
         "JSON export should contain JSON structure"
@@ -105,12 +101,9 @@ fn test_mixed_formatting_export_json() {
 
 #[test]
 fn test_mixed_formatting_document_structure() {
-    // Test that documents with mixed formatting are properly parsed
-    // This test ensures that no crashes occur when parsing complex formatting
     let test_files = [
-        "tests/fixtures/color-showcase.docx",
-        "tests/fixtures/formatting-showcase.docx",
-        "tests/fixtures/business-report.docx",
+        "tests/fixtures/colors.docx",
+        "tests/fixtures/comprehensive.docx",
     ];
 
     for file_path in &test_files {

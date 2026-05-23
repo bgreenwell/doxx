@@ -16,7 +16,7 @@ pub fn export_document(document: &Document, format: &ExportFormat) -> Result<()>
     }
 }
 
-pub fn export_to_markdown(document: &Document) -> Result<()> {
+pub fn format_as_markdown(document: &Document) -> String {
     let mut markdown = String::new();
 
     // Add document title
@@ -40,7 +40,7 @@ pub fn export_to_markdown(document: &Document) -> Result<()> {
                 text,
                 number,
             } => {
-                let prefix = "#".repeat(*level as usize + 1); // +1 because title is h1
+                let prefix = "#".repeat(*level as usize);
                 let heading_text = if let Some(number) = number {
                     format!("{number} {text}")
                 } else {
@@ -157,7 +157,11 @@ pub fn export_to_markdown(document: &Document) -> Result<()> {
         }
     }
 
-    print!("{markdown}");
+    markdown
+}
+
+pub fn export_to_markdown(document: &Document) -> Result<()> {
+    print!("{}", format_as_markdown(document));
     Ok(())
 }
 

@@ -22,7 +22,7 @@ fn test_minimal_document_parsing() {
 #[test]
 fn test_tables_csv_export() {
     let output = Command::new(env!("CARGO_BIN_EXE_doxx"))
-        .args(["tests/fixtures/tables-heavy.docx", "--export", "csv"])
+        .args(["tests/fixtures/comprehensive.docx", "--export", "csv"])
         .output()
         .expect("Failed to execute doxx");
 
@@ -32,7 +32,7 @@ fn test_tables_csv_export() {
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("Name,Age,City"),
+        stdout.contains("Product") && stdout.contains("Quantity"),
         "Should contain CSV headers"
     );
 }
@@ -40,7 +40,7 @@ fn test_tables_csv_export() {
 #[test]
 fn test_headings_outline() {
     let output = Command::new(env!("CARGO_BIN_EXE_doxx"))
-        .args(["tests/fixtures/headings-hierarchy.docx", "--outline"])
+        .args(["tests/fixtures/comprehensive.docx", "--outline"])
         .output()
         .expect("Failed to execute doxx");
 
@@ -49,17 +49,16 @@ fn test_headings_outline() {
         "doxx should successfully generate outline"
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Level 1:"), "Should contain heading levels");
+    assert!(
+        stdout.contains("Text Formatting"),
+        "Should contain heading from document"
+    );
 }
 
 #[test]
 fn test_formatting_markdown_export() {
     let output = Command::new(env!("CARGO_BIN_EXE_doxx"))
-        .args([
-            "tests/fixtures/formatting-showcase.docx",
-            "--export",
-            "markdown",
-        ])
+        .args(["tests/fixtures/comprehensive.docx", "--export", "markdown"])
         .output()
         .expect("Failed to execute doxx");
 
@@ -77,40 +76,43 @@ fn test_formatting_markdown_export() {
 #[test]
 fn test_unicode_document() {
     let output = Command::new(env!("CARGO_BIN_EXE_doxx"))
-        .args(["tests/fixtures/unicode-special.docx"])
+        .args(["tests/fixtures/comprehensive.docx", "--export", "text"])
         .output()
         .expect("Failed to execute doxx");
 
     assert!(
         output.status.success(),
-        "doxx should successfully parse unicode document"
+        "doxx should successfully parse document with unicode"
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Unicode"), "Should contain unicode content");
+    assert!(
+        stdout.contains("你好世界"),
+        "Should contain CJK unicode content"
+    );
 }
 
 #[test]
-fn test_business_report_parsing() {
+fn test_document_parsing() {
     let output = Command::new(env!("CARGO_BIN_EXE_doxx"))
-        .args(["tests/fixtures/business-report.docx"])
+        .args(["tests/fixtures/comprehensive.docx"])
         .output()
         .expect("Failed to execute doxx");
 
     assert!(
         output.status.success(),
-        "doxx should successfully parse business report"
+        "doxx should successfully parse comprehensive document"
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("TechCorp"),
-        "Should contain business content"
+        stdout.contains("Text Formatting"),
+        "Should contain document content"
     );
 }
 
 #[test]
-fn test_export_test_json() {
+fn test_export_json() {
     let output = Command::new(env!("CARGO_BIN_EXE_doxx"))
-        .args(["tests/fixtures/export-test.docx", "--export", "json"])
+        .args(["tests/fixtures/comprehensive.docx", "--export", "json"])
         .output()
         .expect("Failed to execute doxx");
 
@@ -125,7 +127,7 @@ fn test_export_test_json() {
 #[test]
 fn test_search_functionality() {
     let output = Command::new(env!("CARGO_BIN_EXE_doxx"))
-        .args(["tests/fixtures/business-report.docx", "--search", "revenue"])
+        .args(["tests/fixtures/comprehensive.docx", "--search", "revenue"])
         .output()
         .expect("Failed to execute doxx");
 
@@ -143,7 +145,7 @@ fn test_search_functionality() {
 #[test]
 fn test_empty_search_functionality() {
     let output = Command::new(env!("CARGO_BIN_EXE_doxx"))
-        .args(["tests/fixtures/business-report.docx", "--search", ""])
+        .args(["tests/fixtures/comprehensive.docx", "--search", ""])
         .output()
         .expect("Failed to execute doxx");
 
@@ -178,13 +180,10 @@ fn test_help_command() {
 fn test_all_fixtures_exist() {
     let fixtures = [
         "tests/fixtures/minimal.docx",
-        "tests/fixtures/tables-heavy.docx",
-        "tests/fixtures/headings-hierarchy.docx",
-        "tests/fixtures/formatting-showcase.docx",
-        "tests/fixtures/lists-comprehensive.docx",
-        "tests/fixtures/unicode-special.docx",
-        "tests/fixtures/business-report.docx",
-        "tests/fixtures/export-test.docx",
+        "tests/fixtures/comprehensive.docx",
+        "tests/fixtures/colors.docx",
+        "tests/fixtures/equations.docx",
+        "tests/fixtures/images.docx",
     ];
 
     for fixture in &fixtures {
