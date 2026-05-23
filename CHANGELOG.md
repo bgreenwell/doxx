@@ -8,70 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Configurable Keyboard Shortcuts**: Full keymap system with presets and per-user customization ([#26](https://github.com/bgreenwell/doxx/issues/26))
-  - Three built-in presets: `default` (existing behavior), `vim`, and `less`
-  - Vim preset adds: `/` for search, `Ctrl-D`/`d` and `Ctrl-U`/`u` for half-page navigation, `g`/`G` and `H`/`L` for start/end, `N` for previous search result
-  - Less preset adds: `/` for search, `g`/`G` start/end, `b` page up, `Space` page down, half-page navigation
-  - Custom key overrides via TOML config file (`~/.config/doxx/config.toml` on macOS/Linux)
-  - Config subcommands: `doxx config init`, `doxx config get <key>`, `doxx config set <key> <value>`
-  - Invalid config entries print a warning and fall back to the preset — app never crashes on bad config
+- **Configurable Keyboard Shortcuts**: Three built-in presets (`default`, `vim`, `less`) and per-user TOML overrides via `~/.config/doxx/config.toml` ([#26](https://github.com/bgreenwell/doxx/issues/26)); help overlay and status bar reflect the active keymap
+- **Search Result Highlighting**: Current match highlighted in yellow, other matches in gray
+- **Position Persistence**: `--restore-position` / `-r` flag saves and restores scroll position across sessions ([#66](https://github.com/bgreenwell/doxx/issues/66))
+- **TUI Inline Image Display**: Images render inline within the document using Kitty, iTerm2, or half-block fallback protocols
 
 ### Fixed
-- **ANSI Export Text Wrapping**: Fixed `--terminal-width` / `-w` option not wrapping text in ANSI export ([#45](https://github.com/bgreenwell/doxx/issues/45))
-  - Text now properly wraps to specified terminal width
-  - Applies to paragraphs and list items
-  - Formatting (bold, italic, colors) preserved across wrapped lines
-  - Reduced excessive ANSI reset codes for cleaner output
-- **List Bullet Formatting Bleed**: Fixed list bullets and numbers incorrectly inheriting text formatting from list items
-  - List bullets/numbers were inheriting bold, italic, color, and strikethrough from the first word
-  - Affected all export modes (ANSI, markdown, text) and TUI rendering
-  - Root cause: List prefix was prepended to first run's text, inheriting all formatting properties
-  - Solution: Created separate FormattedRun with default formatting for list prefixes
-- **ANSI Formatting Bleed**: Fixed ANSI formatting codes bleeding into adjacent unformatted runs
-  - Formatting from one text run was persisting into subsequent runs that should be unformatted
-  - Example: Formatted "text" followed by unformatted "!" would render both formatted
-  - Root cause: ANSI reset codes were only applied after all runs, not after each individual run
-  - Solution: Added reset code at end of each formatted run for proper isolation
-- **TUI Strikethrough Rendering**: Fixed strikethrough text not displaying in TUI mode
-  - Strikethrough worked in all export modes but was invisible in interactive viewer
-  - Added missing `Modifier::CROSSED_OUT` to paragraph and table cell rendering
-  - Also added missing underline support for table cells
-
-### Added
-- **Search Result Highlighting**: Search matches now highlighted in document view with current match in yellow, other matches in gray
-- **Layout Cache**: Caches wrapped text lines for dramatic performance improvement during scrolling, especially with large documents
-- **Position Persistence (Opt-In)**: Save and restore scroll position with `--restore-position` / `-r` flag ([#66](https://github.com/bgreenwell/doxx/issues/66))
-  - By default, documents start at the top (like `less`)
-  - Use `-r` flag to resume where you left off (like `vim`)
-  - Position automatically saved on exit for future restoration
-  - CLI options (--page, --search) override saved position
-- **TUI Inline Image Display**: Complete terminal image rendering within the interactive viewer
-  - Custom `DocumentWidget` with unified text and image rendering pipeline
-  - Unicode-aware text wrapping using `unicode-segmentation` and `unicode-width` crates
-  - Support for Kitty, iTerm2, and half-block fallback protocols via `ratatui-image`
-  - Images render inline at correct positions within document flow
-  - Proper handling of image dimensions and terminal constraints
-  - Works seamlessly with existing features (search, navigation, scrolling)
-  - Foundation for future enhancements (text selection, hyperlinks)
+- **ANSI Text Wrapping**: `--terminal-width` / `-w` now correctly wraps text in ANSI export ([#45](https://github.com/bgreenwell/doxx/issues/45))
+- **List Prefix Formatting Bleed**: List bullets and numbers no longer inherit formatting (bold, italic, color) from the first run of their item
+- **ANSI Formatting Bleed**: Formatting codes no longer bleed into adjacent unformatted runs
+- **TUI Strikethrough and Underline**: Strikethrough and underline now render correctly in the interactive viewer and table cells
 
 ### Changed
-- Refactored document rendering architecture with custom `DocumentWidget`
-  - Single-pass rendering for improved performance
-  - Better separation of concerns (rendering logic in widget module)
-  - Removed 430+ lines of duplicate manual rendering code from `ui.rs`
-  - Custom `render()` method with `Frame` access enables `StatefulImage` rendering
-
-### Technical
-- Integrated equation support from main branch into custom widget architecture
-- All rendering (text, tables, images, equations) now unified in `DocumentWidget`
-- Tests verified with `equations.docx`, `images.docx`, and other fixtures
-- **Document Module Refactoring**: Completely restructured document parsing into focused modules
-  - Split monolithic 2,611-line `document.rs` into 12 specialized modules
-  - Created `document/parsing/` submodule with focused parsers (equations, tables, headings, lists, formatting, numbering)
-  - Improved code organization with clear separation of concerns
-  - Enhanced maintainability and extensibility for future development
-  - All 59 tests passing with no functional changes
-  - Removed compiler warnings and updated documentation
+- Refactored document rendering into a custom `DocumentWidget` with unified text, table, image, and equation rendering
+- Split `document.rs` into focused submodules under `document/parsing/` for maintainability
 
 ## [0.1.2] - 2025-10-21
 
