@@ -7,21 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-05-24
+
 ### Added
-- **Configurable Keyboard Shortcuts**: Three built-in presets (`default`, `vim`, `less`) and per-user TOML overrides via `~/.config/doxx/config.toml` ([#26](https://github.com/bgreenwell/doxx/issues/26)); help overlay and status bar reflect the active keymap
-- **Search Result Highlighting**: Current match highlighted in yellow, other matches in gray
-- **Position Persistence**: `--restore-position` / `-r` flag saves and restores scroll position across sessions ([#66](https://github.com/bgreenwell/doxx/issues/66))
-- **TUI Inline Image Display**: Images render inline within the document using Kitty, iTerm2, or half-block fallback protocols
+- Configurable keymap presets (`default`, `vim`, `less`) with per-user TOML overrides in `~/.config/doxx/config.toml` ([#26](https://github.com/bgreenwell/doxx/issues/26))
+- Search result highlighting: current match in yellow, other matches in gray
+- `--restore-position` / `-r` flag to save and restore scroll position across sessions ([#66](https://github.com/bgreenwell/doxx/issues/66))
+- Inline image display in TUI via Kitty, iTerm2, or half-block fallback ([#35](https://github.com/bgreenwell/doxx/issues/35))
+- NetBSD package via `pkgin install doxx`
 
 ### Fixed
-- **ANSI Text Wrapping**: `--terminal-width` / `-w` now correctly wraps text in ANSI export ([#45](https://github.com/bgreenwell/doxx/issues/45))
-- **List Prefix Formatting Bleed**: List bullets and numbers no longer inherit formatting (bold, italic, color) from the first run of their item
-- **ANSI Formatting Bleed**: Formatting codes no longer bleed into adjacent unformatted runs
-- **TUI Strikethrough and Underline**: Strikethrough and underline now render correctly in the interactive viewer and table cells
+- `--terminal-width` / `-w` wraps headings and text correctly in ANSI export ([#45](https://github.com/bgreenwell/doxx/issues/45))
+- List bullets and numbers no longer inherit formatting from the first run of their item
+- ANSI formatting no longer bleeds into adjacent unformatted runs
+- Strikethrough and underline render correctly in the TUI viewer and table cells
 
 ### Changed
-- Refactored document rendering into a custom `DocumentWidget` with unified text, table, image, and equation rendering
-- Split `document.rs` into focused submodules under `document/parsing/` for maintainability
+- Refactored document rendering into a custom `DocumentWidget`
+- Split `document.rs` into focused submodules under `document/parsing/`
 
 ## [0.1.2] - 2025-10-21
 
