@@ -26,6 +26,7 @@ coverage/
 
 # Generated documentation
 /doc
+experiments/**/target/
 
 # Project management and development notes
 CLAUDE.md

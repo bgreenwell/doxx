@@ -1,5 +1,0 @@
-crate::version::Version {
-    minor: 88,
-    patch: 0,
-    channel: crate::version::Channel::Stable,
-}
