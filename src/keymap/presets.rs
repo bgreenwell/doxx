@@ -104,9 +104,10 @@ fn create_vim() -> HashMap<KeyBinding, Action> {
     m.insert(KeyBinding::char('g'), Action::GotoStart);
     m.insert(KeyBinding::char('G'), Action::GotoEnd);
 
-    // / for search (vim-style), N for previous
+    // / for search (vim-style), N for previous; remove default 's' binding
     m.insert(KeyBinding::char('/'), Action::EnterSearch);
     m.insert(KeyBinding::char('N'), Action::SearchPrevious);
+    m.remove(&KeyBinding::char('s'));
 
     m
 }
@@ -114,9 +115,10 @@ fn create_vim() -> HashMap<KeyBinding, Action> {
 fn create_less() -> HashMap<KeyBinding, Action> {
     let mut m = create_default();
 
-    // / for search
+    // / for search; remove default 's' binding
     m.insert(KeyBinding::char('/'), Action::EnterSearch);
     m.insert(KeyBinding::char('N'), Action::SearchPrevious);
+    m.remove(&KeyBinding::char('s'));
 
     // Half-page navigation
     m.insert(KeyBinding::char('u'), Action::HalfPageUp);
