@@ -1,0 +1,39 @@
+name: Publish to WinGet
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish (e.g., v0.2.5)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish-winget:
+    runs-on: ubuntu-latest
+    if: ${{ !github.event.release.prerelease }}
+
+    steps:
+      - name: Determine release version
+        id: get-version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${{ github.event.release.tag_name }}"
+          fi
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to WinGet with Komac
+        uses: michidk/run-komac@v2
+        with:
+          args: 'new --version ${{ steps.get-version.outputs.version }} --urls "https://github.com/bgreenwell/doxx/releases/download/${{ steps.get-version.outputs.tag }}/doxx-x86_64-pc-windows-msvc.msi" --submit bgreenwell.doxx'
+        env:
+          GITHUB_TOKEN: ${{ secrets.WINGET_TOKEN }}

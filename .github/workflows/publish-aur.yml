@@ -1,0 +1,136 @@
+name: Publish to AUR
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish (e.g., v0.2.5)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish-aur:
+    runs-on: ubuntu-22.04
+    if: ${{ !github.event.release.prerelease }}
+
+    steps:
+      - name: Determine release version
+        id: get-version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${{ github.event.release.tag_name }}"
+          fi
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout doxx repository
+        uses: actions/checkout@v4
+        with:
+          path: doxx
+
+      - name: Download release tarball and SHA256
+        run: |
+          VERSION="${{ steps.get-version.outputs.version }}"
+          TARBALL="doxx-x86_64-unknown-linux-gnu.tar.xz"
+          SHA_FILE="${TARBALL}.sha256"
+
+          cd xleak
+          gh release download "v${VERSION}" \
+            --pattern "$SHA_FILE"
+
+          SHA256=$(cat "$SHA_FILE" | cut -d ' ' -f 1)
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+          echo "tarball=$TARBALL" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        id: download
+
+      - name: Generate PKGBUILD
+        run: |
+          VERSION="${{ steps.get-version.outputs.version }}"
+          SHA256="${{ steps.download.outputs.sha256 }}"
+          TARBALL="${{ steps.download.outputs.tarball }}"
+
+          cat > PKGBUILD << 'EOF'
+          # Maintainer: Brandon Greenwell <greenwell.brandon@gmail.com>
+
+          pkgname=doxx-bin
+          pkgver=VERSION_PLACEHOLDER
+          pkgrel=1
+          pkgdesc="Terminal document viewer for .docx files"
+          url="https://github.com/bgreenwell/doxx"
+          license=("MIT")
+          arch=("x86_64")
+          provides=("doxx")
+          conflicts=("doxx")
+          source=("https://github.com/bgreenwell/doxx/releases/download/v$pkgver/TARBALL_PLACEHOLDER")
+          sha256sums=("SHA256_PLACEHOLDER")
+
+          package() {
+              cd "$srcdir/doxx-x86_64-unknown-linux-gnu"
+              install -Dm755 doxx -t "$pkgdir/usr/bin"
+              install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+          }
+          EOF
+
+          sed -i "s/VERSION_PLACEHOLDER/$VERSION/" PKGBUILD
+          sed -i "s/TARBALL_PLACEHOLDER/$TARBALL/" PKGBUILD
+          sed -i "s/SHA256_PLACEHOLDER/$SHA256/" PKGBUILD
+
+      - name: Generate .SRCINFO
+        uses: addnab/docker-run-action@v3
+        with:
+          image: archlinux:latest
+          options: -v ${{ github.workspace }}:/workspace
+          run: |
+            cd /workspace
+            useradd -m builder
+            chown -R builder:builder .
+            su builder -c 'makepkg --printsrcinfo' > .SRCINFO
+
+      - name: Fix permissions after Docker
+        run: |
+          sudo chown -R $USER:$USER ${{ github.workspace }}
+
+      - name: Setup SSH for AUR
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH for AUR
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -t rsa,ecdsa,ed25519 aur.archlinux.org >> ~/.ssh/known_hosts
+
+      - name: Clone AUR repository
+        run: |
+          git clone ssh://aur@aur.archlinux.org/doxx-bin.git aur-repo
+
+      - name: Update AUR repository
+        run: |
+          VERSION="${{ steps.get-version.outputs.version }}"
+
+          cp PKGBUILD aur-repo/
+          cp .SRCINFO aur-repo/
+
+          cd aur-repo
+
+          git config user.name "Brandon Greenwell"
+          git config user.email "greenwell.brandon@gmail.com"
+
+          git add PKGBUILD .SRCINFO
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update to v${VERSION}"
+            git push origin master
+          fi

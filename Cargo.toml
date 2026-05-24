@@ -8,7 +8,7 @@ repository = "https://github.com/bgreenwell/doxx"
 homepage = "https://github.com/bgreenwell/doxx"
 documentation = "https://github.com/bgreenwell/doxx#readme"
 readme = "README.md"
-authors = ["bgreenwell"]
+authors = ["Brandon Greenwell <greenwell.brandon@gmail.com>"]
 keywords = ["docx", "terminal", "document", "viewer", "tui"]
 categories = ["command-line-utilities", "text-processing"]
 default-run = "doxx"
@@ -26,7 +26,7 @@ exclude = [
 
 [lib]
 name = "doxx"
-crate-type = ["cdylib", "rlib"]
+crate-type = ["rlib"]
 
 [dependencies]
 # Document parsing
@@ -67,3 +67,24 @@ unicode-width = "0.2.0"
 [profile.release]
 codegen-units = 1
 lto = true
+
+[profile.dist]
+inherits = "release"
+lto = "thin"
+
+[package.metadata.release]
+pre-release-replacements = [
+  { file = "CHANGELOG.md", search = "## \\[Unreleased\\]", replace = "## [Unreleased]\n\n## [{{version}}] - {{date}}", exactly = 1 },
+]
+pre-release-commit-message = "chore: release {{version}}"
+tag-message = "Release {{version}}"
+
+[package.metadata.aur]
+depends = []
+makedepends = ["cargo"]
+
+[package.metadata.wix]
+upgrade-guid = "9d14176b-1499-42ef-bc1a-c6570e19717a"
+path-guid = "12997dda-1476-4350-adba-af75a7270d8e"
+license = false
+eula = false

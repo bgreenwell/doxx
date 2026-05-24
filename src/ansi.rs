@@ -50,7 +50,11 @@ pub fn export_to_ansi_with_options(document: &Document, options: &AnsiOptions) -
             .rev()
             .scan(0usize, |w, g| {
                 *w += UnicodeWidthStr::width(g);
-                if *w + 1 <= available { Some(g) } else { None }
+                if *w < available {
+                    Some(g)
+                } else {
+                    None
+                }
             })
             .collect::<Vec<_>>()
             .into_iter()

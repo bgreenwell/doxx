@@ -1,0 +1,107 @@
+name: Publish Scoop Manifest
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish (e.g., v0.2.5)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish-scoop:
+    runs-on: ubuntu-22.04
+    if: ${{ !github.event.release.prerelease || github.event.repository.allow_prerelease }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_USER: "axo bot"
+      GITHUB_EMAIL: "admin+bot@axo.dev"
+
+    steps:
+      - name: Determine release tag
+        id: get-tag
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout Scoop bucket
+        uses: actions/checkout@v4
+        with:
+          repository: bgreenwell/scoop-bucket
+          token: ${{ secrets.SCOOP_BUCKET_TOKEN }}
+          path: scoop-bucket
+
+      - name: Download release artifacts
+        run: |
+          TAG="${{ steps.get-tag.outputs.tag }}"
+          VERSION="${TAG#v}"
+
+          ZIP_FILE="doxx-x86_64-pc-windows-msvc.zip"
+          SHA_FILE="${ZIP_FILE}.sha256"
+
+          gh release download "$TAG" \
+            --repo bgreenwell/doxx \
+            --pattern "$ZIP_FILE" \
+            --pattern "$SHA_FILE"
+
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "ZIP_FILE=$ZIP_FILE" >> $GITHUB_ENV
+          echo "SHA_FILE=$SHA_FILE" >> $GITHUB_ENV
+
+      - name: Generate Scoop manifest
+        run: |
+          SHA256=$(cat "$SHA_FILE" | cut -d ' ' -f 1)
+          DOWNLOAD_URL="https://github.com/bgreenwell/doxx/releases/download/v${VERSION}/${ZIP_FILE}"
+
+          mkdir -p scoop-bucket/bucket
+
+          jq -n \
+            --arg version "${VERSION}" \
+            --arg url "${DOWNLOAD_URL}" \
+            --arg hash "${SHA256}" \
+            '{
+              version: $version,
+              description: "Terminal document viewer for .docx files",
+              homepage: "https://github.com/bgreenwell/doxx",
+              license: "MIT",
+              architecture: {
+                "64bit": {
+                  url: $url,
+                  hash: $hash
+                }
+              },
+              bin: "doxx.exe",
+              checkver: {
+                github: "https://github.com/bgreenwell/doxx"
+              },
+              autoupdate: {
+                architecture: {
+                  "64bit": {
+                    url: "https://github.com/bgreenwell/doxx/releases/download/v$version/doxx-x86_64-pc-windows-msvc.zip"
+                  }
+                }
+              }
+            }' > scoop-bucket/bucket/doxx.json
+
+      - name: Commit and push manifest
+        working-directory: scoop-bucket
+        run: |
+          git config user.name "${GITHUB_USER}"
+          git config user.email "${GITHUB_EMAIL}"
+
+          git add bucket/doxx.json
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "doxx ${VERSION}"
+            git push
+          fi

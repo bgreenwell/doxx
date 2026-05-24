@@ -2,9 +2,13 @@
 
 > `.docx` files in your terminal — no Microsoft Word required
 
-[![CI](https://github.com/bgreenwell/doxx/workflows/CI/badge.svg)](https://github.com/bgreenwell/doxx/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Rust](https://img.shields.io/badge/rust-%23000000.svg?style=flat&logo=rust&logoColor=white)](https://www.rust-lang.org/)
+[![CI](https://img.shields.io/github/actions/workflow/status/bgreenwell/doxx/ci.yml?style=for-the-badge)](https://github.com/bgreenwell/doxx/actions/workflows/ci.yml)
+[![Crates.io](https://img.shields.io/crates/v/doxx.svg?style=for-the-badge)](https://crates.io/crates/doxx)
+[![Downloads](https://img.shields.io/crates/d/doxx?style=for-the-badge)](https://crates.io/crates/doxx)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg?style=for-the-badge&logo=rust)](https://www.rust-lang.org)
+[![Easy Install](https://img.shields.io/badge/Easy%20Install-Homebrew%20%7C%20Scoop-FBB040?style=for-the-badge)](#installation)
+[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-blue?style=for-the-badge)](https://github.com/bgreenwell/doxx/releases/latest)
 
 A fast, terminal-native document viewer for Word files. View, search, and export `.docx` documents without leaving your command line.
 

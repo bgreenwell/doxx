@@ -1,0 +1,97 @@
+# Release Checklist
+
+Use this checklist when preparing a new release of doxx. You can also create a GitHub issue using the "Release" template to track progress.
+
+## Pre-Release
+
+- [ ] All tests passing: `cargo test`
+- [ ] No clippy warnings: `cargo clippy`
+- [ ] Code is formatted: `cargo fmt --check`
+- [ ] CHANGELOG.md updated:
+  - [ ] Move items from `[Unreleased]` to new `[X.Y.Z] - YYYY-MM-DD` section
+  - [ ] Keep `[Unreleased]` section empty for future changes
+  - [ ] Verify changelog entries are accurate and complete
+- [ ] Version bumped in `Cargo.toml`
+- [ ] Test binary works: `cargo run --release -- tests/fixtures/comprehensive.docx`
+
+## Create Release
+
+- [ ] Commit version bump: `git commit -m "chore: release X.Y.Z"`
+- [ ] Push to main: `git push`
+- [ ] Create version tag: `git tag vX.Y.Z`
+- [ ] Push tag: `git push origin vX.Y.Z`
+- [ ] Wait for GitHub Actions workflows to complete (~10-15 minutes)
+
+## Verify Automated Releases
+
+All of the following are now automated via GitHub Actions:
+
+- [ ] **GitHub Release** created at https://github.com/bgreenwell/doxx/releases/tag/vX.Y.Z
+  - [ ] All platform binaries present (Linux, macOS, Windows)
+  - [ ] Tarballs (.tar.xz) and ZIP archive
+  - [ ] MSI installer for Windows
+  - [ ] Shell/PowerShell installer scripts
+  - [ ] SHA256 checksum files
+
+- [ ] **Homebrew** formula published to [bgreenwell/homebrew-doxx](https://github.com/bgreenwell/homebrew-doxx)
+  - Automated by: `publish-homebrew-formula` job in release.yml
+
+- [ ] **Scoop** manifest published to [bgreenwell/scoop-bucket](https://github.com/bgreenwell/scoop-bucket)
+  - Automated by: `.github/workflows/publish-scoop.yml`
+
+- [ ] **crates.io** published at https://crates.io/crates/doxx
+  - Automated by: `publish-crates-io` job in release.yml
+
+- [ ] **AUR** package updated at [doxx-bin](https://aur.archlinux.org/packages/doxx-bin)
+  - Automated by: `.github/workflows/publish-aur.yml`
+  - PKGBUILD and .SRCINFO auto-generated and pushed
+
+- [ ] **WinGet** manifest PR created to [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs)
+  - Automated by: `.github/workflows/publish-winget.yml`
+  - **Note:** PR may require manual merge approval from Microsoft team (1-2 days)
+
+## Test Installations
+
+- [ ] **Homebrew (macOS/Linux)**:
+  ```bash
+  brew update && brew upgrade doxx
+  doxx --version
+  ```
+
+- [ ] **Scoop (Windows)**:
+  ```powershell
+  scoop update && scoop update doxx
+  doxx --version
+  ```
+
+- [ ] **AUR (Arch Linux)**:
+  ```bash
+  yay -Syu doxx-bin
+  doxx --version
+  ```
+
+- [ ] **WinGet (Windows)**:
+  ```powershell
+  winget upgrade bgreenwell.doxx
+  doxx --version
+  ```
+  **Note:** May take 1-2 days for WinGet PR to be merged
+
+## Post-Release
+
+- [ ] All automated workflows completed successfully (check GitHub Actions)
+- [ ] Close release tracking issue
+
+## Troubleshooting
+
+**GitHub Actions fails:** Verify all secrets are configured: `HOMEBREW_TAP_TOKEN`, `SCOOP_BUCKET_TOKEN`, `CARGO_REGISTRY_TOKEN`, `AUR_SSH_PRIVATE_KEY`, `WINGET_TOKEN`
+
+**AUR automation fails:** Check SSH key is valid (`AUR_SSH_PRIVATE_KEY` secret). Verify `doxx-bin` package exists at aur.archlinux.org.
+
+**WinGet PR not appearing:** Check `.github/workflows/publish-winget.yml` logs. May need to create PR manually with `komac update`.
+
+For detailed workflow information:
+- `.github/workflows/release.yml` — main release, Homebrew, crates.io
+- `.github/workflows/publish-scoop.yml` — Scoop bucket
+- `.github/workflows/publish-aur.yml` — AUR publishing
+- `.github/workflows/publish-winget.yml` — WinGet manifests
