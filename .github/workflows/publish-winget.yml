@@ -31,9 +31,22 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
+      - name: Install Komac
+        uses: cargo-bins/cargo-binstall@main
+
+      - name: Install komac binary
+        run: cargo binstall komac -y
+
+      - name: Sync WinGet fork
+        run: gh repo sync bgreenwell/winget-pkgs
+        env:
+          GH_TOKEN: ${{ secrets.WINGET_TOKEN }}
+
       - name: Publish to WinGet with Komac
-        uses: michidk/run-komac@v2
-        with:
-          args: 'new --version ${{ steps.get-version.outputs.version }} --urls "https://github.com/bgreenwell/doxx/releases/download/${{ steps.get-version.outputs.tag }}/doxx-x86_64-pc-windows-msvc.msi" --submit bgreenwell.doxx'
+        run: |
+          komac update bgreenwell.doxx \
+            --version ${{ steps.get-version.outputs.version }} \
+            --urls "https://github.com/bgreenwell/doxx/releases/download/${{ steps.get-version.outputs.tag }}/doxx-x86_64-pc-windows-msvc.msi" \
+            --submit
         env:
           GITHUB_TOKEN: ${{ secrets.WINGET_TOKEN }}
