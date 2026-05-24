@@ -39,7 +39,26 @@ pub fn export_to_ansi_with_options(document: &Document, options: &AnsiOptions) -
         format_ansi_text("", true, false, false, false, None, options),
         format_ansi_reset()
     )?;
-    writeln!(output, "- File: {}", document.metadata.file_path)?;
+    let prefix = "- File: ";
+    let available = options.terminal_width.saturating_sub(prefix.len());
+    let path = &document.metadata.file_path;
+    let file_str = if UnicodeWidthStr::width(path.as_str()) <= available {
+        path.clone()
+    } else {
+        let truncated: String = path
+            .graphemes(true)
+            .rev()
+            .scan(0usize, |w, g| {
+                *w += UnicodeWidthStr::width(g);
+                if *w + 1 <= available { Some(g) } else { None }
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect();
+        format!("…{truncated}")
+    };
+    writeln!(output, "{prefix}{file_str}")?;
     writeln!(output, "- Pages: {}", document.metadata.page_count)?;
     writeln!(output, "- Words: {}", document.metadata.word_count)?;
     if let Some(author) = &document.metadata.author {
