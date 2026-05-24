@@ -1,0 +1,14 @@
+[workspace]
+members = ["cargo:."]
+
+# Config for 'dist'
+[dist]
+cargo-dist-version = "0.30.2"
+ci = "github"
+installers = ["shell", "powershell", "homebrew", "msi"]
+tap = "bgreenwell/homebrew-doxx"
+scoop-bucket = "bgreenwell/scoop-bucket"
+targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-gnu", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu", "x86_64-unknown-linux-musl", "x86_64-pc-windows-msvc"]
+install-path = "CARGO_HOME"
+publish-jobs = ["homebrew"]
+install-updater = true
