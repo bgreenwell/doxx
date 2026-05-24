@@ -139,18 +139,60 @@ fn write_ansi_heading(
         _ => "      • ",
     };
 
-    let formatted_text = format_ansi_text(
-        &format!("{prefix}{text}"),
-        true,
-        false,
-        false,
-        false,
-        color,
-        options,
-    );
+    let prefix_width = UnicodeWidthStr::width(prefix);
+    let available_width = options.terminal_width.saturating_sub(prefix_width);
+    let wrapped = wrap_plain_text(text, available_width);
+    let indent = " ".repeat(prefix_width);
 
-    writeln!(output, "{}{}", formatted_text, format_ansi_reset())?;
+    for (i, line) in wrapped.iter().enumerate() {
+        let display = if i == 0 {
+            format!("{prefix}{line}")
+        } else {
+            format!("{indent}{line}")
+        };
+        writeln!(
+            output,
+            "{}",
+            format_ansi_text(&display, true, false, false, false, color, options)
+        )?;
+    }
+
     Ok(())
+}
+
+fn wrap_plain_text(text: &str, max_width: usize) -> Vec<String> {
+    if max_width == 0 {
+        return vec![text.to_string()];
+    }
+
+    let mut lines = Vec::new();
+    let mut current_line = String::new();
+    let mut current_width = 0;
+
+    for word in text.split_whitespace() {
+        let word_width = UnicodeWidthStr::width(word);
+        if current_width == 0 {
+            current_line.push_str(word);
+            current_width = word_width;
+        } else if current_width + 1 + word_width > max_width {
+            lines.push(current_line.clone());
+            current_line = word.to_string();
+            current_width = word_width;
+        } else {
+            current_line.push(' ');
+            current_line.push_str(word);
+            current_width += 1 + word_width;
+        }
+    }
+
+    if !current_line.is_empty() {
+        lines.push(current_line);
+    }
+    if lines.is_empty() {
+        lines.push(String::new());
+    }
+
+    lines
 }
 
 fn write_ansi_paragraph(
