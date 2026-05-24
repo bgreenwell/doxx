@@ -794,7 +794,7 @@ fn render_help(f: &mut Frame, area: Rect, keymap: &Keymap) {
     for (action, desc) in nav_actions {
         let keys = keymap.keys_for_action(*action);
         if !keys.is_empty() {
-            lines.push(format!("  {:<16} {}", keys.join("/"), desc));
+            lines.push(format!("  {:<16} {}", keys.join(", "), desc));
         }
     }
 
@@ -809,7 +809,7 @@ fn render_help(f: &mut Frame, area: Rect, keymap: &Keymap) {
     for (action, desc) in search_actions {
         let keys = keymap.keys_for_action(*action);
         if !keys.is_empty() {
-            lines.push(format!("  {:<16} {}", keys.join("/"), desc));
+            lines.push(format!("  {:<16} {}", keys.join(", "), desc));
         }
     }
 
@@ -824,7 +824,7 @@ fn render_help(f: &mut Frame, area: Rect, keymap: &Keymap) {
     for (action, desc) in other_actions {
         let keys = keymap.keys_for_action(*action);
         if !keys.is_empty() {
-            lines.push(format!("  {:<16} {}", keys.join("/"), desc));
+            lines.push(format!("  {:<16} {}", keys.join(", "), desc));
         }
     }
 
