@@ -564,6 +564,51 @@ impl<'a> DocumentWidget<'a> {
         }
     }
 
+    /// Render a text box element with Unicode box-drawing borders
+    fn render_text_box(
+        lines: &[String],
+        area: Rect,
+        buf: &mut Buffer,
+        current_y: &mut u16,
+        color_enabled: bool,
+    ) {
+        if *current_y >= area.y + area.height {
+            return;
+        }
+
+        let border_style = if color_enabled {
+            Style::default().fg(Color::Cyan)
+        } else {
+            Style::default()
+        };
+
+        let inner_width = (area.width as usize).saturating_sub(4); // "│ " + " │"
+        let bar = "─".repeat(area.width.saturating_sub(2) as usize);
+
+        // Top border: ┌───┐
+        buf.set_string(area.x, *current_y, format!("┌{bar}┐"), border_style);
+        *current_y += 1;
+
+        // Content lines
+        for line in lines {
+            if *current_y >= area.y + area.height {
+                return;
+            }
+            let truncated: String = line.chars().take(inner_width).collect();
+            let padded = format!("│ {truncated:<inner_width$} │", inner_width = inner_width);
+            buf.set_string(area.x, *current_y, padded, border_style);
+            *current_y += 1;
+        }
+
+        // Bottom border: └───┘
+        if *current_y < area.y + area.height {
+            buf.set_string(area.x, *current_y, format!("└{bar}┘"), border_style);
+            *current_y += 1;
+        }
+
+        *current_y += 1; // blank line after box
+    }
+
     /// Render a page break element
     fn render_page_break(area: Rect, buf: &mut Buffer, current_y: &mut u16, color_enabled: bool) {
         if *current_y >= area.y + area.height {
@@ -734,6 +779,28 @@ impl<'a> DocumentWidget<'a> {
 
                     buf.set_line(area.x, current_y, &line, area.width);
                     current_y += 2; // Equation + blank line
+                }
+
+                DocumentElement::CodeBlock { text } => {
+                    if current_y < area.y + area.height {
+                        let code_style = if self.color_enabled {
+                            Style::default().fg(Color::Green)
+                        } else {
+                            Style::default()
+                        };
+                        for line in text.lines() {
+                            if current_y >= area.y + area.height {
+                                break;
+                            }
+                            buf.set_string(area.x, current_y, line, code_style);
+                            current_y += 1;
+                        }
+                        current_y += 1; // blank line after block
+                    }
+                }
+
+                DocumentElement::TextBox { lines } => {
+                    Self::render_text_box(lines, area, buf, &mut current_y, self.color_enabled);
                 }
 
                 DocumentElement::PageBreak => {

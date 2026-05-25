@@ -126,6 +126,31 @@ pub fn export_to_ansi_with_options(document: &Document, options: &AnsiOptions) -
                 )?;
                 output.push('\n');
             }
+            DocumentElement::CodeBlock { text } => {
+                let code_color = format_ansi_color(Some("#AAFFAA"), options);
+                let reset = format_ansi_reset();
+                for line in text.lines() {
+                    writeln!(output, "  {code_color}{line}{reset}")?;
+                }
+                output.push('\n');
+            }
+            DocumentElement::TextBox { lines } => {
+                let border_color = format_ansi_color(Some("#00FFFF"), options);
+                let reset = format_ansi_reset();
+                let inner_width = options.terminal_width.saturating_sub(4);
+                let bar = "─".repeat(options.terminal_width.saturating_sub(2));
+                writeln!(output, "{border_color}┌{bar}┐{reset}")?;
+                for line in lines {
+                    let truncated: String = line.chars().take(inner_width).collect();
+                    writeln!(
+                        output,
+                        "{border_color}│{reset} {truncated:<inner_width$} {border_color}│{reset}",
+                        inner_width = inner_width
+                    )?;
+                }
+                writeln!(output, "{border_color}└{bar}┘{reset}")?;
+                output.push('\n');
+            }
             DocumentElement::PageBreak => {
                 let separator = "─".repeat(std::cmp::min(60, options.terminal_width));
                 writeln!(

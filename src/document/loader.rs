@@ -15,12 +15,12 @@ use super::io::{merge_display_equations, validate_docx_file};
 use super::cleanup::{clean_word_list_markers, estimate_page_count};
 // Import numbering management
 use super::parsing::numbering::{
-    analyze_heading_structure, DocumentNumberingManager, HeadingNumberTracker, NumberingFormat,
+    analyze_heading_structure, HeadingNumberTracker, NumberingResolver,
 };
 // Import list processing
 use super::parsing::list::group_list_items;
 // Import formatting and text extraction
-use super::parsing::formatting::extract_run_formatting;
+use super::parsing::formatting::{extract_paragraph_text, extract_run_formatting};
 // Import heading detection
 use super::parsing::heading::{detect_heading_from_text, detect_heading_with_numbering};
 // Import table extraction
@@ -59,7 +59,7 @@ pub fn load_document(file_path: &Path, image_options: ImageOptions) -> Result<Do
 
     let mut elements = Vec::new();
     let mut word_count = 0;
-    let mut numbering_manager = DocumentNumberingManager::new();
+    let mut numbering_resolver = NumberingResolver::build_from_docx(&docx.numberings);
     let mut heading_tracker = HeadingNumberTracker::new();
 
     // Analyze document structure to determine if auto-numbering should be enabled
@@ -121,8 +121,20 @@ pub fn load_document(file_path: &Path, image_options: ImageOptions) -> Result<Do
                     }
                 }
 
-                // Extract runs with individual formatting
+                // Detect paragraph style (used for code blocks, block quotes, etc.)
+                let para_style = para
+                    .property
+                    .style
+                    .as_ref()
+                    .map(|s| s.val.as_str())
+                    .unwrap_or("");
+                let is_code_block = para_style == "SourceCode" || para_style == "VerbatimChar";
+
+                // Extract runs with individual formatting, preserving line breaks.
+                // Text box shapes (DrawingData::TextBox) are collected separately so they
+                // are always emitted as plain paragraphs regardless of the parent style.
                 let mut formatted_runs = Vec::new();
+                let mut textbox_groups: Vec<Vec<String>> = Vec::new();
 
                 for child in &para.children {
                     if let docx_rs::ParagraphChild::Run(run) = child {
@@ -130,8 +142,34 @@ pub fn load_document(file_path: &Path, image_options: ImageOptions) -> Result<Do
                         let mut run_text = String::new();
 
                         for child in &run.children {
-                            if let docx_rs::RunChild::Text(text_elem) = child {
-                                run_text.push_str(&text_elem.text);
+                            match child {
+                                docx_rs::RunChild::Text(text_elem) => {
+                                    run_text.push_str(&text_elem.text);
+                                }
+                                docx_rs::RunChild::Break(_) => {
+                                    run_text.push('\n');
+                                }
+                                docx_rs::RunChild::Drawing(drawing) => {
+                                    if let Some(docx_rs::DrawingData::TextBox(text_box)) =
+                                        &drawing.data
+                                    {
+                                        let mut group = Vec::new();
+                                        for tb_child in &text_box.children {
+                                            if let docx_rs::TextBoxContentChild::Paragraph(para) =
+                                                tb_child
+                                            {
+                                                let text = extract_paragraph_text(para);
+                                                if !text.is_empty() {
+                                                    group.push(text);
+                                                }
+                                            }
+                                        }
+                                        if !group.is_empty() {
+                                            textbox_groups.push(group);
+                                        }
+                                    }
+                                }
+                                _ => {}
                             }
                         }
 
@@ -151,21 +189,22 @@ pub fn load_document(file_path: &Path, image_options: ImageOptions) -> Result<Do
                 if !total_text.trim().is_empty() {
                     word_count += total_text.split_whitespace().count();
 
-                    // Priority: list numbering > heading style > text heuristics
-                    if let Some(list_info) = list_info {
+                    // Priority: code block > list numbering > heading style > text heuristics
+                    if is_code_block {
+                        let code_text: String =
+                            formatted_runs.iter().map(|r| r.text.as_str()).collect();
+                        elements.push(DocumentElement::CodeBlock { text: code_text });
+                    } else if let Some(list_info) = list_info {
                         // This is an automatic Word list item - format with proper indentation
                         let indent = "  ".repeat(list_info.level as usize);
-                        let prefix = if list_info.is_ordered {
-                            // Use the numbering manager for proper sequential numbering
-                            if let Some(num_id) = list_info.num_id {
-                                let format = get_numbering_format(num_id, list_info.level);
-                                numbering_manager.generate_number(num_id, list_info.level, format)
+                        let prefix = if let Some(num_id) = list_info.num_id {
+                            if numbering_resolver.is_ordered(num_id, list_info.level) {
+                                numbering_resolver.generate_number(num_id, list_info.level)
                             } else {
-                                // Fallback for missing numId
-                                format!("{}. ", list_info.level + 1)
+                                "* ".to_string()
                             }
                         } else {
-                            "* ".to_string() // Bullets for unordered
+                            "* ".to_string()
                         };
 
                         // For list items, preserve individual run formatting by creating separate prefix run
@@ -241,6 +280,15 @@ pub fn load_document(file_path: &Path, image_options: ImageOptions) -> Result<Do
                             }
                         }
                     }
+                }
+
+                // Emit each text box as a distinct TextBox element (one per shape)
+                for group in textbox_groups {
+                    word_count += group
+                        .iter()
+                        .map(|s| s.split_whitespace().count())
+                        .sum::<usize>();
+                    elements.push(DocumentElement::TextBox { lines: group });
                 }
             }
             docx_rs::DocumentChild::Table(table) => {
@@ -385,74 +433,15 @@ pub fn load_document(file_path: &Path, image_options: ImageOptions) -> Result<Do
 #[derive(Debug, Clone)]
 struct ListInfo {
     level: u8,
-    is_ordered: bool,
     num_id: Option<i32>, // Word's numbering definition ID
 }
 
 /// Detect list properties from paragraph numbering metadata
 fn detect_list_from_paragraph_numbering(para: &docx_rs::Paragraph) -> Option<ListInfo> {
-    // Check if paragraph has numbering properties
     if let Some(num_pr) = &para.property.numbering_property {
-        // Extract numbering level (default to 0 if not specified)
         let level = num_pr.level.as_ref().map(|l| l.val as u8).unwrap_or(0);
-
-        // Extract numId for state tracking
         let num_id = num_pr.id.as_ref().map(|id| id.id as i32);
-
-        // Enhanced detection for mixed list types (same numId, different levels)
-        let is_ordered = if let Some(num_id_val) = num_id {
-            match (num_id_val, level) {
-                // For Word's default mixed list (numId 1):
-                // Level 0 = decimal numbers (1. 2. 3.)
-                // Level 1 = letters (a) b) c))
-                // Level 2 = roman numerals (i. ii. iii.)
-                (1, 0) => true, // Top level: decimal numbers (was false, causing bug)
-                (1, 1) => true, // Second level: letters
-                (1, 2) => true, // Third level: roman numerals
-                (1, _) => level % 2 == 1, // Pattern for deeper levels
-                (_, _) => true, // Other numIds are typically ordered
-            }
-        } else {
-            false
-        };
-
-        return Some(ListInfo {
-            level,
-            is_ordered,
-            num_id,
-        });
+        return Some(ListInfo { level, num_id });
     }
     None
-}
-
-/// Determine the numbering format based on Word's numId and level
-fn get_numbering_format(num_id: i32, level: u8) -> NumberingFormat {
-    match (num_id, level) {
-        // numId=4: Main multilevel list (from advanced-numbering-2.docx)
-        (4, 0) => NumberingFormat::Decimal,    // 1., 2., 3.
-        (4, 1) => NumberingFormat::Decimal,    // 2.1., 2.2., 2.3. (hierarchical)
-        (4, 2) => NumberingFormat::LowerRoman, // i., ii., iii.
-
-        // numId=5: Secondary list (a), (b), (c) from same document
-        (5, 2) => NumberingFormat::ParenLowerLetter, // (a), (b), (c)
-
-        // numId=2: From other test documents
-        (2, 0) => NumberingFormat::Decimal,         // 1., 2., 3.
-        (2, 3) => NumberingFormat::ParenLowerRoman, // (i), (ii), (iii)
-
-        // numId=1: Default Word numbering scheme
-        (1, 0) => NumberingFormat::Decimal,          // 1. 2. 3.
-        (1, 1) => NumberingFormat::LowerLetter,      // a. b. c.
-        (1, 2) => NumberingFormat::LowerRoman,       // i. ii. iii.
-        (1, 3) => NumberingFormat::ParenLowerLetter, // (a) (b) (c)
-        (1, 4) => NumberingFormat::ParenLowerRoman,  // (i) (ii) (iii)
-
-        // Fallback defaults based on level
-        (_, 0) => NumberingFormat::Decimal,
-        (_, 1) => NumberingFormat::LowerLetter,
-        (_, 2) => NumberingFormat::LowerRoman,
-        (_, 3) => NumberingFormat::UpperLetter,
-        (_, 4) => NumberingFormat::UpperRoman,
-        _ => NumberingFormat::Decimal,
-    }
 }

@@ -66,6 +66,12 @@ pub enum DocumentElement {
         latex: String,
         fallback: String,
     },
+    CodeBlock {
+        text: String,
+    },
+    TextBox {
+        lines: Vec<String>,
+    },
     PageBreak,
 }
 

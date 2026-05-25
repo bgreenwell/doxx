@@ -388,6 +388,16 @@ async fn run_non_interactive(document: Document, cli: &Cli) -> Result<()> {
                         println!("📐 Equation: {latex}");
                         println!();
                     }
+                    DocumentElement::CodeBlock { text } => {
+                        println!("{text}");
+                        println!();
+                    }
+                    DocumentElement::TextBox { lines } => {
+                        for line in lines {
+                            println!("│ {line}");
+                        }
+                        println!();
+                    }
                     DocumentElement::PageBreak => {
                         println!("---");
                         println!();

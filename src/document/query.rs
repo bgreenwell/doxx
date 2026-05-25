@@ -66,6 +66,20 @@ pub fn search_document(document: &Document, query: &str) -> Vec<SearchResult> {
             }
             DocumentElement::Image { description, .. } => description,
             DocumentElement::Equation { latex, .. } => latex,
+            DocumentElement::CodeBlock { text } => text,
+            DocumentElement::TextBox { lines } => {
+                let combined = lines.join(" ");
+                let text_lower = combined.to_lowercase();
+                if let Some(start_pos) = text_lower.find(&query_lower) {
+                    results.push(SearchResult {
+                        element_index,
+                        text: combined,
+                        start_pos,
+                        end_pos: start_pos + query.len(),
+                    });
+                }
+                continue;
+            }
             DocumentElement::PageBreak => continue,
         };
 

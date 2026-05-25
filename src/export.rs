@@ -151,6 +151,20 @@ pub fn format_as_markdown(document: &Document) -> String {
             DocumentElement::Equation { latex, .. } => {
                 markdown.push_str(&format!("$${latex}$$\n\n"));
             }
+            DocumentElement::CodeBlock { text } => {
+                markdown.push_str("```\n");
+                markdown.push_str(text);
+                if !text.ends_with('\n') {
+                    markdown.push('\n');
+                }
+                markdown.push_str("```\n\n");
+            }
+            DocumentElement::TextBox { lines } => {
+                for line in lines {
+                    markdown.push_str(&format!("> {line}\n"));
+                }
+                markdown.push('\n');
+            }
             DocumentElement::PageBreak => {
                 markdown.push_str("\n---\n\n");
             }
@@ -276,6 +290,22 @@ pub fn format_as_text(document: &Document) -> String {
             DocumentElement::Equation { latex, .. } => {
                 text.push_str(&format!("Equation: {latex}\n\n"));
             }
+            DocumentElement::CodeBlock { text: code } => {
+                text.push_str(code);
+                if !code.ends_with('\n') {
+                    text.push('\n');
+                }
+                text.push('\n');
+            }
+            DocumentElement::TextBox { lines } => {
+                let width = lines.iter().map(|s| s.len()).max().unwrap_or(0) + 2;
+                let bar = "-".repeat(width);
+                text.push_str(&format!("+{bar}+\n"));
+                for line in lines {
+                    text.push_str(&format!("| {line:<width$} |\n", width = width - 2));
+                }
+                text.push_str(&format!("+{bar}+\n\n"));
+            }
         }
     }
 
@@ -386,6 +416,22 @@ fn export_to_text_with_images(document: &Document) {
             }
             DocumentElement::Equation { latex, .. } => {
                 println!("Equation: {latex}\n");
+            }
+            DocumentElement::CodeBlock { text } => {
+                print!("{text}");
+                if !text.ends_with('\n') {
+                    println!();
+                }
+                println!();
+            }
+            DocumentElement::TextBox { lines } => {
+                let width = lines.iter().map(|s| s.len()).max().unwrap_or(0) + 2;
+                let bar = "-".repeat(width);
+                println!("+{bar}+");
+                for line in lines {
+                    println!("| {line:<width$} |", width = width - 2);
+                }
+                println!("+{bar}+\n");
             }
             DocumentElement::PageBreak => {
                 println!("{}\n", "-".repeat(50));

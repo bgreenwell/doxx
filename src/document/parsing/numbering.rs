@@ -5,153 +5,190 @@
 
 use once_cell::sync::Lazy;
 use regex::Regex;
+use std::collections::{HashMap, HashSet};
 
-/// Type alias for numbering counters to simplify complex HashMap type
-pub(crate) type NumberingCounters = std::collections::HashMap<(i32, u8), u32>;
-
-/// Type alias for heading number and cleaned text
-pub(crate) type HeadingNumberInfo = (String, String);
-
-/// Manages document-wide numbering state for proper sequential numbering
-#[derive(Debug)]
-pub(crate) struct DocumentNumberingManager {
-    /// Counters for each (numId, level) combination
-    /// Key: (numId, level), Value: current counter
-    counters: NumberingCounters,
+/// Parse a Word numFmt string into a `NumberingFormat` variant.
+pub(crate) fn parse_numbering_format(fmt_str: &str) -> NumberingFormat {
+    match fmt_str {
+        "decimal" | "decimalZero" => NumberingFormat::Decimal,
+        "lowerLetter" => NumberingFormat::LowerLetter,
+        "upperLetter" => NumberingFormat::UpperLetter,
+        "lowerRoman" => NumberingFormat::LowerRoman,
+        "upperRoman" => NumberingFormat::UpperRoman,
+        "parenLowerLetter" => NumberingFormat::ParenLowerLetter,
+        "parenLowerRoman" => NumberingFormat::ParenLowerRoman,
+        _ => NumberingFormat::Decimal,
+    }
 }
 
-impl DocumentNumberingManager {
-    pub(crate) fn new() -> Self {
+/// Format a counter value using the given numbering format.
+pub(crate) fn format_number_static(counter: u32, format: NumberingFormat) -> String {
+    match format {
+        NumberingFormat::Decimal => format!("{counter}. "),
+        NumberingFormat::LowerLetter => {
+            if counter <= 26 {
+                format!("{}. ", (b'a' + (counter - 1) as u8) as char)
+            } else {
+                format!("{counter}. ")
+            }
+        }
+        NumberingFormat::UpperLetter => {
+            if counter <= 26 {
+                format!("{}. ", (b'A' + (counter - 1) as u8) as char)
+            } else {
+                format!("{counter}. ")
+            }
+        }
+        NumberingFormat::LowerRoman => {
+            format!("{}. ", roman_numeral(counter).to_lowercase())
+        }
+        NumberingFormat::UpperRoman => format!("{}. ", roman_numeral(counter)),
+        NumberingFormat::ParenLowerLetter => {
+            if counter <= 26 {
+                format!("({}) ", (b'a' + (counter - 1) as u8) as char)
+            } else {
+                format!("({counter}) ")
+            }
+        }
+        NumberingFormat::ParenLowerRoman => {
+            format!("({}) ", roman_numeral(counter).to_lowercase())
+        }
+        NumberingFormat::Bullet => "* ".to_string(),
+    }
+}
+
+fn roman_numeral(num: u32) -> String {
+    const VALUES: &[u32] = &[1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1];
+    const SYMBOLS: &[&str] = &[
+        "M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I",
+    ];
+    let mut result = String::new();
+    let mut n = num;
+    for (i, &value) in VALUES.iter().enumerate() {
+        while n >= value {
+            result.push_str(SYMBOLS[i]);
+            n -= value;
+        }
+    }
+    result
+}
+
+/// Resolves DOCX numbering definitions to determine list ordering and formatting.
+///
+/// Tracks counters per `(abstractNumId, level)` so that different `numId` values
+/// that share the same abstract numbering definition continue counting sequentially.
+/// Start overrides in a `numId`'s level overrides are applied once on first use.
+pub(crate) struct NumberingResolver {
+    /// (abstractNumId, level) → (numFmt string, default start value)
+    abstract_levels: HashMap<(usize, usize), (String, usize)>,
+    /// numId → (abstractNumId, level → start_override)
+    num_instances: HashMap<usize, (usize, HashMap<usize, usize>)>,
+    /// Counter state per (abstractNumId, level)
+    counters: HashMap<(usize, usize), u32>,
+    /// Tracks which (numId, level) pairs have already applied their start override
+    applied_overrides: HashSet<(usize, usize)>,
+}
+
+impl NumberingResolver {
+    /// Build a resolver from a parsed docx numbering table.
+    pub(crate) fn build_from_docx(numberings: &docx_rs::Numberings) -> Self {
+        let mut abstract_levels = HashMap::new();
+        let mut num_instances = HashMap::new();
+
+        for abstract_num in &numberings.abstract_nums {
+            for level in &abstract_num.levels {
+                let start: usize = serde_json::to_value(&level.start)
+                    .ok()
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(1) as usize;
+                abstract_levels.insert(
+                    (abstract_num.id, level.level),
+                    (level.format.val.clone(), start),
+                );
+            }
+        }
+
+        for numbering in &numberings.numberings {
+            let mut overrides = HashMap::new();
+            for lo in &numbering.level_overrides {
+                if let Some(start) = lo.override_start {
+                    overrides.insert(lo.level, start);
+                }
+            }
+            num_instances.insert(numbering.id, (numbering.abstract_num_id, overrides));
+        }
+
         Self {
-            counters: NumberingCounters::new(),
+            abstract_levels,
+            num_instances,
+            counters: HashMap::new(),
+            applied_overrides: HashSet::new(),
         }
     }
 
-    /// Generate the next number for a given numId and level
-    pub(crate) fn generate_number(
-        &mut self,
-        num_id: i32,
-        level: u8,
-        format: NumberingFormat,
-    ) -> String {
-        // Get current counter for this (numId, level) combination
-        let key = (num_id, level);
-        let counter_value = {
-            let counter = self.counters.entry(key).or_insert(0);
-            *counter += 1;
-            *counter
-        };
-
-        // Reset deeper levels when we increment a higher level
-        // This handles hierarchical numbering like 1. -> 1.1 -> 2. (reset 1.1 back to 2.1)
-        self.reset_deeper_levels(num_id, level);
-
-        // For hierarchical numbering, we need to build the full number string
-        self.format_hierarchical_number(num_id, level, counter_value, format)
+    /// Return true if the (numId, level) pair is an ordered (numbered) list.
+    pub(crate) fn is_ordered(&self, num_id: i32, level: u8) -> bool {
+        let num_id = num_id as usize;
+        let level = level as usize;
+        if let Some((abstract_num_id, _)) = self.num_instances.get(&num_id) {
+            if let Some((fmt_str, _)) = self.abstract_levels.get(&(*abstract_num_id, level)) {
+                return fmt_str != "bullet" && fmt_str != "none";
+            }
+        }
+        true
     }
 
-    fn reset_deeper_levels(&mut self, num_id: i32, current_level: u8) {
-        // Reset all levels deeper than current_level for this numId
+    /// Generate the next formatted number string for a (numId, level) pair.
+    pub(crate) fn generate_number(&mut self, num_id: i32, level: u8) -> String {
+        let num_id = num_id as usize;
+        let level = level as usize;
+
+        let Some((abstract_num_id, overrides)) = self.num_instances.get(&num_id) else {
+            return format!("{}. ", level + 1);
+        };
+        let abstract_num_id = *abstract_num_id;
+        let start_override = overrides.get(&level).copied();
+        let format_str = self
+            .abstract_levels
+            .get(&(abstract_num_id, level))
+            .map(|(s, _)| s.clone())
+            .unwrap_or_else(|| "decimal".to_string());
+
+        let counter_key = (abstract_num_id, level);
+        let override_key = (num_id, level);
+
+        // Apply a start override exactly once per (numId, level)
+        if let Some(start) = start_override {
+            if !self.applied_overrides.contains(&override_key) {
+                self.applied_overrides.insert(override_key);
+                *self.counters.entry(counter_key).or_insert(0) = (start as u32).saturating_sub(1);
+            }
+        }
+
+        // Reset deeper levels for this abstract numbering
         let keys_to_reset: Vec<_> = self
             .counters
             .keys()
-            .filter(|(id, level)| *id == num_id && *level > current_level)
+            .filter(|(aid, lvl)| *aid == abstract_num_id && *lvl > level)
             .cloned()
             .collect();
-
-        for key in keys_to_reset {
-            self.counters.remove(&key);
-        }
-    }
-
-    fn format_number(&self, counter: u32, format: NumberingFormat) -> String {
-        match format {
-            NumberingFormat::Decimal => format!("{counter}. "),
-            NumberingFormat::LowerLetter => {
-                // Convert 1->a, 2->b, etc.
-                if counter <= 26 {
-                    let letter = (b'a' + (counter - 1) as u8) as char;
-                    format!("{letter}. ")
-                } else {
-                    format!("{counter}. ") // Fallback for > 26
-                }
-            }
-            NumberingFormat::LowerRoman => format!("{}. ", Self::to_roman(counter).to_lowercase()),
-            NumberingFormat::UpperLetter => {
-                // Convert 1->A, 2->B, etc.
-                if counter <= 26 {
-                    let letter = (b'A' + (counter - 1) as u8) as char;
-                    format!("{letter}. ")
-                } else {
-                    format!("{counter}. ") // Fallback for > 26
-                }
-            }
-            NumberingFormat::UpperRoman => format!("{}. ", Self::to_roman(counter)),
-            NumberingFormat::ParenLowerLetter => {
-                if counter <= 26 {
-                    let letter = (b'a' + (counter - 1) as u8) as char;
-                    format!("({letter})")
-                } else {
-                    format!("({counter})")
-                }
-            }
-            NumberingFormat::ParenLowerRoman => {
-                format!("({})", Self::to_roman(counter).to_lowercase())
-            }
-            NumberingFormat::Bullet => "* ".to_string(),
-        }
-    }
-
-    fn to_roman(num: u32) -> String {
-        let values = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1];
-        let symbols = [
-            "M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I",
-        ];
-
-        let mut result = String::new();
-        let mut n = num;
-
-        for (i, &value) in values.iter().enumerate() {
-            while n >= value {
-                result.push_str(symbols[i]);
-                n -= value;
-            }
+        for k in keys_to_reset {
+            self.counters.remove(&k);
         }
 
-        result
-    }
+        let counter = {
+            let c = self.counters.entry(counter_key).or_insert(0);
+            *c += 1;
+            *c
+        };
 
-    /// Format hierarchical number (e.g., "2.1", "3.2.1")
-    fn format_hierarchical_number(
-        &self,
-        num_id: i32,
-        level: u8,
-        counter: u32,
-        format: NumberingFormat,
-    ) -> String {
-        // Check if this numId/level combination should use hierarchical numbering
-        let needs_hierarchy = matches!((num_id, level), (4, 1)); // 2.1, 2.2, etc.
-
-        if needs_hierarchy {
-            // Build hierarchical number by including parent level counters
-            let mut parts = Vec::new();
-
-            // Add parent level counter (level 0 for this numId)
-            if let Some(parent_counter) = self.counters.get(&(num_id, 0)) {
-                parts.push(parent_counter.to_string());
-            }
-
-            // Add current level counter
-            parts.push(counter.to_string());
-
-            // Join with dots and add final punctuation
-            format!("{}. ", parts.join("."))
-        } else {
-            // Use regular formatting for non-hierarchical levels
-            self.format_number(counter, format)
-        }
+        let format = parse_numbering_format(&format_str);
+        format_number_static(counter, format)
     }
 }
+
+/// Type alias for heading number and cleaned text
+pub(crate) type HeadingNumberInfo = (String, String);
 
 /// Different numbering formats supported by Word
 #[derive(Debug, Clone, Copy)]
