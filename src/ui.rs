@@ -490,31 +490,29 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
         terminal.draw(|f| ui(f, app))?;
 
         match event::read()? {
-            Event::Key(key) => {
-                if key.kind == KeyEventKind::Press {
-                    let binding = KeyBinding::new(key.code, key.modifiers);
-                    let action = app.keymap.get_action(&binding);
+            Event::Key(key) if key.kind == KeyEventKind::Press => {
+                let binding = KeyBinding::new(key.code, key.modifiers);
+                let action = app.keymap.get_action(&binding);
 
-                    // In search mode, unbound character keys append to the query
-                    if matches!(app.current_view, ViewMode::Search) && action.is_none() {
-                        if let KeyCode::Char(c) = key.code {
-                            app.search_query.push(c);
-                            app.search_results =
-                                crate::document::search_document(&app.document, &app.search_query);
-                            app.current_search_index = 0;
-                            continue;
-                        }
+                // In search mode, unbound character keys append to the query
+                if matches!(app.current_view, ViewMode::Search) && action.is_none() {
+                    if let KeyCode::Char(c) = key.code {
+                        app.search_query.push(c);
+                        app.search_results =
+                            crate::document::search_document(&app.document, &app.search_query);
+                        app.current_search_index = 0;
+                        continue;
+                    }
+                }
+
+                if let Some(action) = action {
+                    // Clear status message on any action except copy
+                    if app.status_message.is_some() && action != Action::Copy {
+                        app.clear_status_message();
                     }
 
-                    if let Some(action) = action {
-                        // Clear status message on any action except copy
-                        if app.status_message.is_some() && action != Action::Copy {
-                            app.clear_status_message();
-                        }
-
-                        if handle_action(app, action) {
-                            break;
-                        }
+                    if handle_action(app, action) {
+                        break;
                     }
                 }
             }

@@ -7,14 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-05-26
+
 ### Added
-- `SourceCode` paragraph style now renders as a distinct code block in all export formats and the TUI ([#76](https://github.com/bgreenwell/doxx/issues/76))
+- `SourceCode` paragraph style renders as a distinct code block in all export formats and the TUI ([#76](https://github.com/bgreenwell/doxx/issues/76))
+- Text inside `wps:txbx` shape text boxes is now extracted and rendered with box-drawing borders instead of being silently dropped ([#76](https://github.com/bgreenwell/doxx/issues/76))
 
 ### Fixed
 - Numbered list items sharing the same abstract numbering definition now count sequentially instead of both restarting at 1 ([#76](https://github.com/bgreenwell/doxx/issues/76))
-- Bullet-format list levels (e.g. `numFmt="bullet"`) no longer render as lettered sequences ([#76](https://github.com/bgreenwell/doxx/issues/76))
-- `w:br` line break elements inside a run are now preserved, fixing multi-line code blocks that were concatenated into a single line ([#76](https://github.com/bgreenwell/doxx/issues/76))
-- Text inside `wps:txbx` shape text boxes (e.g. labelled boxes in diagrams) is now extracted and rendered with box-drawing borders in the TUI and all export formats instead of being silently dropped ([#76](https://github.com/bgreenwell/doxx/issues/76))
+- Bullet-format list levels (`numFmt="bullet"`) no longer render as lettered sequences ([#76](https://github.com/bgreenwell/doxx/issues/76))
+- `w:br` line break elements inside a run are now preserved, fixing multi-line code blocks concatenated into a single line ([#76](https://github.com/bgreenwell/doxx/issues/76))
 
 ## [0.1.3] - 2026-05-24
 
