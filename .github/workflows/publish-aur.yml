@@ -1,8 +1,8 @@
 name: Publish to AUR
 
 on:
-  release:
-    types: [published]
+  push:
+    tags: ['v*']
   workflow_dispatch:
     inputs:
       tag:
@@ -16,7 +16,7 @@ permissions:
 jobs:
   publish-aur:
     runs-on: ubuntu-22.04
-    if: ${{ !github.event.release.prerelease }}
+    if: ${{ !contains(github.ref_name, '-') || github.event_name == 'workflow_dispatch' }}
 
     steps:
       - name: Determine release version
@@ -25,7 +25,7 @@ jobs:
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             TAG="${{ inputs.tag }}"
           else
-            TAG="${{ github.event.release.tag_name }}"
+            TAG="${{ github.ref_name }}"
           fi
           VERSION="${TAG#v}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -42,7 +42,7 @@ jobs:
           TARBALL="doxx-x86_64-unknown-linux-gnu.tar.xz"
           SHA_FILE="${TARBALL}.sha256"
 
-          cd xleak
+          cd doxx
           gh release download "v${VERSION}" \
             --pattern "$SHA_FILE"
 

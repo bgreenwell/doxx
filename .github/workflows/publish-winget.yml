@@ -1,8 +1,8 @@
 name: Publish to WinGet
 
 on:
-  release:
-    types: [published]
+  push:
+    tags: ['v*']
   workflow_dispatch:
     inputs:
       tag:
@@ -16,7 +16,7 @@ permissions:
 jobs:
   publish-winget:
     runs-on: ubuntu-latest
-    if: ${{ !github.event.release.prerelease }}
+    if: ${{ !contains(github.ref_name, '-') || github.event_name == 'workflow_dispatch' }}
 
     steps:
       - name: Determine release version
@@ -25,7 +25,7 @@ jobs:
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             TAG="${{ inputs.tag }}"
           else
-            TAG="${{ github.event.release.tag_name }}"
+            TAG="${{ github.ref_name }}"
           fi
           VERSION="${TAG#v}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
