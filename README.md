@@ -70,7 +70,7 @@ A fast, terminal-native document viewer for Word files. View, search, and export
 #### Homebrew (macOS/Linux)
 
 ```bash
-brew install doxx
+brew install bgreenwell/tap/doxx
 ```
 
 #### Cargo (cross-platform)
