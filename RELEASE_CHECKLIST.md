@@ -13,6 +13,7 @@ Use this checklist when preparing a new release of doxx. You can also create a G
   - [ ] Verify changelog entries are accurate and complete
 - [ ] Version bumped in `Cargo.toml`
 - [ ] Test binary works: `cargo run --release -- tests/fixtures/comprehensive.docx`
+- [ ] Dry-run the crates.io package: `cargo publish --dry-run`
 
 ## Create Release
 
@@ -33,7 +34,7 @@ All of the following are now automated via GitHub Actions:
   - [ ] Shell/PowerShell installer scripts
   - [ ] SHA256 checksum files
 
-- [ ] **Homebrew** formula published to [bgreenwell/homebrew-doxx](https://github.com/bgreenwell/homebrew-doxx)
+- [ ] **Homebrew** formula published to [bgreenwell/homebrew-tap](https://github.com/bgreenwell/homebrew-tap)
   - Automated by: `publish-homebrew-formula` job in release.yml
 
 - [ ] **Scoop** manifest published to [bgreenwell/scoop-bucket](https://github.com/bgreenwell/scoop-bucket)
@@ -76,6 +77,14 @@ All of the following are now automated via GitHub Actions:
   doxx --version
   ```
   **Note:** May take 1-2 days for WinGet PR to be merged
+
+- [ ] **Checksums** - verify a downloaded binary matches its published SHA256:
+  ```bash
+  curl -LO https://github.com/bgreenwell/doxx/releases/latest/download/doxx-checksums.txt
+  curl -LO https://github.com/bgreenwell/doxx/releases/latest/download/doxx-Linux-x86_64.tar.gz
+  sha256sum doxx-Linux-x86_64.tar.gz
+  grep Linux-x86_64 doxx-checksums.txt
+  ```
 
 ## Post-Release
 
