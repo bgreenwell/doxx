@@ -337,3 +337,270 @@ pub(crate) fn extract_heading_number_from_text(text: &str) -> Option<HeadingNumb
 
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use docx_rs::{
+        AbstractNumbering, Level, LevelJc, LevelOverride, LevelText, NumberFormat, Numbering,
+        Numberings, Start,
+    };
+
+    fn level(idx: usize, fmt: &str) -> Level {
+        Level::new(
+            idx,
+            Start::new(1),
+            NumberFormat::new(fmt),
+            LevelText::new(format!("%{}.", idx + 1)),
+            LevelJc::new("left"),
+        )
+    }
+
+    #[test]
+    fn parse_numbering_format_maps_known_word_formats() {
+        assert!(matches!(
+            parse_numbering_format("decimal"),
+            NumberingFormat::Decimal
+        ));
+        assert!(matches!(
+            parse_numbering_format("decimalZero"),
+            NumberingFormat::Decimal
+        ));
+        assert!(matches!(
+            parse_numbering_format("lowerLetter"),
+            NumberingFormat::LowerLetter
+        ));
+        assert!(matches!(
+            parse_numbering_format("upperLetter"),
+            NumberingFormat::UpperLetter
+        ));
+        assert!(matches!(
+            parse_numbering_format("lowerRoman"),
+            NumberingFormat::LowerRoman
+        ));
+        assert!(matches!(
+            parse_numbering_format("upperRoman"),
+            NumberingFormat::UpperRoman
+        ));
+        assert!(matches!(
+            parse_numbering_format("parenLowerLetter"),
+            NumberingFormat::ParenLowerLetter
+        ));
+        assert!(matches!(
+            parse_numbering_format("parenLowerRoman"),
+            NumberingFormat::ParenLowerRoman
+        ));
+        // Unrecognized/legacy formats (e.g. "bullet" itself is handled upstream via
+        // is_ordered, not here) fall back to Decimal rather than panicking.
+        assert!(matches!(
+            parse_numbering_format("bullet"),
+            NumberingFormat::Decimal
+        ));
+        assert!(matches!(
+            parse_numbering_format("someFutureFormat"),
+            NumberingFormat::Decimal
+        ));
+    }
+
+    #[test]
+    fn format_number_static_decimal() {
+        assert_eq!(format_number_static(1, NumberingFormat::Decimal), "1. ");
+        assert_eq!(format_number_static(42, NumberingFormat::Decimal), "42. ");
+    }
+
+    #[test]
+    fn format_number_static_letters_wrap_after_z() {
+        assert_eq!(format_number_static(1, NumberingFormat::LowerLetter), "a. ");
+        assert_eq!(
+            format_number_static(26, NumberingFormat::LowerLetter),
+            "z. "
+        );
+        // No "aa, ab, ..." continuation is implemented - falls back to the number.
+        assert_eq!(
+            format_number_static(27, NumberingFormat::LowerLetter),
+            "27. "
+        );
+        assert_eq!(format_number_static(1, NumberingFormat::UpperLetter), "A. ");
+        assert_eq!(
+            format_number_static(26, NumberingFormat::UpperLetter),
+            "Z. "
+        );
+        assert_eq!(
+            format_number_static(27, NumberingFormat::UpperLetter),
+            "27. "
+        );
+    }
+
+    #[test]
+    fn format_number_static_roman_numerals() {
+        assert_eq!(format_number_static(1, NumberingFormat::LowerRoman), "i. ");
+        assert_eq!(format_number_static(4, NumberingFormat::LowerRoman), "iv. ");
+        assert_eq!(format_number_static(9, NumberingFormat::LowerRoman), "ix. ");
+        assert_eq!(
+            format_number_static(1994, NumberingFormat::LowerRoman),
+            "mcmxciv. "
+        );
+        assert_eq!(
+            format_number_static(3, NumberingFormat::UpperRoman),
+            "III. "
+        );
+    }
+
+    #[test]
+    fn format_number_static_parenthesized_and_bullet() {
+        assert_eq!(
+            format_number_static(1, NumberingFormat::ParenLowerLetter),
+            "(a) "
+        );
+        assert_eq!(
+            format_number_static(3, NumberingFormat::ParenLowerRoman),
+            "(iii) "
+        );
+        assert_eq!(format_number_static(1, NumberingFormat::Bullet), "* ");
+    }
+
+    #[test]
+    fn resolver_generates_sequential_decimal_numbers() {
+        let numberings = Numberings::new()
+            .add_abstract_numbering(AbstractNumbering::new(1).add_level(level(0, "decimal")))
+            .add_numbering(Numbering::new(1, 1));
+        let mut resolver = NumberingResolver::build_from_docx(&numberings);
+
+        assert_eq!(resolver.generate_number(1, 0), "1. ");
+        assert_eq!(resolver.generate_number(1, 0), "2. ");
+        assert_eq!(resolver.generate_number(1, 0), "3. ");
+    }
+
+    /// Regression test for the bug fixed in 0.1.4: numbered list items sharing the
+    /// same abstractNumId (via different numIds) must count sequentially instead of
+    /// each numId restarting its own counter at 1.
+    #[test]
+    fn resolver_continues_counting_across_num_ids_sharing_abstract_num() {
+        let numberings = Numberings::new()
+            .add_abstract_numbering(AbstractNumbering::new(1).add_level(level(0, "decimal")))
+            // numId 1 and numId 2 both point at abstractNumId 1 - this happens when
+            // Word splits a single logical list across multiple <w:num> instances.
+            .add_numbering(Numbering::new(1, 1))
+            .add_numbering(Numbering::new(2, 1));
+        let mut resolver = NumberingResolver::build_from_docx(&numberings);
+
+        assert_eq!(resolver.generate_number(1, 0), "1. ");
+        assert_eq!(resolver.generate_number(1, 0), "2. ");
+        // Switching to the other numId must continue from 3, not restart at 1.
+        assert_eq!(resolver.generate_number(2, 0), "3. ");
+        assert_eq!(resolver.generate_number(2, 0), "4. ");
+    }
+
+    #[test]
+    fn resolver_resets_deeper_levels_when_returning_to_a_shallower_level() {
+        let numberings = Numberings::new()
+            .add_abstract_numbering(
+                AbstractNumbering::new(1)
+                    .add_level(level(0, "decimal"))
+                    .add_level(level(1, "lowerLetter")),
+            )
+            .add_numbering(Numbering::new(1, 1));
+        let mut resolver = NumberingResolver::build_from_docx(&numberings);
+
+        assert_eq!(resolver.generate_number(1, 0), "1. "); // 1.
+        assert_eq!(resolver.generate_number(1, 1), "a. "); // 1.a
+        assert_eq!(resolver.generate_number(1, 1), "b. "); // 1.b
+        assert_eq!(resolver.generate_number(1, 0), "2. "); // 2. (level 1 counter reset)
+        assert_eq!(resolver.generate_number(1, 1), "a. "); // 2.a (starts over, not "c.")
+    }
+
+    #[test]
+    fn resolver_applies_start_override_exactly_once() {
+        let numberings = Numberings::new()
+            .add_abstract_numbering(AbstractNumbering::new(1).add_level(level(0, "decimal")))
+            .add_numbering(Numbering::new(1, 1).add_override(LevelOverride::new(0).start(5)));
+        let mut resolver = NumberingResolver::build_from_docx(&numberings);
+
+        assert_eq!(resolver.generate_number(1, 0), "5. ");
+        assert_eq!(resolver.generate_number(1, 0), "6. ");
+    }
+
+    #[test]
+    fn resolver_is_ordered_distinguishes_bullets_from_numbered_lists() {
+        let numberings = Numberings::new()
+            .add_abstract_numbering(
+                AbstractNumbering::new(1)
+                    .add_level(level(0, "decimal"))
+                    .add_level(level(1, "bullet")),
+            )
+            .add_numbering(Numbering::new(1, 1));
+        let resolver = NumberingResolver::build_from_docx(&numberings);
+
+        assert!(resolver.is_ordered(1, 0));
+        assert!(!resolver.is_ordered(1, 1));
+        // Unknown numId: defaults to true (ordered) rather than panicking.
+        assert!(resolver.is_ordered(999, 0));
+    }
+
+    #[test]
+    fn heading_number_tracker_produces_hierarchical_numbers() {
+        let mut tracker = HeadingNumberTracker::new();
+        tracker.enable_auto_numbering();
+
+        assert_eq!(tracker.get_number(1), "1");
+        assert_eq!(tracker.get_number(2), "1.1");
+        assert_eq!(tracker.get_number(2), "1.2");
+        assert_eq!(tracker.get_number(1), "2");
+        // Returning to level 1 resets the level-2 counter.
+        assert_eq!(tracker.get_number(2), "2.1");
+    }
+
+    #[test]
+    fn heading_number_tracker_disabled_returns_empty_string() {
+        let mut tracker = HeadingNumberTracker::new();
+        assert_eq!(tracker.get_number(1), "");
+        assert_eq!(tracker.get_number(2), "");
+    }
+
+    #[test]
+    fn extract_heading_number_from_text_decimal_and_hierarchical() {
+        assert_eq!(
+            extract_heading_number_from_text("1. Introduction"),
+            Some(("1".to_string(), "Introduction".to_string()))
+        );
+        assert_eq!(
+            extract_heading_number_from_text("1.1 Overview"),
+            Some(("1.1".to_string(), "Overview".to_string()))
+        );
+        assert_eq!(
+            extract_heading_number_from_text("2.1.1 Deep Detail"),
+            Some(("2.1.1".to_string(), "Deep Detail".to_string()))
+        );
+    }
+
+    #[test]
+    fn extract_heading_number_from_text_section_letter_roman_variants() {
+        assert_eq!(
+            extract_heading_number_from_text("Section 1.2 Payment Terms"),
+            Some(("Section 1.2".to_string(), "Payment Terms".to_string()))
+        );
+        assert_eq!(
+            extract_heading_number_from_text("Chapter 3 Overview"),
+            Some(("Chapter 3".to_string(), "Overview".to_string()))
+        );
+        assert_eq!(
+            extract_heading_number_from_text("A. Introduction"),
+            Some(("A".to_string(), "Introduction".to_string()))
+        );
+        assert_eq!(
+            extract_heading_number_from_text("I. Overview"),
+            Some(("I".to_string(), "Overview".to_string()))
+        );
+    }
+
+    #[test]
+    fn extract_heading_number_from_text_does_not_false_positive_on_plain_titles() {
+        // "Heading 1" style titles (no period after the number) must not be
+        // mistaken for manual numbering - this is the case the regex explicitly
+        // guards against per the doc comment above HEADING_NUMBER_PATTERNS.
+        assert_eq!(extract_heading_number_from_text("Heading 1"), None);
+        assert_eq!(extract_heading_number_from_text("Executive Summary"), None);
+        assert_eq!(extract_heading_number_from_text(""), None);
+        assert_eq!(extract_heading_number_from_text("   "), None);
+    }
+}

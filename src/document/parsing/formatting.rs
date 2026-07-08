@@ -125,3 +125,110 @@ pub(crate) fn reconstruct_heading_number(num_id: i32, level: u8, heading_level: 
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use docx_rs::{BreakType, IndentLevel, NumberingId, NumberingProperty, Paragraph, Run};
+
+    #[test]
+    fn extract_run_text_handles_text_tab_and_break() {
+        let run = Run::new()
+            .add_text("hello")
+            .add_tab()
+            .add_text("world")
+            .add_break(BreakType::TextWrapping);
+        assert_eq!(extract_run_text(&run), "hello\tworld\n");
+    }
+
+    #[test]
+    fn extract_paragraph_text_concatenates_runs_and_trims() {
+        let para = Paragraph::new()
+            .add_run(Run::new().add_text("  Hello, "))
+            .add_run(Run::new().add_text("world!  "));
+        assert_eq!(extract_paragraph_text(&para), "Hello, world!");
+    }
+
+    #[test]
+    fn extract_paragraph_text_empty_paragraph_is_empty_string() {
+        let para = Paragraph::new();
+        assert_eq!(extract_paragraph_text(&para), "");
+    }
+
+    #[test]
+    fn extract_run_formatting_detects_bold_italic_underline_strike() {
+        let run = Run::new()
+            .add_text("styled")
+            .bold()
+            .italic()
+            .underline("single")
+            .strike();
+        let fmt = extract_run_formatting(&run);
+        assert!(fmt.bold);
+        assert!(fmt.italic);
+        assert!(fmt.underline);
+        assert!(fmt.strikethrough);
+    }
+
+    #[test]
+    fn extract_run_formatting_dstrike_also_sets_strikethrough() {
+        let run = Run::new().add_text("x").dstrike();
+        assert!(extract_run_formatting(&run).strikethrough);
+    }
+
+    #[test]
+    fn extract_run_formatting_plain_run_has_no_formatting() {
+        let run = Run::new().add_text("plain");
+        let fmt = extract_run_formatting(&run);
+        assert!(!fmt.bold);
+        assert!(!fmt.italic);
+        assert!(!fmt.underline);
+        assert!(!fmt.strikethrough);
+        assert!(fmt.color.is_none());
+    }
+
+    #[test]
+    fn extract_run_formatting_extracts_color_hex() {
+        // Regression test for the Debug-string-scraping workaround in
+        // extract_run_formatting - docx-rs doesn't expose the color field
+        // publicly, so this parses `format!("{color:?}")` output. If that
+        // Debug format ever changes, this test should catch it.
+        let run = Run::new().add_text("red").color("FF0000");
+        let fmt = extract_run_formatting(&run);
+        assert_eq!(fmt.color.as_deref(), Some("FF0000"));
+    }
+
+    #[test]
+    fn extract_numbering_info_returns_id_and_level() {
+        let num_pr = NumberingProperty::new().add_num(NumberingId::new(3), IndentLevel::new(1));
+        assert_eq!(extract_numbering_info(&num_pr), Some((3, 1)));
+    }
+
+    #[test]
+    fn extract_numbering_info_defaults_level_to_zero_when_absent() {
+        let num_pr = NumberingProperty::new().id(NumberingId::new(5));
+        assert_eq!(extract_numbering_info(&num_pr), Some((5, 0)));
+    }
+
+    #[test]
+    fn extract_numbering_info_none_without_an_id() {
+        let num_pr = NumberingProperty::new();
+        assert_eq!(extract_numbering_info(&num_pr), None);
+    }
+
+    #[test]
+    fn reconstruct_heading_number_maps_level_to_dotted_number() {
+        assert_eq!(reconstruct_heading_number(1, 0, 1), "1");
+        assert_eq!(reconstruct_heading_number(1, 1, 2), "1.1");
+        assert_eq!(reconstruct_heading_number(1, 2, 3), "1.1.1");
+        assert_eq!(reconstruct_heading_number(1, 3, 4), "1.1.1.1");
+    }
+
+    #[test]
+    fn reconstruct_heading_number_falls_back_on_heading_level_alone() {
+        // (num_id, level) combination doesn't match a known pattern - falls
+        // back to heading_level-only logic.
+        assert_eq!(reconstruct_heading_number(1, 9, 2), "1.1");
+        assert_eq!(reconstruct_heading_number(1, 9, 5), "1.1.1.1");
+    }
+}

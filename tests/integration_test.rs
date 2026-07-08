@@ -193,3 +193,66 @@ fn test_all_fixtures_exist() {
         );
     }
 }
+
+/// Unlike test_all_fixtures_exist above, this actually parses equations.docx
+/// and verifies OMML-to-LaTeX conversion produces correct output, not just
+/// that the file is present and doxx doesn't crash on it.
+#[test]
+fn test_equations_docx_converts_omml_to_latex() {
+    let output = Command::new(env!("CARGO_BIN_EXE_doxx"))
+        .args(["tests/fixtures/equations.docx", "--export", "text"])
+        .output()
+        .expect("Failed to execute doxx");
+
+    assert!(
+        output.status.success(),
+        "doxx should successfully parse equations.docx"
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Inline equation stays inline, wrapped in single $...$.
+    assert!(
+        stdout.contains("$A=\\pi r^{2}$"),
+        "Inline equation should render as LaTeX inline math, got:\n{stdout}"
+    );
+
+    // Display equations are extracted separately, each on an "Equation: " line.
+    assert!(
+        stdout.contains("Equation: a^{2}+b^{2}=c^{2}"),
+        "Pythagorean theorem should convert superscripts to LaTeX, got:\n{stdout}"
+    );
+
+    // Quadratic formula: verifies fraction, square root, and plus-minus conversion.
+    assert!(
+        stdout.contains("\\frac{-b\\pm \\sqrt{b^{2}-4ac}}{2a}"),
+        "Quadratic formula should convert to a LaTeX fraction with \\sqrt and \\pm, got:\n{stdout}"
+    );
+
+    // Binomial expansion: verifies \binom and \sum conversion.
+    assert!(
+        stdout.contains("\\sum_{k=0}^{n}") && stdout.contains("\\binom{n}{k}"),
+        "Binomial sum should convert \\sum and \\binom, got:\n{stdout}"
+    );
+}
+
+#[test]
+fn test_equations_docx_markdown_export_uses_math_delimiters() {
+    let output = Command::new(env!("CARGO_BIN_EXE_doxx"))
+        .args(["tests/fixtures/equations.docx", "--export", "markdown"])
+        .output()
+        .expect("Failed to execute doxx");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Inline equations use single-dollar math delimiters within a sentence.
+    assert!(
+        stdout.contains("$A=\\pi r^{2}$ is an inline equation"),
+        "Inline equation should be wrapped in single $...$ in markdown, got:\n{stdout}"
+    );
+    // Display equations get their own block wrapped in double-dollar delimiters.
+    assert!(
+        stdout.contains("$$a^{2}+b^{2}=c^{2}$$"),
+        "Display equation should be wrapped in $$...$$ in markdown, got:\n{stdout}"
+    );
+}

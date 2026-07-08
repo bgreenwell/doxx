@@ -322,3 +322,250 @@ fn default_alignment_for_type(data_type: CellDataType) -> TextAlignment {
         _ => TextAlignment::Left,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use docx_rs::{Paragraph, Run, Table, TableRow};
+
+    fn docx_cell(text: &str) -> docx_rs::TableCell {
+        docx_rs::TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text(text)))
+    }
+
+    fn docx_row(cells: &[&str]) -> TableRow {
+        TableRow::new(cells.iter().map(|c| docx_cell(c)).collect())
+    }
+
+    // --- detect_cell_data_type ---
+
+    #[test]
+    fn detect_cell_data_type_empty() {
+        assert_eq!(detect_cell_data_type(""), CellDataType::Empty);
+        assert_eq!(detect_cell_data_type("   "), CellDataType::Empty);
+    }
+
+    #[test]
+    fn detect_cell_data_type_currency() {
+        assert_eq!(detect_cell_data_type("$1,234.56"), CellDataType::Currency);
+        assert_eq!(detect_cell_data_type("\u{20AC}99"), CellDataType::Currency); // Euro
+        assert_eq!(detect_cell_data_type("\u{00A3}50"), CellDataType::Currency);
+        // Pound
+    }
+
+    #[test]
+    fn detect_cell_data_type_percentage() {
+        assert_eq!(detect_cell_data_type("42%"), CellDataType::Percentage);
+    }
+
+    #[test]
+    fn detect_cell_data_type_boolean_is_case_insensitive() {
+        for v in ["true", "FALSE", "Yes", "no", "Y", "n"] {
+            assert_eq!(
+                detect_cell_data_type(v),
+                CellDataType::Boolean,
+                "input: {v}"
+            );
+        }
+    }
+
+    #[test]
+    fn detect_cell_data_type_number_handles_commas() {
+        assert_eq!(detect_cell_data_type("1234"), CellDataType::Number);
+        assert_eq!(detect_cell_data_type("1,234,567.89"), CellDataType::Number);
+        assert_eq!(detect_cell_data_type("-42.5"), CellDataType::Number);
+    }
+
+    #[test]
+    fn detect_cell_data_type_date_requires_three_numeric_parts() {
+        assert_eq!(detect_cell_data_type("2026-07-07"), CellDataType::Date);
+        assert_eq!(detect_cell_data_type("07/07/2026"), CellDataType::Date);
+        // Two parts only (looks like a fraction or a range, not a date).
+        assert_eq!(detect_cell_data_type("10/20"), CellDataType::Text);
+    }
+
+    #[test]
+    fn detect_cell_data_type_falls_back_to_text() {
+        assert_eq!(detect_cell_data_type("Widget A"), CellDataType::Text);
+    }
+
+    // --- default_alignment_for_type ---
+
+    #[test]
+    fn default_alignment_for_type_matches_expected_layout() {
+        assert_eq!(
+            default_alignment_for_type(CellDataType::Number),
+            TextAlignment::Right
+        );
+        assert_eq!(
+            default_alignment_for_type(CellDataType::Currency),
+            TextAlignment::Right
+        );
+        assert_eq!(
+            default_alignment_for_type(CellDataType::Percentage),
+            TextAlignment::Right
+        );
+        assert_eq!(
+            default_alignment_for_type(CellDataType::Boolean),
+            TextAlignment::Center
+        );
+        assert_eq!(
+            default_alignment_for_type(CellDataType::Text),
+            TextAlignment::Left
+        );
+        assert_eq!(
+            default_alignment_for_type(CellDataType::Empty),
+            TextAlignment::Left
+        );
+    }
+
+    // --- TableCell::new (public constructor, exercises the two functions above together) ---
+
+    #[test]
+    fn table_cell_new_infers_type_and_alignment_together() {
+        let cell = TableCell::new("$1,000".to_string());
+        assert_eq!(cell.data_type, CellDataType::Currency);
+        assert_eq!(cell.alignment, TextAlignment::Right);
+    }
+
+    #[test]
+    fn table_cell_display_width_counts_graphemes_not_bytes() {
+        // A multi-byte emoji is one grapheme, and should count as 1, not 4.
+        let cell = TableCell::new("a\u{1F600}b".to_string());
+        assert_eq!(cell.display_width(), 3);
+    }
+
+    // --- appears_to_be_header ---
+
+    #[test]
+    fn appears_to_be_header_recognizes_short_labeled_columns() {
+        let header = vec!["Name".to_string(), "Date".to_string(), "Amount".to_string()];
+        assert!(appears_to_be_header(&header));
+    }
+
+    #[test]
+    fn appears_to_be_header_rejects_long_prose_rows() {
+        let data_row = vec![
+            "This is a very long description of a line item that goes on and on".to_string(),
+            "Another lengthy piece of free-form text content in this cell".to_string(),
+        ];
+        assert!(!appears_to_be_header(&data_row));
+    }
+
+    // --- calculate_column_widths ---
+
+    #[test]
+    fn calculate_column_widths_uses_widest_cell_per_column_with_minimum_of_three() {
+        let headers = vec![
+            TableCell::new("ID".to_string()),
+            TableCell::new("Name".to_string()),
+        ];
+        let rows = vec![
+            vec![
+                TableCell::new("1".to_string()),
+                TableCell::new("Widget".to_string()),
+            ],
+            vec![
+                TableCell::new("2".to_string()),
+                TableCell::new("A Much Longer Product Name".to_string()),
+            ],
+        ];
+        let widths = calculate_column_widths(&headers, &rows);
+        assert_eq!(widths[0], 3); // "ID" is 2 chars, clamped up to the minimum of 3
+        assert_eq!(widths[1], "A Much Longer Product Name".len());
+    }
+
+    #[test]
+    fn calculate_column_widths_empty_headers_returns_empty() {
+        assert_eq!(
+            calculate_column_widths(&[], &Vec::new()),
+            Vec::<usize>::new()
+        );
+    }
+
+    // --- determine_column_alignments ---
+
+    #[test]
+    fn determine_column_alignments_right_aligns_mostly_numeric_columns() {
+        let headers = vec![
+            TableCell::new("Item".to_string()),
+            TableCell::new("Price".to_string()),
+        ];
+        let rows = vec![
+            vec![
+                TableCell::new("Widget".to_string()),
+                TableCell::new("$10".to_string()),
+            ],
+            vec![
+                TableCell::new("Gadget".to_string()),
+                TableCell::new("$20".to_string()),
+            ],
+            vec![
+                TableCell::new("Gizmo".to_string()),
+                TableCell::new("$30".to_string()),
+            ],
+        ];
+        let alignments = determine_column_alignments(&headers, &rows);
+        assert_eq!(alignments[0], TextAlignment::Left);
+        assert_eq!(alignments[1], TextAlignment::Right);
+    }
+
+    #[test]
+    fn determine_column_alignments_leaves_mixed_columns_left_aligned() {
+        let headers = vec![TableCell::new("Notes".to_string())];
+        // Only 1 of 3 rows is numeric (33%) - below the 70% threshold.
+        let rows = vec![
+            vec![TableCell::new("42".to_string())],
+            vec![TableCell::new("see attached".to_string())],
+            vec![TableCell::new("n/a".to_string())],
+        ];
+        let alignments = determine_column_alignments(&headers, &rows);
+        assert_eq!(alignments[0], TextAlignment::Left);
+    }
+
+    // --- extract_table_data (end-to-end through the real docx-rs types) ---
+
+    #[test]
+    fn extract_table_data_detects_header_row_and_parses_body() {
+        let table = Table::new(vec![
+            docx_row(&["Item", "Price"]),
+            docx_row(&["Widget", "$10"]),
+            docx_row(&["Gadget", "$20"]),
+        ]);
+
+        let element = extract_table_data(&table).expect("table should have content");
+        let DocumentElement::Table { table: data } = element else {
+            panic!("expected a Table element");
+        };
+
+        assert_eq!(data.headers.len(), 2);
+        assert_eq!(data.headers[0].content, "Item");
+        assert_eq!(data.headers[1].content, "Price");
+        assert_eq!(data.rows.len(), 2);
+        assert_eq!(data.rows[0][0].content, "Widget");
+        assert_eq!(data.rows[0][1].content, "$10");
+        assert_eq!(data.rows[0][1].data_type, CellDataType::Currency);
+        assert!(data.metadata.has_headers);
+    }
+
+    #[test]
+    fn extract_table_data_falls_back_to_first_row_when_no_header_detected() {
+        // Long, prose-like first row - appears_to_be_header should reject it,
+        // so it falls back to using the first row as headers anyway.
+        let table = Table::new(vec![docx_row(&[
+            "This first row is long enough that it will not look like a header",
+        ])]);
+
+        let element = extract_table_data(&table).expect("table should have content");
+        let DocumentElement::Table { table: data } = element else {
+            panic!("expected a Table element");
+        };
+        assert_eq!(data.headers.len(), 1);
+        assert!(data.rows.is_empty());
+    }
+
+    #[test]
+    fn extract_table_data_returns_none_for_empty_table() {
+        let table = Table::new(vec![]);
+        assert!(extract_table_data(&table).is_none());
+    }
+}
