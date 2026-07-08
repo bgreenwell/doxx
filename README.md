@@ -203,6 +203,7 @@ doxx [OPTIONS] <FILE>
 | `-o, --outline` | Start with outline view for quick navigation |
 | `-p, --page <PAGE>` | Jump to specific page number on startup |
 | `-s, --search <TERM>` | Search and highlight term immediately |
+| `-r, --restore-position` | Restore the last saved scroll position for this document |
 | `--force-ui` | Force interactive UI mode (bypass TTY detection) |
 | `--color` | Enable color support for text rendering |
 
@@ -249,34 +250,133 @@ doxx report.docx --export ansi | less -R             # Pipe to less with color s
 | Option | Description |
 |--------|-------------|
 | `--images` | Display images inline in terminal (auto-detect capabilities) |
+| `--no-images` | Force text-only mode, even if the terminal supports inline images |
 | `--extract-images <DIR>` | Extract images to specified directory |
 | `--image-width <COLS>` | Maximum image width in terminal columns (default: auto-detect) |
 | `--image-height <ROWS>` | Maximum image height in terminal rows (default: auto-detect) |
 | `--image-scale <SCALE>` | Image scaling factor (0.1 to 2.0, default: 1.0) |
+| `--debug-terminal` | Print detected terminal image capabilities and exit |
 
 **Image examples:**
 ```bash
 doxx presentation.docx --images                    # Show images inline
 doxx document.docx --images --image-width 80       # Limit image width
 doxx slides.docx --extract-images ./images/        # Save images to folder
+doxx --debug-terminal                               # Check what your terminal supports
 ```
 
 **⚠️ Image display notes:**
-- `--images` currently works with `--export text` mode and shows placeholders in TUI
-- Supports iTerm2, Kitty, and WezTerm terminals
+- `--images` renders inline in both the TUI and `--export text` output
+- Supports iTerm2, Kitty, WezTerm, Sixel-capable terminals, and a half-block fallback elsewhere
 
+## ⚙️ Configuration
+
+doxx reads an optional config file to set a default keymap preset and override individual key bindings. Nothing here is required — doxx works out of the box with the `default` preset — but it's how you switch to vim/less-style navigation or remap keys to your own layout.
+
+### Config file location
+
+| Platform | Path |
+|----------|------|
+| macOS | `~/Library/Application Support/doxx/config.toml` |
+| Linux | `~/.config/doxx/config.toml` (or `$XDG_CONFIG_HOME/doxx/config.toml`) |
+| Windows | `%APPDATA%\doxx\config.toml` |
+
+Create it with:
+```bash
+doxx config init
+```
+This writes a default config (`preset = "default"`, no overrides) and prints the exact path it used.
+
+### Managing the preset
+
+```bash
+doxx config set keymap.preset vim    # switch to vim-style bindings
+doxx config get keymap.preset        # see the active preset
+```
+
+Three presets are built in:
+
+| Preset | Style |
+|--------|-------|
+| `default` | Arrow keys + `j`/`k`, single-letter shortcuts (this is what the [Navigation](#navigation) table below documents) |
+| `vim` | Adds `u`/`d`/`ctrl-u`/`ctrl-d` half-page scroll, `g`/`G`/`H`/`L` for start/end, `/` to search, `N` for previous match |
+| `less` | Adds the same half-page scroll and `g`/`G`, plus `b` for page up and `Space` for page down, `/` to search, `N` for previous match |
+
+`doxx config set`/`get` currently only manage `keymap.preset` — custom key bindings (below) are set by hand-editing the TOML file.
+
+### Custom key bindings
+
+Add a `[keymap.custom]` table to override or add individual bindings on top of whichever preset is active:
+
+```toml
+[keymap]
+preset = "vim"
+
+[keymap.custom]
+n = "scroll_up"
+m = "scroll_down"
+```
+
+Each entry maps a **key string** to an **action name**. A custom binding always wins over whatever the active preset assigned to that key.
+
+**Key strings:**
+- A single character: `"n"`, `"/"`, `"q"`
+- A modifier combo: `"ctrl-d"`, `"shift-h"`
+- A named key: `"enter"`, `"esc"`, `"backspace"`, `"tab"`, `"up"`, `"down"`, `"left"`, `"right"`, `"pageup"`/`"pgup"`, `"pagedown"`/`"pgdn"`, `"home"`, `"end"`, `"f1"`, `"f2"`, `"space"`
+
+**Action names:**
+
+| Action | Effect |
+|--------|--------|
+| `scroll_up` / `scroll_down` | Line-by-line scroll |
+| `page_up` / `page_down` | Full-page scroll |
+| `half_page_up` / `half_page_down` | Half-page scroll |
+| `goto_start` / `goto_end` | Jump to top/bottom of document |
+| `toggle_outline` | Switch to/from outline view |
+| `search` | Enter search mode |
+| `search_next` / `search_previous` | Jump between search matches |
+| `toggle_search_state` | Cycle search highlighting on/off |
+| `toggle_help` | Show/hide the help screen |
+| `copy` | Copy current view to clipboard |
+| `outline_select` | Select the highlighted outline entry |
+| `escape` | Cancel the current mode / close overlays |
+| `search_delete_char` / `search_submit` | Edit/submit the search query (search mode only) |
+
+If a key or action string can't be parsed, doxx prints a warning to stderr and skips that entry — the rest of your config still loads. Since the TUI takes over the screen, that warning won't be visible while doxx is running; if a binding doesn't seem to take effect, run `doxx config get keymap.preset` to sanity-check the file is being read, or temporarily redirect stderr (e.g. `doxx file.docx 2>/tmp/doxx-config-errors.log`) to check for typos.
 
 ## ⌨️ Navigation
+
+The tables below show the **default** preset. Run `doxx config set keymap.preset vim` (or `less`) to switch — see [Configuration](#configuration) above for what each preset changes, or press `h` / `F1` in doxx to see the active bindings for your current preset.
 
 | Key | Action |
 |-----|--------|
 | `↑`/`k` | Scroll up |
 | `↓`/`j` | Scroll down |
+| `PageUp` / `PageDown` | Page up / down |
+| `Home` / `End` | Go to start / end of document |
 | `o` | Toggle outline |
 | `s` | Search |
+| `S` | Toggle search highlighting |
+| `n` / `p` | Next / previous search match |
 | `c` | Copy to clipboard |
-| `h` | Help |
+| `F2` | Copy search results with surrounding context |
+| `h` / `F1` | Toggle help screen |
+| `Esc` | Cancel current mode / close overlays |
+| `Enter` | Select highlighted item (outline view) |
 | `q` | Quit |
+
+**What `vim` and `less` presets change:**
+
+| Key | `vim` | `less` |
+|-----|-------|--------|
+| `u` / `ctrl-u` | Half-page up | Half-page up |
+| `d` / `ctrl-d` | Half-page down | Half-page down |
+| `g` / `G` | Go to start / end | Go to start / end |
+| `H` / `L` | Go to start / end | *(unbound)* |
+| `b` | *(unbound)* | Page up |
+| `Space` | *(unbound)* | Page down |
+| `/` | Search (replaces `s`) | Search (replaces `s`) |
+| `N` | Previous search match (replaces `p`) | Previous search match (replaces `p`) |
 
 ## 🔧 Why doxx?
 

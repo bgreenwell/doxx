@@ -107,3 +107,38 @@ impl Config {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::keymap::KeyBinding;
+
+    // Reproduces github.com/bgreenwell/doxx/issues/78: a vim-preset user remapped
+    // scroll to Colemak-DH-friendly keys via [keymap.custom] and reported the
+    // overrides had no effect.
+    #[test]
+    fn custom_overrides_from_issue_78_apply_on_top_of_preset() {
+        let toml_str = r#"
+            [keymap]
+            preset = "vim"
+
+            [keymap.custom]
+            n = "scroll_up"
+            m = "scroll_down"
+        "#;
+
+        let cfg: Config = toml::from_str(toml_str).expect("valid config.toml");
+        let km = cfg.build_keymap();
+
+        assert_eq!(
+            km.get_action(&KeyBinding::char('n')),
+            Some(Action::ScrollUp),
+            "custom binding for 'n' should override the vim preset's default (search_next)"
+        );
+        assert_eq!(
+            km.get_action(&KeyBinding::char('m')),
+            Some(Action::ScrollDown),
+            "custom binding for 'm' should apply (unbound in the vim preset)"
+        );
+    }
+}
