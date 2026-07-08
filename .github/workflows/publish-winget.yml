@@ -32,7 +32,7 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Install Komac
-        uses: cargo-bins/cargo-binstall@main
+        uses: cargo-bins/cargo-binstall@v1.20.1
 
       - name: Install komac binary
         run: cargo binstall komac -y
