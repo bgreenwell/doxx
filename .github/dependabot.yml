@@ -25,7 +25,11 @@ updates:
     labels:
       - "dependencies"
       - "rust"
-    # Group ALL updates to reduce PR noise
+    # Group minor/patch updates to reduce PR noise. Majors are deliberately
+    # NOT grouped: bundling a breaking change in with 19 safe ones means one
+    # bad major (e.g. ratatui-image 8->10 needing a new system dependency,
+    # see bgreenwell/doxx#82) blocks the whole group instead of just itself.
+    # Ungrouped majors fall through to their own individual PRs instead.
     groups:
       rust-dependencies:
         patterns:
@@ -33,7 +37,6 @@ updates:
         update-types:
           - "minor"
           - "patch"
-          - "major"
     
   # GitHub Actions
   - package-ecosystem: "github-actions"
