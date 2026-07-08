@@ -1,4 +1,4 @@
-# doxx 📄 <a href="https://terminaltrove.com/"><img src="https://cdn.terminaltrove.com/media/badges/tool_of_the_week/svg/terminal_trove_tool_of_the_week_green_on_dark_grey_bg.svg" align="right" height="40" /></a>
+# doxx <a href="https://terminaltrove.com/"><img src="https://cdn.terminaltrove.com/media/badges/tool_of_the_week/svg/terminal_trove_tool_of_the_week_green_on_dark_grey_bg.svg" align="right" height="40" /></a>
 
 > `.docx` files in your terminal — no Microsoft Word required
 
@@ -45,25 +45,25 @@ A fast, terminal-native document viewer for Word files. View, search, and export
   </table>
 </div>
 
-## 🎬 Demo
+## Demo
 
 <div align="center">
   <img src="assets/demo.gif" alt="doxx mixed formatting demo" width="600">
   <br><em>Mixed formatting with colors, bold, italic, underline, strikethrough and interactive navigation</em>
 </div>
 
-## ✨ Features
+## Features
 
 - **Beautiful terminal rendering** with formatting, tables, and lists
-- **Equation support** — LaTeX rendering for inline and display equations 📐
-- **Fast search** with highlighting 🔍
+- **Equation support** — LaTeX rendering for inline and display equations
+- **Fast search** with highlighting
 - **Smart tables** with proper alignment and Unicode borders
 - **Copy to clipboard** — grab content directly from the terminal
 - **Export formats** — Markdown, CSV, JSON, plain text, ANSI-colored output
-- **Terminal images** for Kitty, iTerm2, WezTerm 🖼️
+- **Terminal images** for Kitty, iTerm2, WezTerm
 - **Color support** — see Word document colors in your terminal
 
-## 🚀 Installation
+## Installation
 
 ### Package managers
 
@@ -161,7 +161,7 @@ cargo build --release
 - Rust 1.70+ 
 - System dependencies: `libxcb` (Linux only)
 
-## 🎯 Usage
+## Usage
 
 ```bash
 # View a document
@@ -184,7 +184,7 @@ doxx presentation.docx --images --export text
 doxx slides.docx --color
 ```
 
-## 📋 Command Line Options
+## Command Line Options
 
 ### Basic options
 ```bash
@@ -221,7 +221,7 @@ doxx structure.docx --export json   # Document metadata as JSON
 doxx document.docx --export ansi    # ANSI-colored terminal output
 ```
 
-**📊 CSV export note:**
+**CSV export note:**
 The CSV export extracts **only tables** from the document, ignoring all text content. Perfect for pulling structured data from business reports, research papers, or surveys for analysis in Excel, Python, or databases.
 
 ### ANSI export options
@@ -239,7 +239,7 @@ doxx document.docx --export ansi --terminal-width 80 # Set terminal width
 doxx report.docx --export ansi | less -R             # Pipe to less with color support
 ```
 
-**🌈 Color depth options:**
+**Color depth options:**
 - `auto` - Auto-detect terminal capabilities
 - `1` - Monochrome (no colors, formatting only)
 - `4` - 16 colors (standard ANSI colors)
@@ -265,11 +265,11 @@ doxx slides.docx --extract-images ./images/        # Save images to folder
 doxx --debug-terminal                               # Check what your terminal supports
 ```
 
-**⚠️ Image display notes:**
+**Image display notes:**
 - `--images` renders inline in both the TUI and `--export text` output
 - Supports iTerm2, Kitty, WezTerm, Sixel-capable terminals, and a half-block fallback elsewhere
 
-## ⚙️ Configuration
+## Configuration
 
 doxx reads an optional config file to set a default keymap preset and override individual key bindings. Nothing here is required — doxx works out of the box with the `default` preset — but it's how you switch to vim/less-style navigation or remap keys to your own layout.
 
@@ -344,7 +344,7 @@ Each entry maps a **key string** to an **action name**. A custom binding always 
 
 If a key or action string can't be parsed, doxx prints a warning to stderr and skips that entry — the rest of your config still loads. Since the TUI takes over the screen, that warning won't be visible while doxx is running; if a binding doesn't seem to take effect, run `doxx config get keymap.preset` to sanity-check the file is being read, or temporarily redirect stderr (e.g. `doxx file.docx 2>/tmp/doxx-config-errors.log`) to check for typos.
 
-## ⌨️ Navigation
+## Navigation
 
 The tables below show the **default** preset. Run `doxx config set keymap.preset vim` (or `less`) to switch — see [Configuration](#configuration) above for what each preset changes, or press `h` / `F1` in doxx to see the active bindings for your current preset.
 
@@ -378,7 +378,7 @@ The tables below show the **default** preset. Run `doxx config set keymap.preset
 | `/` | Search (replaces `s`) | Search (replaces `s`) |
 | `N` | Previous search match (replaces `p`) | Previous search match (replaces `p`) |
 
-## 🔧 Why doxx?
+## Why doxx?
 
 Current terminal tools for Word documents:
 - **docx2txt** → Loses all formatting, mangled tables
@@ -386,17 +386,17 @@ Current terminal tools for Word documents:
 - **antiword** → Only handles old `.doc` files
 
 **doxx** gives you:
-- ✅ Rich formatting preserved (bold, italic, headers)
-- ✅ Professional table rendering with alignment
-- ✅ Equation support (inline and display LaTeX)
-- ✅ Interactive navigation and search
-- ✅ Multiple export formats for workflows
-- ✅ Terminal image display for modern terminals
-- ✅ Fast startup (50ms vs Word's 8+ seconds)
+- Rich formatting preserved (bold, italic, headers)
+- Professional table rendering with alignment
+- Equation support (inline and display LaTeX)
+- Interactive navigation and search
+- Multiple export formats for workflows
+- Terminal image display for modern terminals
+- Fast startup (50ms vs Word's 8+ seconds)
 
 Perfect for developers, sysadmins, and anyone who prefers the terminal.
 
-## 📊 Examples
+## Examples
 
 ### Quick document analysis
 ```bash
@@ -428,7 +428,7 @@ doxx notes.docx --export text | grep "action items"
 doxx report.docx --export json | jq '.metadata'
 ```
 
-## 🏗️ Architecture
+## Architecture
 
 Built with Rust for performance:
 - **[docx-rs](https://crates.io/crates/docx-rs)** — Document parsing
@@ -436,7 +436,7 @@ Built with Rust for performance:
 - **[viuer](https://crates.io/crates/viuer)** — Image rendering
 - **[unicode-segmentation](https://crates.io/crates/unicode-segmentation)** — Proper Unicode handling
 
-## 🛠️ Development
+## Development
 
 ```bash
 # Build and test
@@ -460,16 +460,16 @@ cargo run -- tests/fixtures/minimal.docx
 - Hyperlink navigation
 - Custom themes
 
-## 💡 Inspiration
+## Inspiration
 
 This project was inspired by [Charm](https://github.com/charmbracelet)'s [Glow](https://github.com/charmbracelet/glow) package — the beautiful terminal Markdown renderer that shows how terminal document viewing can be both powerful and elegant. Just as Glow brings rich Markdown rendering to your command line, doxx aims to do the same for Microsoft Word documents.
 
-Thanks to the Charm team for the inspiration! ✨
+Thanks to the Charm team for the inspiration!
 
-## 📝 License
+## License
 
 MIT License — see [LICENSE](LICENSE) file for details.
 
 ---
 
-**Made for developers who live in the terminal** 🚀
+**Made for developers who live in the terminal**
