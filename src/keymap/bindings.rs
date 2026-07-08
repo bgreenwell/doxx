@@ -20,8 +20,14 @@ impl KeyBinding {
         Self::new(KeyCode::Char(c), KeyModifiers::CONTROL)
     }
 
-    /// Parse a key binding from a string like "ctrl-d", "shift-h", "/", "enter", "esc".
+    /// Parse a key binding from a string like "ctrl-d", "shift-h", "/", "enter", "esc", "space".
     pub fn parse_key(s: &str) -> Result<Self> {
+        // A literal " " is meaningful (the spacebar), so check for it before
+        // trimming would otherwise reduce it to an empty, unparseable string.
+        if s == " " {
+            return Ok(Self::char(' '));
+        }
+
         let s = s.trim().to_lowercase();
         let parts: Vec<&str> = s.splitn(2, '-').collect();
 
@@ -40,6 +46,7 @@ impl KeyBinding {
             [single] => {
                 // Special key names
                 match *single {
+                    "space" => Ok(Self::char(' ')),
                     "enter" => Ok(Self::new(KeyCode::Enter, KeyModifiers::NONE)),
                     "esc" | "escape" => Ok(Self::new(KeyCode::Esc, KeyModifiers::NONE)),
                     "backspace" => Ok(Self::new(KeyCode::Backspace, KeyModifiers::NONE)),
@@ -71,6 +78,7 @@ impl KeyBinding {
 impl KeyBinding {
     pub fn display(&self) -> String {
         let key = match &self.code {
+            KeyCode::Char(' ') => "Space".to_string(),
             KeyCode::Char(c) => c.to_string(),
             KeyCode::Up => "↑".to_string(),
             KeyCode::Down => "↓".to_string(),
@@ -137,6 +145,24 @@ mod tests {
         let b = KeyBinding::parse_key("q").unwrap();
         assert_eq!(b.code, KeyCode::Char('q'));
         assert_eq!(b.modifiers, KeyModifiers::NONE);
+    }
+
+    #[test]
+    fn test_parse_space() {
+        // Literal " " must survive parse_key's trim(), since trimming it
+        // naively reduces the spacebar to an empty, unparseable string.
+        let b = KeyBinding::parse_key(" ").unwrap();
+        assert_eq!(b.code, KeyCode::Char(' '));
+        assert_eq!(b.modifiers, KeyModifiers::NONE);
+
+        // "space" is also accepted as a named alias, for readability in config.toml.
+        let b = KeyBinding::parse_key("space").unwrap();
+        assert_eq!(b.code, KeyCode::Char(' '));
+    }
+
+    #[test]
+    fn test_display_space() {
+        assert_eq!(KeyBinding::char(' ').display(), "Space");
     }
 
     #[test]
