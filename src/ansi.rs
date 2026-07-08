@@ -257,116 +257,15 @@ fn write_ansi_paragraph(
 
 /// Wrap formatted text runs to terminal width while preserving formatting
 fn wrap_formatted_runs(runs: &[FormattedRun], options: &AnsiOptions) -> Vec<String> {
+    // Preserve the pre-merge empty-input behavior exactly (returns no lines,
+    // rather than wrap_formatted_runs_with_width's `vec![String::new()]`) -
+    // write_ansi_paragraph relies on this to emit nothing for an empty
+    // paragraph. In practice runs is never empty (the parser only creates
+    // Paragraph elements with non-empty text), but keep it explicit.
     if runs.is_empty() {
         return vec![];
     }
-
-    let max_width = options.terminal_width;
-    let mut lines = Vec::new();
-    let mut current_line = String::new();
-    let mut current_width = 0;
-    let mut line_needs_formatting = false;
-
-    for run in runs {
-        let graphemes: Vec<&str> = run.text.graphemes(true).collect();
-        let mut word = String::new();
-        let mut word_width = 0;
-
-        // Apply formatting at start of run
-        let format_start = get_ansi_format_start(
-            run.formatting.bold,
-            run.formatting.italic,
-            run.formatting.underline,
-            run.formatting.strikethrough,
-            run.formatting.color.as_deref(),
-            options,
-        );
-
-        for grapheme in graphemes {
-            let grapheme_width = UnicodeWidthStr::width(grapheme);
-
-            if grapheme == " " || grapheme == "\n" {
-                // End of word - try to add it to the current line
-                if !word.is_empty() {
-                    if current_width + word_width > max_width && current_width > 0 {
-                        // Word doesn't fit on current line, start new line
-                        if line_needs_formatting {
-                            current_line.push_str(&format_ansi_reset());
-                        }
-                        lines.push(current_line.clone());
-                        current_line.clear();
-                        current_width = 0;
-                        line_needs_formatting = false;
-                    }
-
-                    // Apply formatting if not already applied on this line
-                    if !line_needs_formatting && !format_start.is_empty() {
-                        current_line.push_str(&format_start);
-                        line_needs_formatting = true;
-                    }
-
-                    current_line.push_str(&word);
-                    current_width += word_width;
-
-                    word.clear();
-                    word_width = 0;
-                }
-
-                // Handle space or newline
-                if grapheme == "\n" {
-                    if line_needs_formatting {
-                        current_line.push_str(&format_ansi_reset());
-                    }
-                    lines.push(current_line.clone());
-                    current_line.clear();
-                    current_width = 0;
-                    line_needs_formatting = false;
-                } else if current_width < max_width {
-                    current_line.push(' ');
-                    current_width += 1;
-                }
-            } else {
-                // Building a word
-                word.push_str(grapheme);
-                word_width += grapheme_width;
-            }
-        }
-
-        // Handle remaining word at end of run
-        if !word.is_empty() {
-            if current_width + word_width > max_width && current_width > 0 {
-                if line_needs_formatting {
-                    current_line.push_str(&format_ansi_reset());
-                }
-                lines.push(current_line.clone());
-                current_line.clear();
-                current_width = 0;
-                line_needs_formatting = false;
-            }
-
-            // Apply formatting if not already applied on this line
-            if !line_needs_formatting && !format_start.is_empty() {
-                current_line.push_str(&format_start);
-                line_needs_formatting = true;
-            }
-
-            current_line.push_str(&word);
-            current_width += word_width;
-        }
-
-        // Reset formatting at end of run if it was applied
-        if line_needs_formatting && !current_line.is_empty() {
-            current_line.push_str(&format_ansi_reset());
-            line_needs_formatting = false;
-        }
-    }
-
-    // Add final line if not empty
-    if !current_line.is_empty() {
-        lines.push(current_line);
-    }
-
-    lines
+    wrap_formatted_runs_with_width(runs, options.terminal_width, options)
 }
 
 /// Get ANSI formatting codes for start of formatted text
