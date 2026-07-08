@@ -661,16 +661,7 @@ fn format_ansi_reset() -> String {
 }
 
 fn convert_hex_to_crossterm_color(hex: &str, color_depth: &ColorDepth) -> Option<CrosstermColor> {
-    // Remove # if present and ensure we have 6 characters
-    let hex = hex.trim_start_matches('#');
-    if hex.len() != 6 {
-        return None;
-    }
-
-    // Parse RGB components
-    let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
-    let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
-    let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+    let (r, g, b) = crate::color::parse_hex_rgb(hex)?;
 
     match color_depth {
         ColorDepth::Monochrome => None,

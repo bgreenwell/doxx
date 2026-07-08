@@ -831,14 +831,6 @@ impl<'a> DocumentWidget<'a> {
 
 /// Convert hex color code to ratatui Color
 fn hex_to_color(hex: &str) -> Option<Color> {
-    let hex = hex.trim_start_matches('#');
-    if hex.len() != 6 {
-        return None;
-    }
-
-    let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
-    let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
-    let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
-
+    let (r, g, b) = crate::color::parse_hex_rgb(hex)?;
     Some(Color::Rgb(r, g, b))
 }

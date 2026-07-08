@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use doxx::{ColorDepth, ExportFormat};
 
 mod ansi;
+mod color;
 mod config;
 mod document;
 mod export;

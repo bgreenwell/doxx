@@ -4,6 +4,7 @@
 //! and displaying them in terminal environments with rich formatting support.
 
 pub mod ansi;
+pub mod color;
 pub mod config;
 pub mod document;
 pub mod equation;
