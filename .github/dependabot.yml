@@ -1,8 +1,8 @@
-# GitHub Dependabot configuration for doxx - DISABLED
+# GitHub Dependabot configuration for doxx
 # See: https://docs.github.com/en/code-security/dependabot
-# 
-# This is disabled during early development to avoid PR spam.
-# Rename to dependabot.yml when project is stable and ready for automated dependency updates.
+#
+# Re-enabled 2026-07-08 - the project has multiple tagged releases now,
+# so automated dependency PRs are worth the noise.
 
 version: 2
 updates:
