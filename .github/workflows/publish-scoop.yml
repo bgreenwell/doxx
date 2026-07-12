@@ -32,6 +32,24 @@ jobs:
             echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
           fi
 
+      # The Release workflow triggered by the same tag builds the assets;
+      # wait for the one we need instead of racing it (fails after ~30 min).
+      - name: Wait for release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.get-tag.outputs.tag }}"
+          echo "Waiting for doxx-x86_64-pc-windows-msvc.zip on release $TAG..."
+          for i in $(seq 1 40); do
+            if gh release view "$TAG" --repo ${{ github.repository }} --json assets \
+                 --jq '.assets[].name' 2>/dev/null | grep -qx "doxx-x86_64-pc-windows-msvc.zip"; then
+              echo "Release asset found."
+              exit 0
+            fi
+            sleep 45
+          done
+          echo "Timed out waiting for release asset doxx-x86_64-pc-windows-msvc.zip" >&2
+          exit 1
       - name: Checkout Scoop bucket
         uses: actions/checkout@v4
         with:
