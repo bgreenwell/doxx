@@ -119,7 +119,7 @@ jobs:
           sudo chown -R $USER:$USER ${{ github.workspace }}
 
       - name: Setup SSH for AUR
-        uses: webfactory/ssh-agent@v0.9.0
+        uses: webfactory/ssh-agent@v0.10.0
         with:
           ssh-private-key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
 
