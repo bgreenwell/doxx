@@ -50,7 +50,7 @@ jobs:
           echo "Timed out waiting for release asset doxx-x86_64-unknown-linux-gnu.tar.xz" >&2
           exit 1
       - name: Checkout doxx repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: doxx
 

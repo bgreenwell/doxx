@@ -51,7 +51,7 @@ jobs:
           echo "Timed out waiting for release asset doxx-x86_64-pc-windows-msvc.zip" >&2
           exit 1
       - name: Checkout Scoop bucket
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: bgreenwell/scoop-bucket
           token: ${{ secrets.SCOOP_BUCKET_TOKEN }}
