@@ -134,8 +134,16 @@ scoop install doxx
 Download from [GitHub releases](https://github.com/bgreenwell/doxx/releases):
 
 ```bash
-# macOS/Linux - automatic platform detection
-curl -L https://github.com/bgreenwell/doxx/releases/latest/download/doxx-$(uname -s)-$(uname -m).tar.gz | tar xz
+# Linux (x86_64, statically linked)
+curl -L https://github.com/bgreenwell/doxx/releases/latest/download/doxx-x86_64-unknown-linux-musl.tar.xz | tar xJ
+sudo mv doxx /usr/local/bin/
+
+# macOS (Intel)
+curl -L https://github.com/bgreenwell/doxx/releases/latest/download/doxx-x86_64-apple-darwin.tar.xz | tar xJ
+sudo mv doxx /usr/local/bin/
+
+# macOS (Apple Silicon)
+curl -L https://github.com/bgreenwell/doxx/releases/latest/download/doxx-aarch64-apple-darwin.tar.xz | tar xJ
 sudo mv doxx /usr/local/bin/
 
 # Verify installation
