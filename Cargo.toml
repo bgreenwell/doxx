@@ -2,6 +2,7 @@
 name = "doxx"
 version = "0.1.4"
 edition = "2021"
+rust-version = "1.88"
 description = "Terminal document viewer for .docx files"
 license = "MIT"
 repository = "https://github.com/bgreenwell/doxx"

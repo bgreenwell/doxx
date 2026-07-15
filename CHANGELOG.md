@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - README now documents the config file, `doxx config` subcommand, keymap presets, and custom key bindings ([#78](https://github.com/bgreenwell/doxx/issues/78))
 - The spacebar can now be bound in `config.toml` via a literal `" "` key or the `"space"` alias
+- Declared minimum supported Rust version (MSRV) of 1.88 in `Cargo.toml` ([#87](https://github.com/bgreenwell/doxx/issues/87))
+
+### Changed
+- README Rust version badge now reflects the actual 1.88+ MSRV instead of a stale 1.70+ ([#87](https://github.com/bgreenwell/doxx/issues/87))
 
 ### Fixed
 - Custom key bindings for the spacebar were silently dropped due to whitespace trimming during config parsing
