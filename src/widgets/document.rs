@@ -99,6 +99,13 @@ impl<'a> DocumentWidget<'a> {
         let mut current_width = 0;
         let mut char_position = 0; // Track absolute character position across all runs
 
+        // Graphemes are buffered into `word` until a space/newline boundary, so a word
+        // that doesn't fit at the end of a line moves to the next line as a whole
+        // instead of being split mid-word. Mirrors the word/word_width accumulator in
+        // ansi.rs's wrap_formatted_runs_with_width.
+        let mut word: Vec<Span> = Vec::new();
+        let mut word_width = 0;
+
         for run in runs {
             let mut base_style = Style::default();
 
@@ -145,21 +152,41 @@ impl<'a> DocumentWidget<'a> {
                     }
                 }
 
-                // Check if adding this grapheme would exceed max width
-                if current_width + g_width > max_width && current_width > 0 {
-                    // Finish current line and start a new one
-                    if !current_line.is_empty() {
-                        lines.push(Line::from(current_line.clone()));
-                        current_line.clear();
-                        current_width = 0;
+                if grapheme == " " || grapheme == "\n" {
+                    // End of word - flush it onto the current line, wrapping first if needed
+                    if !word.is_empty() {
+                        if current_width + word_width > max_width && current_width > 0 {
+                            lines.push(Line::from(std::mem::take(&mut current_line)));
+                            current_width = 0;
+                        }
+                        current_line.append(&mut word);
+                        current_width += word_width;
+                        word_width = 0;
                     }
+
+                    if grapheme == "\n" {
+                        lines.push(Line::from(std::mem::take(&mut current_line)));
+                        current_width = 0;
+                    } else if current_width < max_width {
+                        current_line.push(Span::styled(" ", style));
+                        current_width += 1;
+                    }
+                } else {
+                    // Still building a word
+                    word.push(Span::styled(grapheme.to_string(), style));
+                    word_width += g_width;
                 }
 
-                // Add grapheme to current line
-                current_line.push(Span::styled(grapheme.to_string(), style));
-                current_width += g_width;
                 char_position += grapheme.chars().count(); // Advance character position
             }
+        }
+
+        // Flush any word left over at the end of the last run
+        if !word.is_empty() {
+            if current_width + word_width > max_width && current_width > 0 {
+                lines.push(Line::from(std::mem::take(&mut current_line)));
+            }
+            current_line.append(&mut word);
         }
 
         // Add remaining content
@@ -833,4 +860,79 @@ impl<'a> DocumentWidget<'a> {
 fn hex_to_color(hex: &str) -> Option<Color> {
     let (r, g, b) = crate::color::parse_hex_rgb(hex)?;
     Some(Color::Rgb(r, g, b))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn plain_run(text: &str) -> FormattedRun {
+        FormattedRun {
+            text: text.to_string(),
+            formatting: TextFormatting::default(),
+        }
+    }
+
+    fn line_text(line: &Line) -> String {
+        line.spans
+            .iter()
+            .map(|span| span.content.as_ref())
+            .collect()
+    }
+
+    #[test]
+    fn word_wrap_moves_whole_word_to_next_line() {
+        let runs = vec![plain_run("aaaa bbbb cccc")];
+        let lines = DocumentWidget::wrap_formatted_runs(&runs, 6, false, &[], false);
+        let texts: Vec<String> = lines.iter().map(line_text).collect();
+
+        // None of the wrapped lines should end with a fragment of a word that
+        // continues on the next line - each word stays intact.
+        assert_eq!(texts, vec!["aaaa ", "bbbb ", "cccc"]);
+    }
+
+    #[test]
+    fn word_wrap_does_not_split_word_mid_character() {
+        // Regression test for #83: a word that doesn't fit at the end of a
+        // line must move to the next line, not get split mid-word.
+        let runs = vec![plain_run(
+            "This paragraph has some very long words that get split awkwardly.",
+        )];
+        let lines = DocumentWidget::wrap_formatted_runs(&runs, 37, false, &[], false);
+        let texts: Vec<String> = lines.iter().map(line_text).collect();
+
+        for text in &texts {
+            let trimmed = text.trim_end();
+            if let Some(last_word) = trimmed.split(' ').next_back() {
+                assert!(
+                    !last_word.is_empty() || trimmed.is_empty(),
+                    "line ended with an empty trailing word: {text:?}"
+                );
+            }
+        }
+
+        // Reassembling the wrapped lines (collapsing the wrap points back to
+        // spaces) must reproduce the original words, unmodified.
+        let rejoined = texts.join("");
+        assert_eq!(
+            rejoined,
+            "This paragraph has some very long words that get split awkwardly."
+        );
+    }
+
+    #[test]
+    fn word_wrap_handles_embedded_hard_break() {
+        let runs = vec![plain_run("first line\nsecond line")];
+        let lines = DocumentWidget::wrap_formatted_runs(&runs, 40, false, &[], false);
+        let texts: Vec<String> = lines.iter().map(line_text).collect();
+
+        assert_eq!(texts, vec!["first line", "second line"]);
+    }
+
+    #[test]
+    fn word_wrap_zero_width_returns_empty() {
+        let runs = vec![plain_run("hello")];
+        let lines = DocumentWidget::wrap_formatted_runs(&runs, 0, false, &[], false);
+        assert!(lines.is_empty());
+    }
 }
