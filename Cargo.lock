@@ -700,7 +700,7 @@ checksum = "ed73cbf5e1c37baa23f4132569ac1187829f03922c206bd68fe109e3001a343d"
 dependencies = [
  "base64 0.22.1",
  "image 0.25.10",
- "quick-xml",
+ "quick-xml 0.36.2",
  "serde",
  "serde_json",
  "thiserror 2.0.16",
@@ -719,7 +719,7 @@ dependencies = [
  "docx-rs",
  "image 0.25.10",
  "once_cell",
- "quick-xml",
+ "quick-xml 0.41.0",
  "ratatui",
  "ratatui-image",
  "regex",
@@ -1648,6 +1648,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7649a7b4df05aed9ea7ec6f628c67c9953a43869b8bc50929569b2999d443fe"
 dependencies = [
  "encoding_rs",
+ "memchr",
+]
+
+[[package]]
+name = "quick-xml"
+version = "0.41.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e660451e55124f798a69a5af3f49ccfbefbd41910eefd25caf2393e1f3473ec1"
+dependencies = [
  "memchr",
 ]
 
