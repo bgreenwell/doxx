@@ -39,7 +39,7 @@ crossterm = "0.28"
 arboard = "3.3"
 
 # Image support
-viuer = "0.7"
+viuer = "0.11"
 image = "0.25"
 zip = "2.0"
 ratatui-image = { version = "9.0", default-features = false, features = ["image-defaults", "crossterm"] }
