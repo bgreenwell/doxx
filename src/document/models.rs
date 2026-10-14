@@ -85,7 +85,7 @@ pub struct TextFormatting {
     pub color: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct FormattedRun {
     pub text: String,
     pub formatting: TextFormatting,

@@ -5,6 +5,7 @@
 //! modules to transform a DOCX file into our internal Document representation.
 
 use anyhow::Result;
+use std::collections::HashMap;
 use std::path::Path;
 
 // Import types from the models module
@@ -15,7 +16,7 @@ use super::io::{merge_display_equations, validate_docx_file};
 use super::cleanup::{clean_word_list_markers, estimate_page_count};
 // Import numbering management
 use super::parsing::numbering::{
-    analyze_heading_structure, HeadingNumberTracker, NumberingResolver,
+    analyze_heading_structure, HeadingInfo, HeadingNumberTracker, NumberingResolver,
 };
 // Import list processing
 use super::parsing::list::group_list_items;
@@ -29,6 +30,16 @@ use super::parsing::table::extract_table_data;
 use super::parsing::equation::{
     extract_equations_from_docx, extract_inline_equation_positions, ParagraphContent,
 };
+use crate::image_extractor::ImageExtractor;
+
+/// Mutable state threaded through the document-tree walk in `load_document`.
+struct ParsingState {
+    elements: Vec<DocumentElement>,
+    word_count: usize,
+    numbering_resolver: NumberingResolver,
+    heading_tracker: HeadingNumberTracker,
+    image_extractor: Option<ImageExtractor>,
+}
 
 /// Main document loading function that orchestrates the entire parsing process
 ///
@@ -51,250 +62,24 @@ pub fn load_document(file_path: &Path, image_options: ImageOptions) -> Result<Do
     let file_data = std::fs::read(file_path)?;
     let docx = docx_rs::read_docx(&file_data)?;
 
-    let title = file_path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("Untitled Document")
-        .to_string();
+    let title = extract_title(file_path);
 
-    let mut elements = Vec::new();
-    let mut word_count = 0;
-    let mut numbering_resolver = NumberingResolver::build_from_docx(&docx.numberings);
-    let mut heading_tracker = HeadingNumberTracker::new();
-
-    // Analyze document structure to determine if auto-numbering should be enabled
-    let should_auto_number = analyze_heading_structure(&docx.document);
-    if should_auto_number {
-        heading_tracker.enable_auto_numbering();
-    }
-
-    // Extract images if enabled
-    let image_extractor = if image_options.enabled {
-        let mut extractor = crate::image_extractor::ImageExtractor::new()?;
-        extractor.extract_images_from_docx(file_path)?;
-        Some(extractor)
-    } else {
-        None
+    let mut state = ParsingState {
+        elements: Vec::new(),
+        word_count: 0,
+        numbering_resolver: NumberingResolver::build_from_docx(&docx.numberings),
+        heading_tracker: build_heading_tracker(&docx.document),
+        image_extractor: build_image_extractor(&image_options, file_path)?,
     };
 
     // Enhanced content extraction with style information
     for child in &docx.document.children {
         match child {
-            docx_rs::DocumentChild::Paragraph(para) => {
-                // Check for heading with potential numbering first
-                let heading_info = detect_heading_with_numbering(para);
-
-                // Check for list numbering properties (Word's automatic lists)
-                let list_info = detect_list_from_paragraph_numbering(para);
-
-                // Check for images in this paragraph first
-                for child in &para.children {
-                    if let docx_rs::ParagraphChild::Run(run) = child {
-                        for run_child in &run.children {
-                            if let docx_rs::RunChild::Drawing(_drawing) = run_child {
-                                // Create an Image element with consistent ordering
-                                if let Some(ref extractor) = image_extractor {
-                                    let images = extractor.get_extracted_images_sorted();
-                                    if !images.is_empty() {
-                                        // Count images processed so far to maintain document order
-                                        let image_count = elements
-                                            .iter()
-                                            .filter(|e| matches!(e, DocumentElement::Image { .. }))
-                                            .count();
-
-                                        // Only create Image element if we have an actual image file available
-                                        if image_count < images.len() {
-                                            let (_, image_path) = &images[image_count];
-
-                                            elements.push(DocumentElement::Image {
-                                                description: format!("Image {}", image_count + 1),
-                                                width: None,
-                                                height: None,
-                                                relationship_id: None,
-                                                image_path: Some(image_path.clone()),
-                                            });
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Detect paragraph style (used for code blocks, block quotes, etc.)
-                let para_style = para
-                    .property
-                    .style
-                    .as_ref()
-                    .map(|s| s.val.as_str())
-                    .unwrap_or("");
-                let is_code_block = para_style == "SourceCode" || para_style == "VerbatimChar";
-
-                // Extract runs with individual formatting, preserving line breaks.
-                // Text box shapes (DrawingData::TextBox) are collected separately so they
-                // are always emitted as plain paragraphs regardless of the parent style.
-                let mut formatted_runs = Vec::new();
-                let mut textbox_groups: Vec<Vec<String>> = Vec::new();
-
-                for child in &para.children {
-                    if let docx_rs::ParagraphChild::Run(run) = child {
-                        let run_formatting = extract_run_formatting(run);
-                        let mut run_text = String::new();
-
-                        for child in &run.children {
-                            match child {
-                                docx_rs::RunChild::Text(text_elem) => {
-                                    run_text.push_str(&text_elem.text);
-                                }
-                                docx_rs::RunChild::Break(_) => {
-                                    run_text.push('\n');
-                                }
-                                docx_rs::RunChild::Drawing(drawing) => {
-                                    if let Some(docx_rs::DrawingData::TextBox(text_box)) =
-                                        &drawing.data
-                                    {
-                                        let mut group = Vec::new();
-                                        for tb_child in &text_box.children {
-                                            if let docx_rs::TextBoxContentChild::Paragraph(para) =
-                                                tb_child
-                                            {
-                                                let text = extract_paragraph_text(para);
-                                                if !text.is_empty() {
-                                                    group.push(text);
-                                                }
-                                            }
-                                        }
-                                        if !group.is_empty() {
-                                            textbox_groups.push(group);
-                                        }
-                                    }
-                                }
-                                _ => {}
-                            }
-                        }
-
-                        if !run_text.is_empty() {
-                            formatted_runs.push(FormattedRun {
-                                text: run_text,
-                                formatting: run_formatting,
-                            });
-                        }
-                    }
-                }
-
-                // Calculate total text for word count and processing
-                let total_text: String =
-                    formatted_runs.iter().map(|run| run.text.as_str()).collect();
-
-                if !total_text.trim().is_empty() {
-                    word_count += total_text.split_whitespace().count();
-
-                    // Priority: code block > list numbering > heading style > text heuristics
-                    if is_code_block {
-                        let code_text: String =
-                            formatted_runs.iter().map(|r| r.text.as_str()).collect();
-                        elements.push(DocumentElement::CodeBlock { text: code_text });
-                    } else if let Some(list_info) = list_info {
-                        // This is an automatic Word list item - format with proper indentation
-                        let indent = "  ".repeat(list_info.level as usize);
-                        let prefix = if let Some(num_id) = list_info.num_id {
-                            if numbering_resolver.is_ordered(num_id, list_info.level) {
-                                numbering_resolver.generate_number(num_id, list_info.level)
-                            } else {
-                                "* ".to_string()
-                            }
-                        } else {
-                            "* ".to_string()
-                        };
-
-                        // For list items, preserve individual run formatting by creating separate prefix run
-                        // This maintains formatting fidelity while keeping bullets/numbers unformatted
-                        if !formatted_runs.is_empty() {
-                            // Create a prefix run with default formatting (no color, bold, etc.)
-                            let prefix_text = format!("__WORD_LIST__{indent}{prefix}");
-                            let prefix_run = FormattedRun {
-                                text: prefix_text,
-                                formatting: TextFormatting::default(),
-                            };
-
-                            // Insert prefix run at the beginning, preserving text formatting
-                            let mut updated_runs = vec![prefix_run];
-                            updated_runs.extend(formatted_runs);
-
-                            elements.push(DocumentElement::Paragraph { runs: updated_runs });
-                        } else {
-                            // Fallback for empty runs
-                            let list_text = format!("__WORD_LIST__{indent}{prefix}");
-                            elements.push(DocumentElement::Paragraph {
-                                runs: vec![FormattedRun {
-                                    text: list_text,
-                                    formatting: TextFormatting::default(),
-                                }],
-                            });
-                        }
-                    } else {
-                        // Check for headings (with or without numbering)
-                        if let Some(heading_info) = heading_info {
-                            let heading_text =
-                                heading_info.clean_text.unwrap_or(total_text.clone());
-
-                            let number = if heading_info.number.is_some() {
-                                heading_info.number
-                            } else {
-                                // Generate automatic numbering if enabled for this document
-                                let auto_number = heading_tracker.get_number(heading_info.level);
-                                if auto_number.is_empty() {
-                                    None
-                                } else {
-                                    Some(auto_number)
-                                }
-                            };
-
-                            elements.push(DocumentElement::Heading {
-                                level: heading_info.level,
-                                text: heading_text,
-                                number,
-                            });
-                        } else {
-                            // Fallback to text-based heading detection using first run's formatting
-                            let first_formatting = if !formatted_runs.is_empty() {
-                                &formatted_runs[0].formatting
-                            } else {
-                                &TextFormatting::default()
-                            };
-
-                            let level = detect_heading_from_text(&total_text, first_formatting);
-                            if let Some(level) = level {
-                                elements.push(DocumentElement::Heading {
-                                    level,
-                                    text: total_text,
-                                    number: None,
-                                });
-                            } else {
-                                // This is a regular paragraph - consolidate runs and preserve formatting
-                                let consolidated_runs =
-                                    FormattedRun::consolidate_runs(formatted_runs);
-                                elements.push(DocumentElement::Paragraph {
-                                    runs: consolidated_runs,
-                                });
-                            }
-                        }
-                    }
-                }
-
-                // Emit each text box as a distinct TextBox element (one per shape)
-                for group in textbox_groups {
-                    word_count += group
-                        .iter()
-                        .map(|s| s.split_whitespace().count())
-                        .sum::<usize>();
-                    elements.push(DocumentElement::TextBox { lines: group });
-                }
-            }
+            docx_rs::DocumentChild::Paragraph(para) => process_paragraph(para, &mut state),
             docx_rs::DocumentChild::Table(table) => {
                 // Extract table data
                 if let Some(table_element) = extract_table_data(table) {
-                    elements.push(table_element);
+                    state.elements.push(table_element);
                 }
             }
             _ => {
@@ -303,6 +88,369 @@ pub fn load_document(file_path: &Path, image_options: ImageOptions) -> Result<Do
         }
     }
 
+    let (elements, display_equations_by_para) = integrate_equations(state.elements, file_path);
+
+    // Post-process to group consecutive list items (only for text-based lists)
+    // Word numbering-based lists are already properly formatted
+    let elements = group_list_items(elements);
+
+    // Clean up Word list markers
+    let elements = clean_word_list_markers(elements);
+
+    // Merge display equations into the final element list at correct positions
+    let elements = merge_display_equations(elements, display_equations_by_para);
+
+    let metadata = build_metadata(file_path, file_size, state.word_count);
+
+    Ok(Document {
+        title,
+        metadata,
+        elements,
+        image_options,
+    })
+}
+
+/// Derive the document title from the file's stem (filename without extension).
+fn extract_title(file_path: &Path) -> String {
+    file_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("Untitled Document")
+        .to_string()
+}
+
+/// Build a heading number tracker, enabling auto-numbering if the document's
+/// heading structure suggests it wasn't explicitly numbered by the author.
+fn build_heading_tracker(document: &docx_rs::Document) -> HeadingNumberTracker {
+    let mut tracker = HeadingNumberTracker::new();
+    if analyze_heading_structure(document) {
+        tracker.enable_auto_numbering();
+    }
+    tracker
+}
+
+/// Extract images up front (if enabled) so they're available for lookup
+/// while walking the document tree.
+fn build_image_extractor(
+    image_options: &ImageOptions,
+    file_path: &Path,
+) -> Result<Option<ImageExtractor>> {
+    if !image_options.enabled {
+        return Ok(None);
+    }
+    let mut extractor = ImageExtractor::new()?;
+    extractor.extract_images_from_docx(file_path)?;
+    Ok(Some(extractor))
+}
+
+fn build_metadata(file_path: &Path, file_size: u64, word_count: usize) -> DocumentMetadata {
+    DocumentMetadata {
+        file_path: file_path.to_string_lossy().to_string(),
+        file_size,
+        word_count,
+        page_count: estimate_page_count(word_count),
+        created: None, // Simplified for now
+        modified: None,
+        author: None,
+    }
+}
+
+/// Process a single top-level paragraph, pushing zero or more elements
+/// (paragraph/heading/list-item/code-block, any inline images encountered,
+/// and any text-box shapes) onto `state.elements`.
+fn process_paragraph(para: &docx_rs::Paragraph, state: &mut ParsingState) {
+    // Check for heading with potential numbering first
+    let heading_info = detect_heading_with_numbering(para);
+
+    // Check for list numbering properties (Word's automatic lists)
+    let list_info = detect_list_from_paragraph_numbering(para);
+
+    // Check for images in this paragraph first
+    extract_inline_images(para, &state.image_extractor, &mut state.elements);
+
+    // Detect paragraph style (used for code blocks, block quotes, etc.)
+    let para_style = para
+        .property
+        .style
+        .as_ref()
+        .map(|s| s.val.as_str())
+        .unwrap_or("");
+    let is_code_block = para_style == "SourceCode" || para_style == "VerbatimChar";
+
+    // Extract runs with individual formatting, preserving line breaks.
+    // Text box shapes (DrawingData::TextBox) are collected separately so they
+    // are always emitted as plain paragraphs regardless of the parent style.
+    let (formatted_runs, textbox_groups) = extract_formatted_runs(para);
+
+    // Calculate total text for word count and processing
+    let total_text: String = formatted_runs.iter().map(|run| run.text.as_str()).collect();
+
+    if !total_text.trim().is_empty() {
+        state.word_count += total_text.split_whitespace().count();
+
+        // Priority: code block > list numbering > heading style > text heuristics
+        push_paragraph_element(
+            &total_text,
+            formatted_runs,
+            is_code_block,
+            list_info,
+            heading_info,
+            &mut state.numbering_resolver,
+            &mut state.heading_tracker,
+            &mut state.elements,
+        );
+    }
+
+    // Emit each text box as a distinct TextBox element (one per shape)
+    for group in textbox_groups {
+        state.word_count += group
+            .iter()
+            .map(|s| s.split_whitespace().count())
+            .sum::<usize>();
+        state
+            .elements
+            .push(DocumentElement::TextBox { lines: group });
+    }
+}
+
+/// Detect Drawing runs in a paragraph and, if an extracted image is available
+/// for this position, push an Image element (maintaining document order).
+fn extract_inline_images(
+    para: &docx_rs::Paragraph,
+    image_extractor: &Option<ImageExtractor>,
+    elements: &mut Vec<DocumentElement>,
+) {
+    for child in &para.children {
+        if let docx_rs::ParagraphChild::Run(run) = child {
+            for run_child in &run.children {
+                if let docx_rs::RunChild::Drawing(_drawing) = run_child {
+                    // Create an Image element with consistent ordering
+                    if let Some(extractor) = image_extractor {
+                        let images = extractor.get_extracted_images_sorted();
+                        if !images.is_empty() {
+                            // Count images processed so far to maintain document order
+                            let image_count = elements
+                                .iter()
+                                .filter(|e| matches!(e, DocumentElement::Image { .. }))
+                                .count();
+
+                            // Only create Image element if we have an actual image file available
+                            if image_count < images.len() {
+                                let (_, image_path) = &images[image_count];
+
+                                elements.push(DocumentElement::Image {
+                                    description: format!("Image {}", image_count + 1),
+                                    width: None,
+                                    height: None,
+                                    relationship_id: None,
+                                    image_path: Some(image_path.clone()),
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Walk a paragraph's runs, extracting formatted text runs and any text-box
+/// shape content (which is collected separately from the run stream).
+fn extract_formatted_runs(para: &docx_rs::Paragraph) -> (Vec<FormattedRun>, Vec<Vec<String>>) {
+    let mut formatted_runs = Vec::new();
+    let mut textbox_groups: Vec<Vec<String>> = Vec::new();
+
+    for child in &para.children {
+        if let docx_rs::ParagraphChild::Run(run) = child {
+            let run_formatting = extract_run_formatting(run);
+            let mut run_text = String::new();
+
+            for child in &run.children {
+                match child {
+                    docx_rs::RunChild::Text(text_elem) => {
+                        run_text.push_str(&text_elem.text);
+                    }
+                    docx_rs::RunChild::Break(_) => {
+                        run_text.push('\n');
+                    }
+                    docx_rs::RunChild::Drawing(drawing) => {
+                        if let Some(docx_rs::DrawingData::TextBox(text_box)) = &drawing.data {
+                            let mut group = Vec::new();
+                            for tb_child in &text_box.children {
+                                if let docx_rs::TextBoxContentChild::Paragraph(para) = tb_child {
+                                    let text = extract_paragraph_text(para);
+                                    if !text.is_empty() {
+                                        group.push(text);
+                                    }
+                                }
+                            }
+                            if !group.is_empty() {
+                                textbox_groups.push(group);
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
+            if !run_text.is_empty() {
+                formatted_runs.push(FormattedRun {
+                    text: run_text,
+                    formatting: run_formatting,
+                });
+            }
+        }
+    }
+
+    (formatted_runs, textbox_groups)
+}
+
+/// Decide what kind of element this paragraph becomes, in priority order:
+/// code block > Word-numbered list item > styled/numbered heading > text-heuristic
+/// heading or plain paragraph. Pushes the resulting element(s) onto `elements`.
+#[allow(clippy::too_many_arguments)]
+fn push_paragraph_element(
+    total_text: &str,
+    formatted_runs: Vec<FormattedRun>,
+    is_code_block: bool,
+    list_info: Option<ListInfo>,
+    heading_info: Option<HeadingInfo>,
+    numbering_resolver: &mut NumberingResolver,
+    heading_tracker: &mut HeadingNumberTracker,
+    elements: &mut Vec<DocumentElement>,
+) {
+    if is_code_block {
+        let code_text: String = formatted_runs.iter().map(|r| r.text.as_str()).collect();
+        elements.push(DocumentElement::CodeBlock { text: code_text });
+    } else if let Some(list_info) = list_info {
+        push_word_list_item(formatted_runs, list_info, numbering_resolver, elements);
+    } else if let Some(heading_info) = heading_info {
+        push_numbered_heading(total_text, heading_info, heading_tracker, elements);
+    } else {
+        push_heading_or_paragraph(total_text, formatted_runs, elements);
+    }
+}
+
+/// Push a Word automatic-numbering list item, formatted with the appropriate
+/// indentation and bullet/number prefix (via `__WORD_LIST__`, cleaned up later
+/// by `clean_word_list_markers`).
+fn push_word_list_item(
+    formatted_runs: Vec<FormattedRun>,
+    list_info: ListInfo,
+    numbering_resolver: &mut NumberingResolver,
+    elements: &mut Vec<DocumentElement>,
+) {
+    let indent = "  ".repeat(list_info.level as usize);
+    let prefix = if let Some(num_id) = list_info.num_id {
+        if numbering_resolver.is_ordered(num_id, list_info.level) {
+            numbering_resolver.generate_number(num_id, list_info.level)
+        } else {
+            "* ".to_string()
+        }
+    } else {
+        "* ".to_string()
+    };
+
+    // For list items, preserve individual run formatting by creating separate prefix run
+    // This maintains formatting fidelity while keeping bullets/numbers unformatted
+    if !formatted_runs.is_empty() {
+        // Create a prefix run with default formatting (no color, bold, etc.)
+        let prefix_text = format!("__WORD_LIST__{indent}{prefix}");
+        let prefix_run = FormattedRun {
+            text: prefix_text,
+            formatting: TextFormatting::default(),
+        };
+
+        // Insert prefix run at the beginning, preserving text formatting
+        let mut updated_runs = vec![prefix_run];
+        updated_runs.extend(formatted_runs);
+
+        elements.push(DocumentElement::Paragraph { runs: updated_runs });
+    } else {
+        // Fallback for empty runs
+        let list_text = format!("__WORD_LIST__{indent}{prefix}");
+        elements.push(DocumentElement::Paragraph {
+            runs: vec![FormattedRun {
+                text: list_text,
+                formatting: TextFormatting::default(),
+            }],
+        });
+    }
+}
+
+/// Push a heading that was detected via explicit Word numbering/style
+/// metadata (`detect_heading_with_numbering`), falling back to auto-numbering
+/// if the document doesn't have its own explicit number for this heading.
+fn push_numbered_heading(
+    total_text: &str,
+    heading_info: HeadingInfo,
+    heading_tracker: &mut HeadingNumberTracker,
+    elements: &mut Vec<DocumentElement>,
+) {
+    let heading_text = heading_info
+        .clean_text
+        .unwrap_or_else(|| total_text.to_string());
+
+    let number = if heading_info.number.is_some() {
+        heading_info.number
+    } else {
+        // Generate automatic numbering if enabled for this document
+        let auto_number = heading_tracker.get_number(heading_info.level);
+        if auto_number.is_empty() {
+            None
+        } else {
+            Some(auto_number)
+        }
+    };
+
+    elements.push(DocumentElement::Heading {
+        level: heading_info.level,
+        text: heading_text,
+        number,
+    });
+}
+
+/// Fall back to text-heuristic heading detection (font weight, short length,
+/// etc. - see `detect_heading_from_text`), otherwise emit a regular
+/// paragraph with consolidated, formatting-preserving runs.
+fn push_heading_or_paragraph(
+    total_text: &str,
+    formatted_runs: Vec<FormattedRun>,
+    elements: &mut Vec<DocumentElement>,
+) {
+    let default_formatting = TextFormatting::default();
+    let first_formatting = formatted_runs
+        .first()
+        .map(|r| &r.formatting)
+        .unwrap_or(&default_formatting);
+
+    let level = detect_heading_from_text(total_text, first_formatting);
+    if let Some(level) = level {
+        elements.push(DocumentElement::Heading {
+            level,
+            text: total_text.to_string(),
+            number: None,
+        });
+    } else {
+        // This is a regular paragraph - consolidate runs and preserve formatting
+        let consolidated_runs = FormattedRun::consolidate_runs(formatted_runs);
+        elements.push(DocumentElement::Paragraph {
+            runs: consolidated_runs,
+        });
+    }
+}
+
+/// Extract inline and display equations from the source file and splice them
+/// into the element stream: inline equations get woven into their paragraph's
+/// runs (wrapped in `$...$`), while display equations replace the paragraph
+/// that contained them. Returns the updated elements along with a map of
+/// paragraph-index -> display-equation-elements for later use by
+/// `merge_display_equations` (which needs it to re-align positions after
+/// list grouping and marker cleanup).
+fn integrate_equations(
+    elements: Vec<DocumentElement>,
+    file_path: &Path,
+) -> (Vec<DocumentElement>, HashMap<usize, Vec<DocumentElement>>) {
     // Extract inline equations with their positions
     let inline_paragraphs = extract_inline_equation_positions(file_path).unwrap_or_default();
 
@@ -310,8 +458,7 @@ pub fn load_document(file_path: &Path, image_options: ImageOptions) -> Result<Do
     let equation_infos = extract_equations_from_docx(file_path).unwrap_or_default();
 
     // Create a map of paragraph index -> display equations
-    let mut display_equations_by_para: std::collections::HashMap<usize, Vec<DocumentElement>> =
-        std::collections::HashMap::new();
+    let mut display_equations_by_para: HashMap<usize, Vec<DocumentElement>> = HashMap::new();
 
     for eq in equation_infos.iter() {
         if !eq.is_inline {
@@ -342,42 +489,9 @@ pub fn load_document(file_path: &Path, image_options: ImageOptions) -> Result<Do
                         .any(|item| matches!(item, ParagraphContent::InlineEquation { .. }));
 
                     if has_actual_equations {
-                        // Reconstruct paragraph with inline equations in correct positions
-                        let mut new_runs = Vec::new();
-                        let mut accumulated_text = String::new();
-
-                        for content in content_items {
-                            match content {
-                                ParagraphContent::Text(text) => {
-                                    accumulated_text.push_str(text);
-                                }
-                                ParagraphContent::InlineEquation { latex, fallback: _ } => {
-                                    // Flush accumulated text before equation
-                                    if !accumulated_text.is_empty() {
-                                        new_runs.push(FormattedRun {
-                                            text: accumulated_text.clone(),
-                                            formatting: TextFormatting::default(),
-                                        });
-                                        accumulated_text.clear();
-                                    }
-                                    // Add inline equation with $ delimiters
-                                    new_runs.push(FormattedRun {
-                                        text: format!("${latex}$"),
-                                        formatting: TextFormatting::default(),
-                                    });
-                                }
-                            }
-                        }
-
-                        // Flush any remaining text
-                        if !accumulated_text.is_empty() {
-                            new_runs.push(FormattedRun {
-                                text: accumulated_text,
-                                formatting: TextFormatting::default(),
-                            });
-                        }
-
-                        elements_with_equations.push(DocumentElement::Paragraph { runs: new_runs });
+                        elements_with_equations.push(DocumentElement::Paragraph {
+                            runs: weave_inline_equations(content_items),
+                        });
                     } else {
                         // No actual equations, preserve original runs with formatting
                         elements_with_equations.push(DocumentElement::Paragraph { runs });
@@ -401,32 +515,47 @@ pub fn load_document(file_path: &Path, image_options: ImageOptions) -> Result<Do
         }
     }
 
-    // Post-process to group consecutive list items (only for text-based lists)
-    // Word numbering-based lists are already properly formatted
-    let elements = group_list_items(elements_with_equations);
+    (elements_with_equations, display_equations_by_para)
+}
 
-    // Clean up Word list markers
-    let elements = clean_word_list_markers(elements);
+/// Reconstruct a paragraph's runs with inline equations spliced in at their
+/// correct positions, each wrapped in `$...$` delimiters.
+fn weave_inline_equations(content_items: &[ParagraphContent]) -> Vec<FormattedRun> {
+    let mut new_runs = Vec::new();
+    let mut accumulated_text = String::new();
 
-    // Merge display equations into the final element list at correct positions
-    let elements = merge_display_equations(elements, display_equations_by_para);
+    for content in content_items {
+        match content {
+            ParagraphContent::Text(text) => {
+                accumulated_text.push_str(text);
+            }
+            ParagraphContent::InlineEquation { latex, fallback: _ } => {
+                // Flush accumulated text before equation
+                if !accumulated_text.is_empty() {
+                    new_runs.push(FormattedRun {
+                        text: accumulated_text.clone(),
+                        formatting: TextFormatting::default(),
+                    });
+                    accumulated_text.clear();
+                }
+                // Add inline equation with $ delimiters
+                new_runs.push(FormattedRun {
+                    text: format!("${latex}$"),
+                    formatting: TextFormatting::default(),
+                });
+            }
+        }
+    }
 
-    let metadata = DocumentMetadata {
-        file_path: file_path.to_string_lossy().to_string(),
-        file_size,
-        word_count,
-        page_count: estimate_page_count(word_count),
-        created: None, // Simplified for now
-        modified: None,
-        author: None,
-    };
+    // Flush any remaining text
+    if !accumulated_text.is_empty() {
+        new_runs.push(FormattedRun {
+            text: accumulated_text,
+            formatting: TextFormatting::default(),
+        });
+    }
 
-    Ok(Document {
-        title,
-        metadata,
-        elements,
-        image_options,
-    })
+    new_runs
 }
 
 /// Internal structure for tracking Word list information

@@ -1,5 +1,7 @@
 # doxx: AI Agent Development Guide
 
+@../CLAUDE.md
+
 doxx is a terminal-based .docx viewer built with Rust. It provides rich text rendering, equation support (LaTeX), tables, search, navigation, and multiple export formats (Markdown, CSV, JSON, ANSI, text).
 
 ## Quick Start
@@ -72,15 +74,11 @@ Always run before pushing:
 
 ## Git Commit Guidelines
 
-- Use conventional commit format: feat:, fix:, docs:, refactor:, etc.
 - No signature blocks in commit messages
 
 ## Changelog Guidelines
 
-CHANGELOG.md follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format:
-- One line per entry, no sub-bullets
-- Standard sections only: Added, Changed, Deprecated, Removed, Fixed, Security
-- User-facing changes only — internal refactors belong in commit messages
+User-facing changes only — internal refactors belong in commit messages.
 
 ## CI/CD
 

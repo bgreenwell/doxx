@@ -200,3 +200,234 @@ fn clean_list_item_runs(runs: Vec<FormattedRun>) -> Vec<FormattedRun> {
 
     result_runs
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn plain_run(text: &str) -> FormattedRun {
+        FormattedRun {
+            text: text.to_string(),
+            formatting: TextFormatting::default(),
+        }
+    }
+
+    fn bold_run(text: &str) -> FormattedRun {
+        let formatting = TextFormatting {
+            bold: true,
+            ..TextFormatting::default()
+        };
+        FormattedRun {
+            text: text.to_string(),
+            formatting,
+        }
+    }
+
+    fn paragraph(text: &str) -> DocumentElement {
+        DocumentElement::Paragraph {
+            runs: vec![plain_run(text)],
+        }
+    }
+
+    // --- is_likely_list_item ---
+
+    #[test]
+    fn is_likely_list_item_recognizes_bullets_and_numbers() {
+        assert!(is_likely_list_item(
+            "1. This is a numbered item with enough content to count"
+        ));
+        assert!(is_likely_list_item("• Bullet item"));
+        assert!(is_likely_list_item("- Dash item"));
+        assert!(is_likely_list_item("* Star item"));
+        assert!(is_likely_list_item("a. Lettered item"));
+        assert!(is_likely_list_item("B. Uppercase lettered item"));
+    }
+
+    #[test]
+    fn is_likely_list_item_rejects_short_numbered_text_as_a_heading_not_a_list() {
+        // Short text after "N." reads as a heading ("1. Introduction"), not a
+        // list item - the >20-char threshold is what distinguishes them.
+        assert!(!is_likely_list_item("1. Introduction"));
+    }
+
+    #[test]
+    fn is_likely_list_item_skips_already_processed_word_lists() {
+        assert!(!is_likely_list_item(
+            "__WORD_LIST__1. Already handled elsewhere"
+        ));
+    }
+
+    #[test]
+    fn is_likely_list_item_rejects_plain_text() {
+        assert!(!is_likely_list_item("Just a regular sentence."));
+        assert!(!is_likely_list_item(""));
+    }
+
+    #[test]
+    fn is_likely_list_item_handles_multibyte_first_char_without_panicking() {
+        // Regression guard for the text.chars().next().unwrap() call: a
+        // multi-byte UTF-8 leading character must not panic, and since it's
+        // not ASCII a-z/A-Z it should correctly be rejected as a list item.
+        assert!(!is_likely_list_item("é. Not a lettered list item"));
+    }
+
+    #[test]
+    fn is_likely_list_item_lettered_requires_more_than_three_bytes() {
+        // "a." alone is only 2 bytes, below the `text.len() > 3` guard, so
+        // it's correctly rejected rather than reaching the unwrap() path.
+        assert!(!is_likely_list_item("a."));
+    }
+
+    // --- calculate_list_level ---
+
+    #[test]
+    fn calculate_list_level_from_leading_spaces() {
+        assert_eq!(calculate_list_level("no indent"), 0);
+        assert_eq!(calculate_list_level("  two spaces"), 1);
+        assert_eq!(calculate_list_level("    four spaces"), 2);
+    }
+
+    // --- clean_list_item_runs ---
+
+    #[test]
+    fn clean_list_item_runs_strips_bullet_prefix() {
+        let runs = vec![plain_run("• First item")];
+        let cleaned = clean_list_item_runs(runs);
+        assert_eq!(cleaned.len(), 1);
+        assert_eq!(cleaned[0].text, "First item");
+    }
+
+    #[test]
+    fn clean_list_item_runs_strips_numbered_prefix() {
+        let runs = vec![plain_run("12. Twelfth item")];
+        let cleaned = clean_list_item_runs(runs);
+        assert_eq!(cleaned[0].text, "Twelfth item");
+    }
+
+    #[test]
+    fn clean_list_item_runs_strips_lettered_prefix() {
+        let runs = vec![plain_run("a. Lettered item")];
+        let cleaned = clean_list_item_runs(runs);
+        assert_eq!(cleaned[0].text, "Lettered item");
+    }
+
+    #[test]
+    fn clean_list_item_runs_preserves_formatting_across_multiple_runs() {
+        // Prefix ("1. ") spans entirely within the first run; the second run
+        // (bold) should be kept untouched, formatting intact.
+        let runs = vec![plain_run("1. "), bold_run("Important text")];
+        let cleaned = clean_list_item_runs(runs);
+        assert_eq!(cleaned.len(), 1);
+        assert_eq!(cleaned[0].text, "Important text");
+        assert!(cleaned[0].formatting.bold);
+    }
+
+    #[test]
+    fn clean_list_item_runs_prefix_split_across_runs_keeps_remainder() {
+        // The prefix "1. " straddles run boundaries: "1" in the first run,
+        // ". Rest" in the second.
+        let runs = vec![plain_run("1"), plain_run(". Rest of the text")];
+        let cleaned = clean_list_item_runs(runs);
+        let combined: String = cleaned.iter().map(|r| r.text.as_str()).collect();
+        assert_eq!(combined, "Rest of the text");
+    }
+
+    #[test]
+    fn clean_list_item_runs_no_prefix_returns_runs_unchanged() {
+        let runs = vec![plain_run("Just a normal paragraph.")];
+        let cleaned = clean_list_item_runs(runs.clone());
+        assert_eq!(cleaned, runs);
+    }
+
+    #[test]
+    fn clean_list_item_runs_empty_input_returns_empty() {
+        assert_eq!(clean_list_item_runs(vec![]), Vec::<FormattedRun>::new());
+    }
+
+    // --- group_list_items ---
+
+    #[test]
+    fn group_list_items_wraps_consecutive_numbered_paragraphs_into_one_ordered_list() {
+        let elements = vec![
+            paragraph("Some intro text that is not a list item at all"),
+            paragraph("1. This is the first list item with enough text"),
+            paragraph("2. This is the second list item with enough text"),
+            paragraph("Some outro text that is also not a list item"),
+        ];
+        let result = group_list_items(elements);
+
+        assert_eq!(result.len(), 3);
+        assert!(matches!(result[0], DocumentElement::Paragraph { .. }));
+        match &result[1] {
+            DocumentElement::List { items, ordered } => {
+                assert!(ordered);
+                assert_eq!(items.len(), 2);
+                assert_eq!(
+                    items[0].runs[0].text,
+                    "This is the first list item with enough text"
+                );
+            }
+            other => panic!("expected a List element, got {other:?}"),
+        }
+        assert!(matches!(result[2], DocumentElement::Paragraph { .. }));
+    }
+
+    #[test]
+    fn group_list_items_flushes_the_list_when_switching_ordered_to_bulleted() {
+        let elements = vec![
+            paragraph("1. This is a numbered item with enough text to count"),
+            paragraph("• A bullet item"),
+        ];
+        let result = group_list_items(elements);
+
+        assert_eq!(result.len(), 2);
+        match (&result[0], &result[1]) {
+            (
+                DocumentElement::List {
+                    ordered: ordered_a, ..
+                },
+                DocumentElement::List {
+                    ordered: ordered_b, ..
+                },
+            ) => {
+                assert!(*ordered_a);
+                assert!(!*ordered_b);
+            }
+            other => panic!("expected two separate List elements, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn group_list_items_flushes_a_trailing_list_at_end_of_document() {
+        let elements = vec![paragraph(
+            "1. Only item in a list that ends the document right here",
+        )];
+        let result = group_list_items(elements);
+        assert_eq!(result.len(), 1);
+        assert!(matches!(result[0], DocumentElement::List { .. }));
+    }
+
+    #[test]
+    fn group_list_items_non_paragraph_element_closes_an_open_list() {
+        let elements = vec![
+            paragraph("1. A list item with plenty of content to qualify as one"),
+            DocumentElement::Heading {
+                level: 1,
+                text: "A Heading".to_string(),
+                number: None,
+            },
+        ];
+        let result = group_list_items(elements);
+        assert_eq!(result.len(), 2);
+        assert!(matches!(result[0], DocumentElement::List { .. }));
+        assert!(matches!(result[1], DocumentElement::Heading { .. }));
+    }
+
+    #[test]
+    fn group_list_items_no_lists_present_returns_elements_unchanged() {
+        let elements = vec![paragraph("Just one plain paragraph.")];
+        let result = group_list_items(elements.clone());
+        assert_eq!(result.len(), 1);
+        assert!(matches!(result[0], DocumentElement::Paragraph { .. }));
+    }
+}

@@ -142,12 +142,12 @@ impl App {
         let picker = if let Ok(p) = Picker::from_query_stdio() {
             p
         } else {
-            // Fallback to manual font size
-            Picker::from_fontsize((8, 16))
+            // Fallback when the terminal doesn't answer the stdio query
+            Picker::halfblocks()
         };
 
         #[cfg(not(unix))]
-        let picker = Picker::from_fontsize((8, 16));
+        let picker = Picker::halfblocks();
 
         // Process all images in the document
         for element in &self.document.elements {
