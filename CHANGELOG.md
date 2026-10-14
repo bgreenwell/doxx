@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Custom key bindings for the spacebar were silently dropped due to whitespace trimming during config parsing
 - TUI text wrapping now breaks at word boundaries instead of splitting words mid-character, matching the ANSI export ([#83](https://github.com/bgreenwell/doxx/issues/83))
+- TUI no longer panics when scrolling to a table whose cells contain non-ASCII text (e.g. Chinese punctuation); cell truncation and padding now use display width, so CJK columns also stay aligned ([#103](https://github.com/bgreenwell/doxx/issues/103))
 
 ## [0.1.4] - 2026-05-26
 

@@ -514,30 +514,7 @@ impl<'a> DocumentWidget<'a> {
                 style = style.add_modifier(Modifier::CROSSED_OUT);
             }
 
-            // Truncate content to fit width
-            let content = if cell.content.len() > width {
-                format!("{}…", &cell.content[..width.saturating_sub(1)])
-            } else {
-                cell.content.clone()
-            };
-
-            // Apply alignment
-            let aligned_content = match cell.alignment {
-                TextAlignment::Left => format!("{content:<width$}"),
-                TextAlignment::Right => format!("{content:>width$}"),
-                TextAlignment::Center => {
-                    let padding = width.saturating_sub(content.len());
-                    let left_pad = padding / 2;
-                    let right_pad = padding - left_pad;
-                    format!(
-                        "{}{}{}",
-                        " ".repeat(left_pad),
-                        content,
-                        " ".repeat(right_pad)
-                    )
-                }
-                TextAlignment::Justify => format!("{content:<width$}"),
-            };
+            let aligned_content = fit_cell_content(&cell.content, width, &cell.alignment);
 
             buf.set_string(
                 area.x + x_offset as u16,
@@ -862,6 +839,46 @@ fn hex_to_color(hex: &str) -> Option<Color> {
     Some(Color::Rgb(r, g, b))
 }
 
+/// Truncate and pad table cell text to exactly `width` terminal columns.
+///
+/// Measures display width rather than bytes, so multi-byte and wide (CJK)
+/// characters are never split and columns stay aligned.
+fn fit_cell_content(text: &str, width: usize, alignment: &TextAlignment) -> String {
+    let content = if text.width() > width {
+        let mut truncated = String::new();
+        let mut used = 0;
+        for g in text.graphemes(true) {
+            let w = g.width();
+            if used + w > width.saturating_sub(1) {
+                break;
+            }
+            truncated.push_str(g);
+            used += w;
+        }
+        format!("{truncated}…")
+    } else {
+        text.to_string()
+    };
+
+    let padding = width.saturating_sub(content.width());
+    match alignment {
+        TextAlignment::Right => format!("{}{}", " ".repeat(padding), content),
+        TextAlignment::Center => {
+            let left_pad = padding / 2;
+            let right_pad = padding - left_pad;
+            format!(
+                "{}{}{}",
+                " ".repeat(left_pad),
+                content,
+                " ".repeat(right_pad)
+            )
+        }
+        TextAlignment::Left | TextAlignment::Justify => {
+            format!("{}{}", content, " ".repeat(padding))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -934,5 +951,40 @@ mod tests {
         let runs = vec![plain_run("hello")];
         let lines = DocumentWidget::wrap_formatted_runs(&runs, 0, false, &[], false);
         assert!(lines.is_empty());
+    }
+
+    #[test]
+    fn table_cell_truncation_does_not_split_multibyte_chars() {
+        // Regression: truncating by byte index panicked with
+        // "byte index N is not a char boundary" on non-ASCII cells.
+        let text = "这是一个非常长的中文单元格内容，用来测试截断";
+        for width in 0..12 {
+            for alignment in [
+                TextAlignment::Left,
+                TextAlignment::Right,
+                TextAlignment::Center,
+                TextAlignment::Justify,
+            ] {
+                let out = fit_cell_content(text, width, &alignment);
+                assert!(out.width() <= width.max(1), "width {width}: {out:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn table_cell_padding_uses_display_width() {
+        // Wide (CJK) characters take two columns each, so padding must be
+        // computed from display width to keep columns aligned.
+        assert_eq!(fit_cell_content("中文", 6, &TextAlignment::Left), "中文  ");
+        assert_eq!(fit_cell_content("中文", 6, &TextAlignment::Right), "  中文");
+        assert_eq!(
+            fit_cell_content("中文", 6, &TextAlignment::Center),
+            " 中文 "
+        );
+        assert_eq!(
+            fit_cell_content("中文字符", 6, &TextAlignment::Left),
+            "中文… "
+        );
+        assert_eq!(fit_cell_content("abcdef", 4, &TextAlignment::Left), "abc…");
     }
 }
