@@ -514,19 +514,35 @@ impl<'a> DocumentWidget<'a> {
                 style = style.add_modifier(Modifier::CROSSED_OUT);
             }
 
-            // Truncate content to fit width
-            let content = if cell.content.len() > width {
-                format!("{}…", &cell.content[..width.saturating_sub(1)])
+            // Fit terminal columns without splitting a grapheme cluster.
+            let content = if width == 0 {
+                String::new()
+            } else if cell.content.width() > width {
+                let mut truncated = String::new();
+                let mut used_width = 0;
+                let available_width = width.saturating_sub(1); // Reserve the ellipsis.
+                for grapheme in cell.content.graphemes(true) {
+                    let grapheme_width = grapheme.width();
+                    if used_width + grapheme_width > available_width {
+                        break;
+                    }
+                    truncated.push_str(grapheme);
+                    used_width += grapheme_width;
+                }
+                truncated.push('…');
+                truncated
             } else {
                 cell.content.clone()
             };
 
-            // Apply alignment
+            // Padding must use display columns too, including for wide text.
+            let padding = width.saturating_sub(content.width());
             let aligned_content = match cell.alignment {
-                TextAlignment::Left => format!("{content:<width$}"),
-                TextAlignment::Right => format!("{content:>width$}"),
+                TextAlignment::Left | TextAlignment::Justify => {
+                    format!("{}{}", content, " ".repeat(padding))
+                }
+                TextAlignment::Right => format!("{}{}", " ".repeat(padding), content),
                 TextAlignment::Center => {
-                    let padding = width.saturating_sub(content.len());
                     let left_pad = padding / 2;
                     let right_pad = padding - left_pad;
                     format!(
@@ -536,7 +552,6 @@ impl<'a> DocumentWidget<'a> {
                         " ".repeat(right_pad)
                     )
                 }
-                TextAlignment::Justify => format!("{content:<width$}"),
             };
 
             buf.set_string(
@@ -934,5 +949,159 @@ mod tests {
         let runs = vec![plain_run("hello")];
         let lines = DocumentWidget::wrap_formatted_runs(&runs, 0, false, &[], false);
         assert!(lines.is_empty());
+    }
+
+    fn table_cell(text: &str, alignment: TextAlignment) -> TableCell {
+        TableCell {
+            content: text.to_string(),
+            alignment,
+            formatting: TextFormatting::default(),
+            data_type: CellDataType::Text,
+        }
+    }
+
+    fn assert_rendered_cell(text: &str, width: usize, alignment: TextAlignment, expected: &str) {
+        assert_eq!(expected.width(), width);
+        // Sentinels after the column reveal writes beyond its display width,
+        // including an ellipsis accidentally emitted for a zero-width cell.
+        let mut buf = Buffer::with_lines(["#".repeat(width + 2)]);
+        let area = buf.area;
+        let mut y = area.y;
+        DocumentWidget::render_table_row(
+            &[table_cell(text, alignment)],
+            &[width],
+            area,
+            &mut buf,
+            &mut y,
+            false,
+            false,
+        );
+        assert_eq!(buf, Buffer::with_lines([format!("{expected}##")]));
+        assert_eq!(y, area.y + 1);
+    }
+
+    #[test]
+    fn table_row_handles_reported_chinese_truncation_panic() {
+        let text = "如果计算过时同时伴随机架/供电/冷却架构不兼容，约 35–50%  的资本可能受到减值";
+        // The old byte slice at width - 1 (60) cuts through '兼'.
+        assert!(!text.is_char_boundary(60));
+        assert_rendered_cell(
+            text,
+            61,
+            TextAlignment::Left,
+            "如果计算过时同时伴随机架/供电/冷却架构不兼容，约 35–50%  的… ",
+        );
+    }
+
+    #[test]
+    fn table_row_aligns_chinese_by_display_columns() {
+        for (alignment, expected) in [
+            (TextAlignment::Left, "中文   "),
+            (TextAlignment::Right, "   中文"),
+            (TextAlignment::Center, " 中文  "),
+            (TextAlignment::Justify, "中文   "),
+        ] {
+            assert_rendered_cell("中文", 7, alignment, expected);
+        }
+        for (alignment, expected) in [
+            (TextAlignment::Left, "中文… "),
+            (TextAlignment::Right, " 中文…"),
+            (TextAlignment::Center, "中文… "),
+            (TextAlignment::Justify, "中文… "),
+        ] {
+            assert_rendered_cell("中文字符", 6, alignment, expected);
+        }
+    }
+
+    #[test]
+    fn table_row_truncates_mixed_text_and_preserves_graphemes() {
+        for (text, width, expected) in [
+            ("abcdef", 4, "abc…"),
+            ("A中文B", 5, "A中… "),
+            ("A中B", 4, "A中B"),
+            ("👩‍💻XY", 3, "👩‍💻…"),
+            ("👩‍💻XY", 2, "… "),
+            ("👍🏽XY", 3, "👍🏽…"),
+            ("e\u{301}XYZ", 3, "e\u{301}X…"),
+            ("e\u{301}", 1, "e\u{301}"),
+        ] {
+            assert_rendered_cell(text, width, TextAlignment::Left, expected);
+        }
+    }
+
+    #[test]
+    fn table_row_handles_empty_zero_and_one_column_cells() {
+        for alignment in [
+            TextAlignment::Left,
+            TextAlignment::Right,
+            TextAlignment::Center,
+            TextAlignment::Justify,
+        ] {
+            for (text, width, expected) in [
+                ("", 0, ""),
+                ("", 1, " "),
+                ("", 3, "   "),
+                ("abc", 0, ""),
+                ("中", 0, ""),
+                ("\u{301}", 0, ""),
+                ("A", 1, "A"),
+                ("AB", 1, "…"),
+                ("中", 1, "…"),
+                ("👩‍💻", 1, "…"),
+            ] {
+                assert_rendered_cell(text, width, alignment, expected);
+            }
+        }
+    }
+
+    #[test]
+    fn table_row_preserves_styles_and_column_separators() {
+        let mut cell = table_cell("中文", TextAlignment::Right);
+        cell.formatting = TextFormatting {
+            bold: true,
+            italic: true,
+            underline: true,
+            strikethrough: true,
+            color: Some("123456".to_string()),
+            ..TextFormatting::default()
+        };
+        for (is_header, color_enabled, color) in [
+            (false, false, Color::Reset),
+            (false, true, Color::Rgb(0x12, 0x34, 0x56)),
+            (true, false, Color::Reset),
+            (true, true, Color::Yellow),
+        ] {
+            let area = Rect::new(2, 3, 10, 1);
+            let mut buf = Buffer::empty(area);
+            let mut y = area.y;
+            DocumentWidget::render_table_row(
+                &[cell.clone(), table_cell("Z", TextAlignment::Left)],
+                &[6, 3],
+                area,
+                &mut buf,
+                &mut y,
+                color_enabled,
+                is_header,
+            );
+            assert_eq!(buf[(area.x + 2, area.y)].symbol(), "中");
+            assert_eq!(buf[(area.x + 4, area.y)].symbol(), "文");
+            assert_eq!(buf[(area.x + 6, area.y)].symbol(), "│");
+            assert_eq!(buf[(area.x + 7, area.y)].symbol(), "Z");
+            for x in [area.x, area.x + 2, area.x + 4] {
+                let rendered = &buf[(x, area.y)];
+                assert_eq!(rendered.fg, color);
+                assert!(rendered.modifier.contains(
+                    Modifier::BOLD
+                        | Modifier::ITALIC
+                        | Modifier::UNDERLINED
+                        | Modifier::CROSSED_OUT
+                ));
+            }
+            let separator = &buf[(area.x + 6, area.y)];
+            assert_eq!(separator.fg, Color::Reset);
+            assert_eq!(separator.bg, Color::Reset);
+            assert_eq!(separator.modifier, Modifier::empty());
+            assert_eq!(y, area.y + 1);
+        }
     }
 }
