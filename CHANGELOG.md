@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README Rust version badge now reflects the actual 1.88+ MSRV instead of a stale 1.70+ ([#87](https://github.com/bgreenwell/doxx/issues/87))
 
 ### Fixed
+- Typing search queries no longer activates character shortcuts such as outline, copy, or quit ([#107](https://github.com/bgreenwell/doxx/issues/107))
 - Custom key bindings for the spacebar were silently dropped due to whitespace trimming during config parsing
 - TUI text wrapping now breaks at word boundaries instead of splitting words mid-character, matching the ANSI export ([#83](https://github.com/bgreenwell/doxx/issues/83))
 
