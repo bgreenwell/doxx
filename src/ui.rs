@@ -2,7 +2,8 @@ use anyhow::Result;
 use arboard::Clipboard;
 use crossterm::{
     event::{
-        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, MouseEventKind,
+        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind,
+        KeyModifiers, MouseEventKind,
     },
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
@@ -491,29 +492,8 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
 
         match event::read()? {
             Event::Key(key) if key.kind == KeyEventKind::Press => {
-                let binding = KeyBinding::new(key.code, key.modifiers);
-                let action = app.keymap.get_action(&binding);
-
-                // In search mode, unbound character keys append to the query
-                if matches!(app.current_view, ViewMode::Search) && action.is_none() {
-                    if let KeyCode::Char(c) = key.code {
-                        app.search_query.push(c);
-                        app.search_results =
-                            crate::document::search_document(&app.document, &app.search_query);
-                        app.current_search_index = 0;
-                        continue;
-                    }
-                }
-
-                if let Some(action) = action {
-                    // Clear status message on any action except copy
-                    if app.status_message.is_some() && action != Action::Copy {
-                        app.clear_status_message();
-                    }
-
-                    if handle_action(app, action) {
-                        break;
-                    }
+                if handle_key(app, key) {
+                    break;
                 }
             }
             Event::Mouse(mouse) => {
@@ -564,6 +544,32 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
     }
 
     Ok(())
+}
+
+/// Returns true if the app should quit.
+fn handle_key(app: &mut App, key: KeyEvent) -> bool {
+    // Search text takes precedence over plain character shortcuts.
+    if matches!(app.current_view, ViewMode::Search)
+        && (key.modifiers.is_empty() || key.modifiers == KeyModifiers::SHIFT)
+    {
+        if let KeyCode::Char(c) = key.code {
+            app.search_query.push(c);
+            app.search_results = crate::document::search_document(&app.document, &app.search_query);
+            app.current_search_index = 0;
+            return false;
+        }
+    }
+
+    let binding = KeyBinding::new(key.code, key.modifiers);
+    let action = app.keymap.get_action(&binding);
+    if let Some(action) = action {
+        // Clear status message on any action except copy
+        if app.status_message.is_some() && action != Action::Copy {
+            app.clear_status_message();
+        }
+        return handle_action(app, action);
+    }
+    false
 }
 
 /// Returns true if the app should quit.
@@ -961,4 +967,164 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
             Constraint::Percentage((100 - percent_x) / 2),
         ])
         .split(popup_layout[1])[1]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::keymap::KeymapPreset;
+    use crossterm::event::KeyModifiers;
+
+    fn search_app(preset: KeymapPreset) -> App {
+        App {
+            document: Document {
+                title: "Search test".into(),
+                metadata: DocumentMetadata {
+                    file_path: String::new(),
+                    file_size: 0,
+                    word_count: 2,
+                    page_count: 1,
+                    created: None,
+                    modified: None,
+                    author: None,
+                },
+                elements: ["zoom", "zebra"]
+                    .into_iter()
+                    .map(|text| DocumentElement::Paragraph {
+                        runs: vec![FormattedRun {
+                            text: text.into(),
+                            formatting: TextFormatting::default(),
+                        }],
+                    })
+                    .collect(),
+                image_options: ImageOptions::default(),
+            },
+            current_view: ViewMode::Search,
+            scroll_offset: 0,
+            search_query: String::new(),
+            search_results: Vec::new(),
+            backup_search_results: Vec::new(),
+            current_search_index: 0,
+            outline_state: ListState::default(),
+            show_help: false,
+            clipboard: None,
+            status_message: None,
+            color_enabled: false,
+            image_picker: None,
+            image_protocols: Vec::new(),
+            layout_cache: LayoutCache::new(),
+            keymap: Keymap::from_preset(preset),
+        }
+    }
+
+    #[test]
+    fn search_treats_bound_characters_as_text_in_every_preset() {
+        for preset in [KeymapPreset::Default, KeymapPreset::Vim, KeymapPreset::Less] {
+            let mut app = search_app(preset);
+            let query = "zoom qocnpshjkgGu d/bHLSN?";
+            for c in query.chars() {
+                assert!(!handle_key(
+                    &mut app,
+                    KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE)
+                ));
+                assert!(
+                    matches!(app.current_view, ViewMode::Search),
+                    "{preset:?}: {c}"
+                );
+            }
+            assert_eq!(app.search_query, query, "{preset:?}");
+            assert_eq!(app.scroll_offset, 0);
+            assert!(!app.show_help);
+            assert!(app.status_message.is_none());
+        }
+    }
+
+    #[test]
+    fn search_recomputes_results_and_resets_selection() {
+        let mut app = search_app(KeymapPreset::Default);
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('z'), KeyModifiers::NONE),
+        );
+        assert_eq!(app.search_results.len(), 2);
+        app.current_search_index = 1;
+        for c in "oom".chars() {
+            handle_key(
+                &mut app,
+                KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE),
+            );
+        }
+        assert_eq!(app.search_query, "zoom");
+        assert_eq!(app.search_results.len(), 1);
+        assert_eq!(app.search_results[0].element_index, 0);
+        assert_eq!(app.current_search_index, 0);
+    }
+
+    #[test]
+    fn search_accepts_shifted_and_unicode_characters() {
+        for modifiers in [KeyModifiers::NONE, KeyModifiers::SHIFT] {
+            let mut app = search_app(KeymapPreset::Default);
+            for c in "S Å界".chars() {
+                assert!(!handle_key(
+                    &mut app,
+                    KeyEvent::new(KeyCode::Char(c), modifiers)
+                ));
+            }
+            assert_eq!(app.search_query, "S Å界");
+        }
+    }
+
+    #[test]
+    fn search_treats_custom_character_bindings_as_text() {
+        let mut app = search_app(KeymapPreset::Default);
+        app.keymap.bind(KeyBinding::char('z'), Action::Quit);
+        let key = KeyEvent::new(KeyCode::Char('z'), KeyModifiers::NONE);
+        assert!(!handle_key(&mut app, key));
+        assert_eq!(app.search_query, "z");
+
+        app.current_view = ViewMode::Document;
+        assert!(handle_key(&mut app, key));
+    }
+
+    #[test]
+    fn search_preserves_backspace_and_escape() {
+        let mut app = search_app(KeymapPreset::Default);
+        app.search_query = "zoom".into();
+        assert!(!handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE)
+        ));
+        assert_eq!(app.search_query, "zoo");
+        assert_eq!(app.search_results.len(), 1);
+        assert!(!handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)
+        ));
+        assert!(matches!(app.current_view, ViewMode::Document));
+        assert!(handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE)
+        ));
+    }
+
+    #[test]
+    fn search_preserves_modifier_shortcuts() {
+        let mut app = search_app(KeymapPreset::Default);
+        for modifiers in [
+            KeyModifiers::CONTROL,
+            KeyModifiers::ALT,
+            KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+        ] {
+            assert!(!handle_key(
+                &mut app,
+                KeyEvent::new(KeyCode::Char('z'), modifiers)
+            ));
+            assert!(app.search_query.is_empty());
+        }
+        app.keymap.bind(KeyBinding::ctrl('q'), Action::Quit);
+        assert!(handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('q'), KeyModifiers::CONTROL)
+        ));
+    }
 }
