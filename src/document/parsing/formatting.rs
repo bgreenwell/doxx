@@ -5,6 +5,26 @@
 
 use super::super::models::*;
 
+/// A paragraph's runs in document order, including the runs Word wraps in a
+/// `w:hyperlink` (link text, table of contents entries).
+pub(crate) fn paragraph_runs(para: &docx_rs::Paragraph) -> Vec<&docx_rs::Run> {
+    let mut runs = Vec::new();
+    for child in &para.children {
+        match child {
+            docx_rs::ParagraphChild::Run(run) => runs.push(run.as_ref()),
+            docx_rs::ParagraphChild::Hyperlink(link) => {
+                for link_child in &link.children {
+                    if let docx_rs::ParagraphChild::Run(run) = link_child {
+                        runs.push(run.as_ref());
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    runs
+}
+
 /// Extract plain text from a paragraph, handling various child elements
 pub(crate) fn extract_paragraph_text(para: &docx_rs::Paragraph) -> String {
     let mut text = String::new();
@@ -13,6 +33,13 @@ pub(crate) fn extract_paragraph_text(para: &docx_rs::Paragraph) -> String {
         match child {
             docx_rs::ParagraphChild::Run(run) => {
                 text.push_str(&extract_run_text(run));
+            }
+            docx_rs::ParagraphChild::Hyperlink(link) => {
+                for link_child in &link.children {
+                    if let docx_rs::ParagraphChild::Run(run) = link_child {
+                        text.push_str(&extract_run_text(run));
+                    }
+                }
             }
             docx_rs::ParagraphChild::Insert(insert) => {
                 // Handle insertions (track changes) - simplified approach
@@ -129,7 +156,23 @@ pub(crate) fn reconstruct_heading_number(num_id: i32, level: u8, heading_level: 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use docx_rs::{BreakType, IndentLevel, NumberingId, NumberingProperty, Paragraph, Run};
+    use docx_rs::{
+        BreakType, Hyperlink, HyperlinkType, IndentLevel, NumberingId, NumberingProperty,
+        Paragraph, Run,
+    };
+
+    #[test]
+    fn hyperlink_text_is_kept() {
+        let para = Paragraph::new()
+            .add_run(Run::new().add_text("See "))
+            .add_hyperlink(
+                Hyperlink::new("https://example.com", HyperlinkType::External)
+                    .add_run(Run::new().add_text("the site")),
+            )
+            .add_run(Run::new().add_text(" for info"));
+        assert_eq!(extract_paragraph_text(&para), "See the site for info");
+        assert_eq!(paragraph_runs(&para).len(), 3);
+    }
 
     #[test]
     fn extract_run_text_handles_text_tab_and_break() {
