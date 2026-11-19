@@ -80,8 +80,9 @@ pub(crate) fn detect_heading_from_text(text: &str, formatting: &TextFormatting) 
 
     // Be much more conservative and selective
     if text.len() < 100 && !text.contains('\n') {
-        // Exclude common non-heading patterns first
-        if is_likely_list_item(text) || is_likely_sentence(text) {
+        // Exclude common non-heading patterns first. Tab-separated lines are
+        // aligned fields (forms, price lists), not headings.
+        if is_likely_list_item(text) || is_likely_sentence(text) || text.contains('\t') {
             return None;
         }
 
