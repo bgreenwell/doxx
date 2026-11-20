@@ -5,7 +5,7 @@
 //! inference for proper alignment.
 
 use super::super::models::*;
-use super::formatting::extract_run_formatting;
+use super::formatting::{extract_run_formatting, paragraph_runs};
 
 /// Extract table data from a docx-rs Table
 pub(crate) fn extract_table_data(table: &docx_rs::Table) -> Option<DocumentElement> {
@@ -30,20 +30,18 @@ pub(crate) fn extract_table_data(table: &docx_rs::Table) -> Option<DocumentEleme
             for content in &cell.children {
                 match content {
                     docx_rs::TableCellContent::Paragraph(para) => {
-                        for para_child in &para.children {
-                            if let docx_rs::ParagraphChild::Run(run) = para_child {
-                                // Extract formatting from the first run
-                                if !cell_formatting.bold && !cell_formatting.italic {
-                                    cell_formatting = extract_run_formatting(run);
-                                }
+                        for run in paragraph_runs(para) {
+                            // Extract formatting from the first run
+                            if !cell_formatting.bold && !cell_formatting.italic {
+                                cell_formatting = extract_run_formatting(run);
+                            }
 
-                                for run_child in &run.children {
-                                    if let docx_rs::RunChild::Text(text_elem) = run_child {
-                                        if !cell_text.is_empty() && !cell_text.ends_with(' ') {
-                                            cell_text.push(' ');
-                                        }
-                                        cell_text.push_str(&text_elem.text);
+                            for run_child in &run.children {
+                                if let docx_rs::RunChild::Text(text_elem) = run_child {
+                                    if !cell_text.is_empty() && !cell_text.ends_with(' ') {
+                                        cell_text.push(' ');
                                     }
+                                    cell_text.push_str(&text_elem.text);
                                 }
                             }
                         }

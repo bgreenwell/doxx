@@ -21,7 +21,7 @@ use super::parsing::numbering::{
 // Import list processing
 use super::parsing::list::group_list_items;
 // Import formatting and text extraction
-use super::parsing::formatting::{extract_paragraph_text, extract_run_formatting};
+use super::parsing::formatting::{extract_paragraph_text, extract_run_formatting, paragraph_runs};
 // Import heading detection
 use super::parsing::heading::{detect_heading_from_text, detect_heading_with_numbering};
 // Import table extraction
@@ -260,45 +260,43 @@ fn extract_formatted_runs(para: &docx_rs::Paragraph) -> (Vec<FormattedRun>, Vec<
     let mut formatted_runs = Vec::new();
     let mut textbox_groups: Vec<Vec<String>> = Vec::new();
 
-    for child in &para.children {
-        if let docx_rs::ParagraphChild::Run(run) = child {
-            let run_formatting = extract_run_formatting(run);
-            let mut run_text = String::new();
+    for run in paragraph_runs(para) {
+        let run_formatting = extract_run_formatting(run);
+        let mut run_text = String::new();
 
-            for child in &run.children {
-                match child {
-                    docx_rs::RunChild::Text(text_elem) => {
-                        run_text.push_str(&text_elem.text);
-                    }
-                    docx_rs::RunChild::Break(_) => {
-                        run_text.push('\n');
-                    }
-                    docx_rs::RunChild::Drawing(drawing) => {
-                        if let Some(docx_rs::DrawingData::TextBox(text_box)) = &drawing.data {
-                            let mut group = Vec::new();
-                            for tb_child in &text_box.children {
-                                if let docx_rs::TextBoxContentChild::Paragraph(para) = tb_child {
-                                    let text = extract_paragraph_text(para);
-                                    if !text.is_empty() {
-                                        group.push(text);
-                                    }
+        for child in &run.children {
+            match child {
+                docx_rs::RunChild::Text(text_elem) => {
+                    run_text.push_str(&text_elem.text);
+                }
+                docx_rs::RunChild::Break(_) => {
+                    run_text.push('\n');
+                }
+                docx_rs::RunChild::Drawing(drawing) => {
+                    if let Some(docx_rs::DrawingData::TextBox(text_box)) = &drawing.data {
+                        let mut group = Vec::new();
+                        for tb_child in &text_box.children {
+                            if let docx_rs::TextBoxContentChild::Paragraph(para) = tb_child {
+                                let text = extract_paragraph_text(para);
+                                if !text.is_empty() {
+                                    group.push(text);
                                 }
                             }
-                            if !group.is_empty() {
-                                textbox_groups.push(group);
-                            }
+                        }
+                        if !group.is_empty() {
+                            textbox_groups.push(group);
                         }
                     }
-                    _ => {}
                 }
+                _ => {}
             }
+        }
 
-            if !run_text.is_empty() {
-                formatted_runs.push(FormattedRun {
-                    text: run_text,
-                    formatting: run_formatting,
-                });
-            }
+        if !run_text.is_empty() {
+            formatted_runs.push(FormattedRun {
+                text: run_text,
+                formatting: run_formatting,
+            });
         }
     }
 
