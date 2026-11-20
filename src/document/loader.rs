@@ -270,6 +270,9 @@ fn extract_formatted_runs(para: &docx_rs::Paragraph) -> (Vec<FormattedRun>, Vec<
                     docx_rs::RunChild::Text(text_elem) => {
                         run_text.push_str(&text_elem.text);
                     }
+                    docx_rs::RunChild::Tab(_) => {
+                        run_text.push('\t');
+                    }
                     docx_rs::RunChild::Break(_) => {
                         run_text.push('\n');
                     }
@@ -573,4 +576,29 @@ fn detect_list_from_paragraph_numbering(para: &docx_rs::Paragraph) -> Option<Lis
         return Some(ListInfo { level, num_id });
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use docx_rs::{Paragraph, Run};
+
+    #[test]
+    fn tabs_between_words_are_kept() {
+        let para = Paragraph::new().add_run(
+            Run::new()
+                .add_text("Total")
+                .add_tab()
+                .add_text("$5.00")
+                .add_tab()
+                .add_text("10%"),
+        );
+        let (runs, _) = extract_formatted_runs(&para);
+        let text: String = runs.iter().map(|run| run.text.as_str()).collect();
+        assert_eq!(text, "Total\t$5.00\t10%");
+        assert_eq!(
+            detect_heading_from_text(&text, &TextFormatting::default()),
+            None
+        );
+    }
 }
